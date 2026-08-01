@@ -8,6 +8,7 @@ export default function Home() {
   const [horasHoy, setHorasHoy] = useState(0);
   const [ingresosMes, setIngresosMes] = useState(0);
   const [pendiente, setPendiente] = useState(0);
+  const [saldoClubMes, setSaldoClubMes] = useState(0);
   const [proximaClase, setProximaClase] = useState<any>(null);
   const [totalClasesMes, setTotalClasesMes] = useState(0);
 
@@ -26,6 +27,21 @@ export default function Home() {
   .lte("fecha", hoy);
 
 setTotalClasesMes(clasesMesData?.length || 0);
+const { data: economiaClubData } = await supabase
+  .from("clases")
+  .select("importe_club,coste_pista")
+  .gte("fecha", inicioMes)
+  .lte("fecha", hoy);
+
+const saldoClub = (economiaClubData || []).reduce(
+  (total, clase) =>
+    total +
+    Number(clase.importe_club || 0) -
+    Number(clase.coste_pista || 0),
+  0
+);
+
+setSaldoClubMes(saldoClub);
 
     const { data: clasesData } = await supabase
       .from("clases")
@@ -173,12 +189,19 @@ setProximaClase(proximaData?.[0] || null);
               <div className="rounded-2xl bg-white p-6 shadow">
                 <p className="text-sm text-slate-500">
                   Pendiente de cobro
+                 
                 </p>
                 <p className="mt-2 text-3xl font-bold">
                   {pendiente.toFixed(2)} €
                 </p>
               </div>
             </div>
+            <div className="mt-4 w-[275px] rounded-2xl bg-white p-6 shadow">
+  <p className="text-sm text-slate-500">Saldo con club del mes</p>
+  <p className="mt-2 text-3xl font-bold">
+    {saldoClubMes.toFixed(2)} €
+  </p>
+</div>
             <div className="mt-8 rounded-2xl bg-white p-6 shadow">
   <h3 className="text-xl font-bold">
     Próxima clase
