@@ -8,6 +8,7 @@ export default function Home() {
   const [horasHoy, setHorasHoy] = useState(0);
   const [ingresosMes, setIngresosMes] = useState(0);
   const [pendiente, setPendiente] = useState(0);
+  const [proximaClase, setProximaClase] = useState<any>(null);
 
   useEffect(() => {
     cargarDashboard();
@@ -58,6 +59,29 @@ export default function Home() {
 
     setIngresosMes(totalIngresos);
     setPendiente(totalPendiente);
+    const ahora = new Date();
+const fechaActual = ahora.toISOString().slice(0, 10);
+const horaActual = ahora.toTimeString().slice(0, 8);
+
+const { data: proximaData } = await supabase
+  .from("clases")
+  .select(`
+    fecha,
+    hora_inicio,
+    duracion_minutos,
+    tipo,
+    ubicaciones (
+      nombre
+    )
+  `)
+  .or(
+    `fecha.gt.${fechaActual},and(fecha.eq.${fechaActual},hora_inicio.gte.${horaActual})`
+  )
+  .order("fecha", { ascending: true })
+  .order("hora_inicio", { ascending: true })
+  .limit(1);
+
+setProximaClase(proximaData?.[0] || null);
   }
 
   return (
@@ -140,6 +164,35 @@ export default function Home() {
                 </p>
               </div>
             </div>
+            <div className="mt-8 rounded-2xl bg-white p-6 shadow">
+  <h3 className="text-xl font-bold">
+    Próxima clase
+  </h3>
+
+  {proximaClase ? (
+    <div className="mt-4">
+      <p className="text-2xl font-bold">
+        {proximaClase.hora_inicio.slice(0, 5)}
+      </p>
+
+      <p className="mt-1 text-lg">
+        {proximaClase.ubicaciones?.nombre || "Sin ubicación"}
+      </p>
+
+      <p className="text-slate-600">
+        {proximaClase.fecha}
+      </p>
+
+      <p className="text-slate-500">
+        {proximaClase.duracion_minutos} minutos
+      </p>
+    </div>
+  ) : (
+    <p className="mt-4 text-slate-500">
+      No hay próximas clases programadas.
+    </p>
+  )}
+</div>
 
             <div className="mt-8 rounded-2xl bg-white p-6 shadow">
               <h3 className="text-xl font-bold">
