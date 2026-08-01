@@ -9,6 +9,7 @@ export default function Home() {
   const [ingresosMes, setIngresosMes] = useState(0);
   const [pendiente, setPendiente] = useState(0);
   const [saldoClubMes, setSaldoClubMes] = useState(0);
+  const [gastosPistaMes, setGastosPistaMes] = useState(0);
   const [proximaClase, setProximaClase] = useState<any>(null);
   const [totalClasesMes, setTotalClasesMes] = useState(0);
 
@@ -42,6 +43,12 @@ const saldoClub = (economiaClubData || []).reduce(
 );
 
 setSaldoClubMes(saldoClub);
+const totalGastosPista = (economiaClubData || []).reduce(
+  (total, clase) => total + Number(clase.coste_pista || 0),
+  0
+);
+
+setGastosPistaMes(totalGastosPista);
 
     const { data: clasesData } = await supabase
       .from("clases")
@@ -210,6 +217,12 @@ setProximaClase(proximaData?.[0] || null);
 >
   {saldoClubMes.toFixed(2)} €
 </span>
+  </p>
+</div>
+<div className="mt-4 w-[275px] rounded-2xl bg-white p-6 shadow">
+  <p className="text-sm text-slate-500">Gastos de pista del mes</p>
+  <p className="mt-2 text-3xl font-bold">
+    {gastosPistaMes.toFixed(2)} €
   </p>
 </div>
             <div className="mt-8 rounded-2xl bg-white p-6 shadow">
