@@ -47,6 +47,7 @@ export default function ClasesPage() {
   const [duracion, setDuracion] = useState("60");
   const [ubicacionId, setUbicacionId] = useState("");
   const [tipo, setTipo] = useState("club");
+  const [estado, setEstado] = useState("programada");
  const [alumnosSeleccionados, setAlumnosSeleccionados] = useState<string[]>([]);
   const [importe, setImporte] = useState("");
   const [importeClub, setImporteClub] = useState("");
@@ -105,6 +106,7 @@ function editarClase(clase: Clase) {
   setDuracion(String(clase.duracion_minutos));
   setUbicacionId(clase.ubicacion_id || "");
   setTipo(clase.tipo);
+  setEstado(clase.estado);
   setImporteClub(String(clase.importe_club || ""));
   setCostePista(String(clase.coste_pista || ""));
 
@@ -135,6 +137,7 @@ async function borrarClase(id: string) {
   }
 
   setMensaje("✅ Clase borrada");
+  setClaseEditandoId(null);
   cargarDatos();
 }
   useEffect(() => {
@@ -159,7 +162,7 @@ if (claseEditandoId) {
       tipo,
       importe_club: importeClub ? Number(importeClub) : 0,
       coste_pista: costePista ? Number(costePista) : 0,
-      estado: "realizada",
+      estado,
     })
     .eq("id", claseEditandoId)
     .select()
@@ -178,7 +181,7 @@ if (claseEditandoId) {
       tipo,
       importe_club: importeClub ? Number(importeClub) : 0,
       coste_pista: costePista ? Number(costePista) : 0,
-      estado: "realizada",
+     estado,
     })
     .select()
     .single();
@@ -188,7 +191,10 @@ if (claseEditandoId) {
 }
 
     if (errorClase) {
-      setMensaje("❌ Error al crear clase: " + errorClase.message);
+     setMensaje(
+  (claseEditandoId ? "❌ Error al actualizar clase: " : "❌ Error al crear clase: ") +
+    errorClase.message
+);
       return;
     }
 if (claseEditandoId && claseCreada) {
@@ -220,13 +226,30 @@ if (claseEditandoId && claseCreada) {
   }
 }
 
-    setMensaje("✅ Clase creada correctamente");
+    setMensaje(
+  claseEditandoId
+    ? "✅ Clase actualizada correctamente"
+    : "✅ Clase creada correctamente"
+);
+    setClaseEditandoId(null);
+    setFecha("");
+setHora("");
+setDuracion("60");
+setUbicacionId("");
+setTipo("club");
+setEstado("programada");
+setAlumnosSeleccionados([]);
+setImporte("");
+setImporteClub("");
+setCostePista("");
+cargarDatos();
 
     setFecha("");
     setHora("");
     setDuracion("60");
     setUbicacionId("");
     setTipo("club");
+    setEstado("programada");
     setAlumnosSeleccionados([]);
     setImporte("");
 
@@ -358,6 +381,15 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
   onChange={(e) => setCostePista(e.target.value)}
   className="w-full rounded-xl border border-slate-300 px-4 py-3"
 />
+<select
+  value={estado}
+  onChange={(e) => setEstado(e.target.value)}
+  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+>
+  <option value="programada">Programada</option>
+  <option value="realizada">Realizada</option>
+  <option value="cancelada">Cancelada</option>
+</select>
                 
               <button
                 type="submit"
@@ -365,6 +397,11 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
               >
                 {claseEditandoId ? "Guardar cambios" : "Guardar clase"}
               </button>
+              {claseEditandoId && (
+  <p className="mt-2 text-center text-sm font-medium text-amber-600">
+    Estás editando una clase existente
+  </p>
+)}
               {claseEditandoId && (
   <button
     type="button"
@@ -375,6 +412,7 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
       setDuracion("60");
       setUbicacionId("");
       setTipo("club");
+      setEstado("programada");
       setAlumnosSeleccionados([]);
       setImporte("");
       setImporteClub("");
@@ -459,6 +497,20 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
         {nombresAlumnos || "Sin alumnos"}
       </p>
      <p className="mt-2 text-sm font-semibold">
+      <p className="mt-2 text-sm font-medium">
+  Estado:{" "}
+<span
+  className={
+    clase.estado === "realizada"
+      ? "text-green-600"
+      : clase.estado === "cancelada"
+      ? "text-red-600"
+      : "text-blue-600"
+  }
+>
+  {clase.estado}
+</span>
+</p>
   Precio clase: {precioClase.toFixed(2)} €
 </p>
       <p className="mt-2 text-sm font-semibold">
