@@ -120,6 +120,23 @@ function editarClase(clase: Clase) {
 
   setMensaje("Editando clase");
 }
+async function borrarClase(id: string) {
+  const confirmar = window.confirm("¿Seguro que quieres borrar esta clase?");
+  if (!confirmar) return;
+
+  const { error } = await supabase
+    .from("clases")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    setMensaje("❌ Error al borrar la clase: " + error.message);
+    return;
+  }
+
+  setMensaje("✅ Clase borrada");
+  cargarDatos();
+}
   useEffect(() => {
     cargarDatos();
   }, []);
@@ -431,6 +448,12 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
   className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
 >
   Editar
+</button>
+<button
+  onClick={() => borrarClase(clase.id)}
+  className="ml-2 mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+>
+  Borrar
 </button>
     </div>
   );
