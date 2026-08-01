@@ -24,6 +24,12 @@ type Clase = {
   ubicaciones: {
     nombre: string;
   } | null;
+  clase_alumnos: {
+    alumnos: {
+      nombre: string;
+      apellidos: string | null;
+    } | null;
+  }[];
 };
 
 export default function ClasesPage() {
@@ -54,18 +60,24 @@ export default function ClasesPage() {
       .order("nombre");
 
     const { data: clasesData } = await supabase
-      .from("clases")
-      .select(`
-        id,
-        fecha,
-        hora_inicio,
-        duracion_minutos,
-        tipo,
-        estado,
-        ubicaciones (
-          nombre
-        )
-      `)
+  .from("clases")
+  .select(`
+    id,
+    fecha,
+    hora_inicio,
+    duracion_minutos,
+    tipo,
+    estado,
+    ubicaciones (
+      nombre
+    ),
+    clase_alumnos (
+      alumnos (
+        nombre,
+        apellidos
+      )
+    )
+  `)
       .order("fecha", { ascending: false })
       .order("hora_inicio", { ascending: false });
 
@@ -272,34 +284,54 @@ export default function ClasesPage() {
                 </p>
               )}
 
-              {clases.map((clase) => (
-                <div
-                  key={clase.id}
-                  className="rounded-xl border border-slate-200 p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold">
-                        {clase.fecha} · {clase.hora_inicio.slice(0, 5)}
-                      </p>
+              {clases.map((clase) => {
+  const [hora, minuto] = clase.hora_inicio.split(":").map(Number);
 
-                      <p className="text-sm text-slate-600">
-                        {clase.ubicaciones?.nombre || "Sin ubicación"}
-                      </p>
-                    </div>
+  const inicio = new Date();
+  inicio.setHours(hora, minuto, 0, 0);
 
-                    <div className="text-right">
-                      <p className="text-sm font-medium capitalize">
-                        {clase.tipo}
-                      </p>
+  const fin = new Date(
+    inicio.getTime() + clase.duracion_minutos * 60 * 1000
+  );
 
-                      <p className="text-sm text-slate-500">
-                        {clase.duracion_minutos} min
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+  const horaInicio = `${String(inicio.getHours()).padStart(2, "0")}:${String(
+    inicio.getMinutes()
+  ).padStart(2, "0")} h`;
+
+  const horaFin = `${String(fin.getHours()).padStart(2, "0")}:${String(
+    fin.getMinutes()
+  ).padStart(2, "0")} h`;
+
+  const [anio, mes, dia] = clase.fecha.split("-");
+  const fechaFormateada = `${dia}/${mes}/${anio}`;
+
+  const nombresAlumnos = clase.clase_alumnos
+    .map((participante) => participante.alumnos)
+    .filter(Boolean)
+    .map(
+      (alumno) =>
+        `${alumno?.nombre || ""} ${alumno?.apellidos || ""}`.trim()
+    )
+    .join(", ");
+
+  return (
+    <div
+      key={clase.id}
+      className="rounded-xl border border-slate-200 p-4"
+    >
+      <p className="font-semibold">{fechaFormateada}</p>
+      <p className="mt-1 text-lg font-medium">
+        {horaInicio} a {horaFin}
+      </p>
+      <p className="mt-1 text-sm text-slate-600">
+        {clase.ubicaciones?.nombre || "Sin ubicación"}
+      </p>
+      <p className="mt-2 text-sm font-medium text-slate-800">
+        {nombresAlumnos || "Sin alumnos"}
+      </p>
+    </div>
+  );
+})}
             </div>
           </div>
         </div>
