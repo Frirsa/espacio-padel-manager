@@ -44,6 +44,8 @@ export default function ClasesPage() {
   const [tipo, setTipo] = useState("club");
  const [alumnosSeleccionados, setAlumnosSeleccionados] = useState<string[]>([]);
   const [importe, setImporte] = useState("");
+  const [importeClub, setImporteClub] = useState("");
+const [costePista, setCostePista] = useState("");
   const [mensaje, setMensaje] = useState("");
 
   async function cargarDatos() {
@@ -102,6 +104,8 @@ export default function ClasesPage() {
         duracion_minutos: Number(duracion),
         ubicacion_id: ubicacionId || null,
         tipo,
+        importe_club: importeClub ? Number(importeClub) : 0,
+coste_pista: costePista ? Number(costePista) : 0,
         estado: "realizada",
       })
       .select()
@@ -253,10 +257,27 @@ export default function ClasesPage() {
                 step="0.01"
                 placeholder="Importe"
                 value={importe}
-                onChange={(e) => setImporte(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              />
+onChange={(e) => setImporte(e.target.value)}
+className="w-full rounded-xl border border-slate-300 px-4 py-3"
+/>
+                <input
+  type="number"
+  step="0.01"
+  placeholder="Importe que paga el club"
+  value={importeClub}
+  onChange={(e) => setImporteClub(e.target.value)}
+  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+/>
 
+<input
+  type="number"
+  step="0.01"
+  placeholder="Coste de pista"
+  value={costePista}
+  onChange={(e) => setCostePista(e.target.value)}
+  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+/>
+                
               <button
                 type="submit"
                 className="w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white"
