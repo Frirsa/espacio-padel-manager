@@ -71,6 +71,9 @@ export default function Home() {
             <a href="/" className="block rounded-lg bg-teal-600 px-4 py-3">
               Dashboard
             </a>
+            <a href="/agenda" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
+  Agenda
+</a>
 
             <a href="/clases" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
               Clases
