@@ -363,7 +363,7 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
                 type="submit"
                 className="w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white"
               >
-                Guardar clase
+                {claseEditandoId ? "Guardar cambios" : "Guardar clase"}
               </button>
             </form>
 
