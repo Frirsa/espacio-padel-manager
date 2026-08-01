@@ -36,7 +36,7 @@ export default function ClasesPage() {
   const [duracion, setDuracion] = useState("60");
   const [ubicacionId, setUbicacionId] = useState("");
   const [tipo, setTipo] = useState("club");
-  const [alumnoId, setAlumnoId] = useState("");
+ const [alumnosSeleccionados, setAlumnosSeleccionados] = useState<string[]>([]);
   const [importe, setImporte] = useState("");
   const [mensaje, setMensaje] = useState("");
 
@@ -100,26 +100,28 @@ export default function ClasesPage() {
       return;
     }
 
-    if (alumnoId && claseCreada) {
-      const { error: errorAlumno } = await supabase
-        .from("clase_alumnos")
-        .insert({
-          clase_id: claseCreada.id,
-          alumno_id: alumnoId,
-          importe: importe ? Number(importe) : 0,
-          pagado: false,
-          usa_bono: false,
-          asistio: true,
-        });
+   if (alumnosSeleccionados.length > 0 && claseCreada) {
+  const participantes = alumnosSeleccionados.map((alumnoId) => ({
+    clase_id: claseCreada.id,
+    alumno_id: alumnoId,
+    importe: importe ? Number(importe) : 0,
+    pagado: false,
+    usa_bono: false,
+    asistio: true,
+  }));
 
-      if (errorAlumno) {
-        setMensaje(
-          "⚠️ Clase creada, pero hubo un error al añadir el alumno: " +
-            errorAlumno.message
-        );
-        return;
-      }
-    }
+  const { error: errorAlumnos } = await supabase
+    .from("clase_alumnos")
+    .insert(participantes);
+
+  if (errorAlumnos) {
+    setMensaje(
+      "⚠️ Clase creada, pero hubo un error al añadir los alumnos: " +
+        errorAlumnos.message
+    );
+    return;
+  }
+}
 
     setMensaje("✅ Clase creada correctamente");
 
@@ -128,7 +130,7 @@ export default function ClasesPage() {
     setDuracion("60");
     setUbicacionId("");
     setTipo("club");
-    setAlumnoId("");
+    setAlumnosSeleccionados([]);
     setImporte("");
 
     cargarDatos();
@@ -203,20 +205,36 @@ export default function ClasesPage() {
                 <option value="privada">Pista privada</option>
               </select>
 
-              <select
-                value={alumnoId}
-                onChange={(e) => setAlumnoId(e.target.value)}
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              >
-                <option value="">Seleccionar alumno</option>
+              <div>
+  <p className="mb-3 text-sm font-medium">
+    Alumnos
+  </p>
 
-                {alumnos.map((alumno) => (
-                  <option key={alumno.id} value={alumno.id}>
-                    {alumno.nombre} {alumno.apellidos || ""}
-                  </option>
-                ))}
-              </select>
+  <div className="space-y-2">
+    {alumnos.map((alumno) => (
+      <label
+        key={alumno.id}
+        className="flex items-center gap-3 rounded-lg border border-slate-200 p-3"
+      >
+        <input
+          type="checkbox"
+          checked={alumnosSeleccionados.includes(alumno.id)}
+          onChange={() =>
+            setAlumnosSeleccionados((actuales) =>
+              actuales.includes(alumno.id)
+                ? actuales.filter((id) => id !== alumno.id)
+                : [...actuales, alumno.id]
+            )
+          }
+        />
+
+        <span>
+          {alumno.nombre} {alumno.apellidos || ""}
+        </span>
+      </label>
+    ))}
+  </div>
+</div>
 
               <input
                 type="number"
