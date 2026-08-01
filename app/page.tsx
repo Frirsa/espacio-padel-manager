@@ -9,6 +9,7 @@ export default function Home() {
   const [ingresosMes, setIngresosMes] = useState(0);
   const [pendiente, setPendiente] = useState(0);
   const [proximaClase, setProximaClase] = useState<any>(null);
+  const [totalClasesMes, setTotalClasesMes] = useState(0);
 
   useEffect(() => {
     cargarDashboard();
@@ -18,6 +19,13 @@ export default function Home() {
     const hoy = new Date().toISOString().slice(0, 10);
 
     const inicioMes = hoy.slice(0, 8) + "01";
+    const { data: clasesMesData } = await supabase
+  .from("clases")
+  .select("id")
+  .gte("fecha", inicioMes)
+  .lte("fecha", hoy);
+
+setTotalClasesMes(clasesMesData?.length || 0);
 
     const { data: clasesData } = await supabase
       .from("clases")
@@ -138,7 +146,12 @@ setProximaClase(proximaData?.[0] || null);
                   {clasesHoy}
                 </p>
               </div>
-
+<div className="rounded-2xl bg-white p-6 shadow">
+  <p className="text-sm text-slate-500">Clases del mes</p>
+  <p className="mt-2 text-3xl font-bold">
+    {totalClasesMes}
+  </p>
+</div>
               <div className="rounded-2xl bg-white p-6 shadow">
                 <p className="text-sm text-slate-500">Horas hoy</p>
                 <p className="mt-2 text-3xl font-bold">
