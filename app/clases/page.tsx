@@ -19,14 +19,17 @@ type Clase = {
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
+  ubicacion_id: string | null;
   importe_club: number;
-coste_pista: number;
+  coste_pista: number;
   tipo: string;
   estado: string;
   ubicaciones: {
     nombre: string;
   } | null;
   clase_alumnos: {
+    alumno_id: string;
+    importe: number;
     alumnos: {
       nombre: string;
       apellidos: string | null;
@@ -49,6 +52,7 @@ export default function ClasesPage() {
   const [importeClub, setImporteClub] = useState("");
 const [costePista, setCostePista] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const [claseEditandoId, setClaseEditandoId] = useState<string | null>(null);
 
   async function cargarDatos() {
     const { data: alumnosData } = await supabase
@@ -69,20 +73,23 @@ const [costePista, setCostePista] = useState("");
     id,
     fecha,
     hora_inicio,
-    duracion_minutos,
-    tipo,
-    estado,
-    importe_club,
+ duracion_minutos,
+ubicacion_id,
+tipo,
+estado,
+importe_club,
 coste_pista,
     ubicaciones (
       nombre
     ),
-    clase_alumnos (
-      alumnos (
-        nombre,
-        apellidos
-      )
-    )
+   clase_alumnos (
+  alumno_id,
+  importe,
+  alumnos (
+    nombre,
+    apellidos
+  )
+)
   `)
       .order("fecha", { ascending: false })
       .order("hora_inicio", { ascending: false });
@@ -91,7 +98,28 @@ coste_pista,
     setUbicaciones(ubicacionesData || []);
     setClases((clasesData || []) as Clase[]);
   }
+function editarClase(clase: Clase) {
+  setClaseEditandoId(clase.id);
+  setFecha(clase.fecha);
+  setHora(clase.hora_inicio.slice(0, 5));
+  setDuracion(String(clase.duracion_minutos));
+  setUbicacionId(clase.ubicacion_id || "");
+  setTipo(clase.tipo);
+  setImporteClub(String(clase.importe_club || ""));
+  setCostePista(String(clase.coste_pista || ""));
 
+  setAlumnosSeleccionados(
+    clase.clase_alumnos.map((participante) => participante.alumno_id)
+  );
+
+  setImporte(
+    clase.clase_alumnos.length > 0
+      ? String(clase.clase_alumnos[0].importe || "")
+      : ""
+  );
+
+  setMensaje("Editando clase");
+}
   useEffect(() => {
     cargarDatos();
   }, []);
@@ -100,26 +128,58 @@ coste_pista,
     e.preventDefault();
     setMensaje("");
 
-    const { data: claseCreada, error: errorClase } = await supabase
-      .from("clases")
-      .insert({
-        fecha,
-        hora_inicio: hora,
-        duracion_minutos: Number(duracion),
-        ubicacion_id: ubicacionId || null,
-        tipo,
-        importe_club: importeClub ? Number(importeClub) : 0,
-coste_pista: costePista ? Number(costePista) : 0,
-        estado: "realizada",
-      })
-      .select()
-      .single();
+   let claseCreada;
+let errorClase;
+
+if (claseEditandoId) {
+  const resultado = await supabase
+    .from("clases")
+    .update({
+      fecha,
+      hora_inicio: hora,
+      duracion_minutos: Number(duracion),
+      ubicacion_id: ubicacionId || null,
+      tipo,
+      importe_club: importeClub ? Number(importeClub) : 0,
+      coste_pista: costePista ? Number(costePista) : 0,
+      estado: "realizada",
+    })
+    .eq("id", claseEditandoId)
+    .select()
+    .single();
+
+  claseCreada = resultado.data;
+  errorClase = resultado.error;
+} else {
+  const resultado = await supabase
+    .from("clases")
+    .insert({
+      fecha,
+      hora_inicio: hora,
+      duracion_minutos: Number(duracion),
+      ubicacion_id: ubicacionId || null,
+      tipo,
+      importe_club: importeClub ? Number(importeClub) : 0,
+      coste_pista: costePista ? Number(costePista) : 0,
+      estado: "realizada",
+    })
+    .select()
+    .single();
+
+  claseCreada = resultado.data;
+  errorClase = resultado.error;
+}
 
     if (errorClase) {
       setMensaje("❌ Error al crear clase: " + errorClase.message);
       return;
     }
-
+if (claseEditandoId && claseCreada) {
+  await supabase
+    .from("clase_alumnos")
+    .delete()
+    .eq("clase_id", claseEditandoId);
+}
    if (alumnosSeleccionados.length > 0 && claseCreada) {
   const participantes = alumnosSeleccionados.map((alumnoId) => ({
     clase_id: claseCreada.id,
@@ -338,6 +398,10 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
         `${alumno?.nombre || ""} ${alumno?.apellidos || ""}`.trim()
     )
     .join(", ");
+    const precioClase = clase.clase_alumnos.reduce(
+  (total, participante) => total + Number(participante.importe || 0),
+  0
+);
     const saldoClase =
   Number(clase.importe_club || 0) - Number(clase.coste_pista || 0);
 
@@ -356,9 +420,18 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
       <p className="mt-2 text-sm font-medium text-slate-800">
         {nombresAlumnos || "Sin alumnos"}
       </p>
+     <p className="mt-2 text-sm font-semibold">
+  Precio clase: {precioClase.toFixed(2)} €
+</p>
       <p className="mt-2 text-sm font-semibold">
   Saldo con club: {saldoClase.toFixed(2)} €
 </p>
+<button
+  onClick={() => editarClase(clase)}
+  className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+>
+  Editar
+</button>
     </div>
   );
 })}
