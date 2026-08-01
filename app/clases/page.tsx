@@ -19,6 +19,8 @@ type Clase = {
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
+  importe_club: number;
+coste_pista: number;
   tipo: string;
   estado: string;
   ubicaciones: {
@@ -70,6 +72,8 @@ const [costePista, setCostePista] = useState("");
     duracion_minutos,
     tipo,
     estado,
+    importe_club,
+coste_pista,
     ubicaciones (
       nombre
     ),
@@ -334,6 +338,8 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
         `${alumno?.nombre || ""} ${alumno?.apellidos || ""}`.trim()
     )
     .join(", ");
+    const saldoClase =
+  Number(clase.importe_club || 0) - Number(clase.coste_pista || 0);
 
   return (
     <div
@@ -350,6 +356,9 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
       <p className="mt-2 text-sm font-medium text-slate-800">
         {nombresAlumnos || "Sin alumnos"}
       </p>
+      <p className="mt-2 text-sm font-semibold">
+  Saldo con club: {saldoClase.toFixed(2)} €
+</p>
     </div>
   );
 })}
