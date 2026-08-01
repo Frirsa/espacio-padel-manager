@@ -1,0 +1,291 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase";
+
+type Alumno = {
+  id: string;
+  nombre: string;
+  apellidos: string | null;
+};
+
+type Ubicacion = {
+  id: string;
+  nombre: string;
+};
+
+type Clase = {
+  id: string;
+  fecha: string;
+  hora_inicio: string;
+  duracion_minutos: number;
+  tipo: string;
+  estado: string;
+  ubicaciones: {
+    nombre: string;
+  } | null;
+};
+
+export default function ClasesPage() {
+  const [alumnos, setAlumnos] = useState<Alumno[]>([]);
+  const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([]);
+  const [clases, setClases] = useState<Clase[]>([]);
+
+  const [fecha, setFecha] = useState("");
+  const [hora, setHora] = useState("");
+  const [duracion, setDuracion] = useState("60");
+  const [ubicacionId, setUbicacionId] = useState("");
+  const [tipo, setTipo] = useState("club");
+  const [alumnoId, setAlumnoId] = useState("");
+  const [importe, setImporte] = useState("");
+  const [mensaje, setMensaje] = useState("");
+
+  async function cargarDatos() {
+    const { data: alumnosData } = await supabase
+      .from("alumnos")
+      .select("id,nombre,apellidos")
+      .eq("activo", true)
+      .order("nombre");
+
+    const { data: ubicacionesData } = await supabase
+      .from("ubicaciones")
+      .select("id,nombre")
+      .eq("activa", true)
+      .order("nombre");
+
+    const { data: clasesData } = await supabase
+      .from("clases")
+      .select(`
+        id,
+        fecha,
+        hora_inicio,
+        duracion_minutos,
+        tipo,
+        estado,
+        ubicaciones (
+          nombre
+        )
+      `)
+      .order("fecha", { ascending: false })
+      .order("hora_inicio", { ascending: false });
+
+    setAlumnos(alumnosData || []);
+    setUbicaciones(ubicacionesData || []);
+    setClases((clasesData || []) as Clase[]);
+  }
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  async function crearClase(e: React.FormEvent) {
+    e.preventDefault();
+    setMensaje("");
+
+    const { data: claseCreada, error: errorClase } = await supabase
+      .from("clases")
+      .insert({
+        fecha,
+        hora_inicio: hora,
+        duracion_minutos: Number(duracion),
+        ubicacion_id: ubicacionId || null,
+        tipo,
+        estado: "realizada",
+      })
+      .select()
+      .single();
+
+    if (errorClase) {
+      setMensaje("❌ Error al crear clase: " + errorClase.message);
+      return;
+    }
+
+    if (alumnoId && claseCreada) {
+      const { error: errorAlumno } = await supabase
+        .from("clase_alumnos")
+        .insert({
+          clase_id: claseCreada.id,
+          alumno_id: alumnoId,
+          importe: importe ? Number(importe) : 0,
+          pagado: false,
+          usa_bono: false,
+          asistio: true,
+        });
+
+      if (errorAlumno) {
+        setMensaje(
+          "⚠️ Clase creada, pero hubo un error al añadir el alumno: " +
+            errorAlumno.message
+        );
+        return;
+      }
+    }
+
+    setMensaje("✅ Clase creada correctamente");
+
+    setFecha("");
+    setHora("");
+    setDuracion("60");
+    setUbicacionId("");
+    setTipo("club");
+    setAlumnoId("");
+    setImporte("");
+
+    cargarDatos();
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-100 p-8">
+      <div className="mx-auto max-w-6xl">
+        <h1 className="text-4xl font-bold text-slate-900">
+          Clases
+        </h1>
+
+        <p className="mt-2 text-slate-600">
+          Registro y control de clases
+        </p>
+
+        <div className="mt-8 grid gap-8 lg:grid-cols-3">
+          <div className="rounded-2xl bg-white p-6 shadow">
+            <h2 className="text-xl font-bold">
+              Nueva clase
+            </h2>
+
+            <form onSubmit={crearClase} className="mt-6 space-y-4">
+              <input
+                type="date"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              />
+
+              <input
+                type="time"
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              />
+
+              <select
+                value={duracion}
+                onChange={(e) => setDuracion(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              >
+                <option value="60">60 minutos</option>
+                <option value="90">90 minutos</option>
+                <option value="120">120 minutos</option>
+              </select>
+
+              <select
+                value={ubicacionId}
+                onChange={(e) => setUbicacionId(e.target.value)}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              >
+                <option value="">Seleccionar ubicación</option>
+
+                {ubicaciones.map((ubicacion) => (
+                  <option key={ubicacion.id} value={ubicacion.id}>
+                    {ubicacion.nombre}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              >
+                <option value="club">Clase para club</option>
+                <option value="propia">Clase propia</option>
+                <option value="privada">Pista privada</option>
+              </select>
+
+              <select
+                value={alumnoId}
+                onChange={(e) => setAlumnoId(e.target.value)}
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              >
+                <option value="">Seleccionar alumno</option>
+
+                {alumnos.map((alumno) => (
+                  <option key={alumno.id} value={alumno.id}>
+                    {alumno.nombre} {alumno.apellidos || ""}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Importe"
+                value={importe}
+                onChange={(e) => setImporte(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              />
+
+              <button
+                type="submit"
+                className="w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white"
+              >
+                Guardar clase
+              </button>
+            </form>
+
+            {mensaje && (
+              <p className="mt-4 text-sm">
+                {mensaje}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl bg-white p-6 shadow lg:col-span-2">
+            <h2 className="text-xl font-bold">
+              Clases registradas
+            </h2>
+
+            <div className="mt-6 space-y-3">
+              {clases.length === 0 && (
+                <p className="text-slate-500">
+                  Todavía no hay clases registradas.
+                </p>
+              )}
+
+              {clases.map((clase) => (
+                <div
+                  key={clase.id}
+                  className="rounded-xl border border-slate-200 p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold">
+                        {clase.fecha} · {clase.hora_inicio.slice(0, 5)}
+                      </p>
+
+                      <p className="text-sm text-slate-600">
+                        {clase.ubicaciones?.nombre || "Sin ubicación"}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-sm font-medium capitalize">
+                        {clase.tipo}
+                      </p>
+
+                      <p className="text-sm text-slate-500">
+                        {clase.duracion_minutos} min
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
