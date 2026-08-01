@@ -114,7 +114,9 @@ setProximaClase(proximaData?.[0] || null);
             <a href="/alumnos" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
               Alumnos
             </a>
-
+<a href="/grupos" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
+  Grupos
+</a>
             <a href="/ubicaciones" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
               Ubicaciones
             </a>
