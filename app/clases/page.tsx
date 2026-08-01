@@ -365,6 +365,27 @@ className="w-full rounded-xl border border-slate-300 px-4 py-3"
               >
                 {claseEditandoId ? "Guardar cambios" : "Guardar clase"}
               </button>
+              {claseEditandoId && (
+  <button
+    type="button"
+    onClick={() => {
+      setClaseEditandoId(null);
+      setFecha("");
+      setHora("");
+      setDuracion("60");
+      setUbicacionId("");
+      setTipo("club");
+      setAlumnosSeleccionados([]);
+      setImporte("");
+      setImporteClub("");
+      setCostePista("");
+      setMensaje("");
+    }}
+    className="mt-2 w-full rounded-xl bg-slate-200 px-5 py-3 font-semibold text-slate-800"
+  >
+    Cancelar edición
+  </button>
+)}
             </form>
 
             {mensaje && (
