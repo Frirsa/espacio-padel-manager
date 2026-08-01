@@ -1,4 +1,65 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+
 export default function Home() {
+  const [clasesHoy, setClasesHoy] = useState(0);
+  const [horasHoy, setHorasHoy] = useState(0);
+  const [ingresosMes, setIngresosMes] = useState(0);
+  const [pendiente, setPendiente] = useState(0);
+
+  useEffect(() => {
+    cargarDashboard();
+  }, []);
+
+  async function cargarDashboard() {
+    const hoy = new Date().toISOString().slice(0, 10);
+
+    const inicioMes = hoy.slice(0, 8) + "01";
+
+    const { data: clasesData } = await supabase
+      .from("clases")
+      .select("duracion_minutos")
+      .eq("fecha", hoy);
+
+    const clases = clasesData || [];
+
+    setClasesHoy(clases.length);
+
+    const minutos = clases.reduce(
+      (total, clase) => total + Number(clase.duracion_minutos || 0),
+      0
+    );
+
+    setHorasHoy(minutos / 60);
+
+    const { data: pagosMesData } = await supabase
+      .from("pagos")
+      .select("importe,estado")
+      .gte("fecha_pago", inicioMes)
+      .lte("fecha_pago", hoy);
+
+    const pagosMes = pagosMesData || [];
+
+    const totalIngresos = pagosMes
+      .filter((pago) => pago.estado === "pagado")
+      .reduce(
+        (total, pago) => total + Number(pago.importe || 0),
+        0
+      );
+
+    const totalPendiente = pagosMes
+      .filter((pago) => pago.estado === "pendiente")
+      .reduce(
+        (total, pago) => total + Number(pago.importe || 0),
+        0
+      );
+
+    setIngresosMes(totalIngresos);
+    setPendiente(totalPendiente);
+  }
+
   return (
     <main className="min-h-screen bg-slate-100">
       <div className="flex min-h-screen">
@@ -7,16 +68,29 @@ export default function Home() {
           <p className="mt-1 text-sm text-slate-400">Manager</p>
 
           <nav className="mt-10 space-y-3">
-            <a className="block rounded-lg bg-teal-600 px-4 py-3">Dashboard</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Agenda</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Clases</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Alumnos</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Grupos</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Ubicaciones</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Bonos</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Cobros</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Informes</a>
-            <a className="block rounded-lg px-4 py-3 hover:bg-slate-800">Estadísticas</a>
+            <a href="/" className="block rounded-lg bg-teal-600 px-4 py-3">
+              Dashboard
+            </a>
+
+            <a href="/clases" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
+              Clases
+            </a>
+
+            <a href="/alumnos" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
+              Alumnos
+            </a>
+
+            <a href="/ubicaciones" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
+              Ubicaciones
+            </a>
+
+            <a href="/bonos" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
+              Bonos
+            </a>
+
+            <a href="/pagos" className="block rounded-lg px-4 py-3 hover:bg-slate-800">
+              Pagos
+            </a>
           </nav>
         </aside>
 
@@ -33,43 +107,65 @@ export default function Home() {
             <div className="mt-8 grid gap-4 md:grid-cols-4">
               <div className="rounded-2xl bg-white p-6 shadow">
                 <p className="text-sm text-slate-500">Clases hoy</p>
-                <p className="mt-2 text-3xl font-bold">6</p>
+                <p className="mt-2 text-3xl font-bold">
+                  {clasesHoy}
+                </p>
               </div>
 
               <div className="rounded-2xl bg-white p-6 shadow">
-                <p className="text-sm text-slate-500">Horas</p>
-                <p className="mt-2 text-3xl font-bold">8,5</p>
+                <p className="text-sm text-slate-500">Horas hoy</p>
+                <p className="mt-2 text-3xl font-bold">
+                  {horasHoy.toFixed(1)}
+                </p>
               </div>
 
               <div className="rounded-2xl bg-white p-6 shadow">
-                <p className="text-sm text-slate-500">Ingresos previstos</p>
-                <p className="mt-2 text-3xl font-bold">145 €</p>
+                <p className="text-sm text-slate-500">
+                  Ingresos del mes
+                </p>
+                <p className="mt-2 text-3xl font-bold">
+                  {ingresosMes.toFixed(2)} €
+                </p>
               </div>
 
               <div className="rounded-2xl bg-white p-6 shadow">
-                <p className="text-sm text-slate-500">Pendiente de cobro</p>
-                <p className="mt-2 text-3xl font-bold">35 €</p>
+                <p className="text-sm text-slate-500">
+                  Pendiente de cobro
+                </p>
+                <p className="mt-2 text-3xl font-bold">
+                  {pendiente.toFixed(2)} €
+                </p>
               </div>
             </div>
 
             <div className="mt-8 rounded-2xl bg-white p-6 shadow">
-              <p className="text-sm text-slate-500">Próxima clase</p>
+              <h3 className="text-xl font-bold">
+                Accesos rápidos
+              </h3>
 
-              <div className="mt-4">
-                <p className="text-2xl font-bold">17:30</p>
-                <p className="mt-1 text-lg">IQL</p>
-                <p className="text-slate-600">Andrea · Paula · Marta</p>
-                <p className="text-slate-500">90 minutos</p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <a
+                  href="/clases"
+                  className="rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white"
+                >
+                  + Nueva clase
+                </a>
+
+                <a
+                  href="/alumnos"
+                  className="rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white"
+                >
+                  + Nuevo alumno
+                </a>
+
+                <a
+                  href="/pagos"
+                  className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-900 ring-1 ring-slate-300"
+                >
+                  Registrar pago
+                </a>
               </div>
-
-              <button className="mt-6 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white">
-                Abrir clase
-              </button>
             </div>
-
-            <button className="mt-8 rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white">
-              + Nueva clase
-            </button>
           </div>
         </section>
       </div>
