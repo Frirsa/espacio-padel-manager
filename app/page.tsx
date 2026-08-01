@@ -199,7 +199,17 @@ setProximaClase(proximaData?.[0] || null);
             <div className="mt-4 w-[275px] rounded-2xl bg-white p-6 shadow">
   <p className="text-sm text-slate-500">Saldo con club del mes</p>
   <p className="mt-2 text-3xl font-bold">
-    {saldoClubMes.toFixed(2)} €
+   <span
+  className={
+    saldoClubMes > 0
+      ? "text-green-600"
+      : saldoClubMes < 0
+      ? "text-red-600"
+      : "text-slate-900"
+  }
+>
+  {saldoClubMes.toFixed(2)} €
+</span>
   </p>
 </div>
             <div className="mt-8 rounded-2xl bg-white p-6 shadow">
