@@ -28,6 +28,7 @@ export default function PagosPage() {
   const [pagos, setPagos] = useState<Pago[]>([]);
 
   const [alumnoId, setAlumnoId] = useState("");
+  const [busquedaAlumno, setBusquedaAlumno] = useState("");
   const [importe, setImporte] = useState("");
   const [metodo, setMetodo] = useState("efectivo");
   const [estado, setEstado] = useState("pagado");
@@ -72,6 +73,7 @@ export default function PagosPage() {
 
   function limpiarFormulario() {
     setAlumnoId("");
+    setBusquedaAlumno("");
     setImporte("");
     setMetodo("efectivo");
     setEstado("pagado");
@@ -133,13 +135,18 @@ export default function PagosPage() {
   function editarPago(pago: Pago) {
     setPagoEditandoId(pago.id);
     setAlumnoId(pago.alumno_id || "");
+    setBusquedaAlumno("");
     setImporte(String(pago.importe));
     setMetodo(pago.metodo);
     setEstado(pago.estado);
     setFechaPago(pago.fecha_pago);
     setNotas(pago.notas || "");
     setMensaje("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
   async function borrarPago(id: string) {
@@ -167,6 +174,13 @@ export default function PagosPage() {
     cargarDatos();
   }
 
+  const alumnosFiltrados = alumnos.filter((alumno) => {
+    const nombreCompleto =
+      `${alumno.nombre} ${alumno.apellidos || ""}`.toLowerCase();
+
+    return nombreCompleto.includes(busquedaAlumno.toLowerCase());
+  });
+
   const totalPagado = pagos
     .filter((pago) => pago.estado === "pagado")
     .reduce((total, pago) => total + Number(pago.importe || 0), 0);
@@ -188,14 +202,20 @@ export default function PagosPage() {
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl bg-white p-5 shadow">
-            <p className="text-sm text-slate-500">Total pagado</p>
+            <p className="text-sm text-slate-500">
+              Total pagado
+            </p>
+
             <p className="mt-2 text-3xl font-bold text-green-600">
               {totalPagado.toFixed(2)} €
             </p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow">
-            <p className="text-sm text-slate-500">Pendiente de cobro</p>
+            <p className="text-sm text-slate-500">
+              Pendiente de cobro
+            </p>
+
             <p className="mt-2 text-3xl font-bold text-red-600">
               {totalPendiente.toFixed(2)} €
             </p>
@@ -209,6 +229,14 @@ export default function PagosPage() {
             </h2>
 
             <form onSubmit={guardarPago} className="mt-6 space-y-4">
+              <input
+                type="text"
+                placeholder="Buscar alumno..."
+                value={busquedaAlumno}
+                onChange={(e) => setBusquedaAlumno(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              />
+
               <select
                 value={alumnoId}
                 onChange={(e) => setAlumnoId(e.target.value)}
@@ -216,7 +244,7 @@ export default function PagosPage() {
               >
                 <option value="">Sin alumno</option>
 
-                {alumnos.map((alumno) => (
+                {alumnosFiltrados.map((alumno) => (
                   <option key={alumno.id} value={alumno.id}>
                     {alumno.nombre} {alumno.apellidos || ""}
                   </option>

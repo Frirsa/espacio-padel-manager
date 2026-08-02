@@ -52,6 +52,7 @@ export default function ClasesPage() {
   const [importe, setImporte] = useState("");
   const [importeClub, setImporteClub] = useState("");
 const [costePista, setCostePista] = useState("");
+const [busquedaAlumno, setBusquedaAlumno] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [claseEditandoId, setClaseEditandoId] = useState<string | null>(null);
 
@@ -256,6 +257,12 @@ cargarDatos();
     cargarDatos();
   }
 
+  const alumnosFiltrados = alumnos.filter((alumno) => {
+  const nombreCompleto =
+    `${alumno.nombre} ${alumno.apellidos || ""}`.toLowerCase();
+
+  return nombreCompleto.includes(busquedaAlumno.toLowerCase());
+});
   return (
     <main className="min-h-screen bg-slate-100 p-8">
       <div className="mx-auto max-w-6xl">
@@ -330,8 +337,15 @@ cargarDatos();
     Alumnos
   </p>
 
+<input
+  type="text"
+  placeholder="Buscar alumno..."
+  value={busquedaAlumno}
+  onChange={(e) => setBusquedaAlumno(e.target.value)}
+  className="mb-3 w-full rounded-xl border border-slate-300 px-4 py-3"
+/>
   <div className="space-y-2">
-    {alumnos.map((alumno) => (
+    {alumnosFiltrados.map((alumno) => (
       <label
         key={alumno.id}
         className="flex items-center gap-3 rounded-lg border border-slate-200 p-3"

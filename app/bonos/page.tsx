@@ -28,6 +28,7 @@ export default function BonosPage() {
   const [bonos, setBonos] = useState<Bono[]>([]);
 
   const [alumnoId, setAlumnoId] = useState("");
+  const [busquedaAlumno, setBusquedaAlumno] = useState("");
   const [numeroClases, setNumeroClases] = useState("5");
   const [clasesRestantes, setClasesRestantes] = useState("5");
   const [importe, setImporte] = useState("");
@@ -72,6 +73,7 @@ export default function BonosPage() {
 
   function limpiarFormulario() {
     setAlumnoId("");
+    setBusquedaAlumno("");
     setNumeroClases("5");
     setClasesRestantes("5");
     setImporte("");
@@ -128,6 +130,7 @@ export default function BonosPage() {
   function editarBono(bono: Bono) {
     setBonoEditandoId(bono.id);
     setAlumnoId(bono.alumno_id);
+    setBusquedaAlumno("");
     setNumeroClases(String(bono.numero_clases));
     setClasesRestantes(String(bono.clases_restantes));
     setImporte(String(bono.importe_pagado || ""));
@@ -210,6 +213,13 @@ export default function BonosPage() {
     cargarDatos();
   }
 
+  const alumnosFiltrados = alumnos.filter((alumno) => {
+    const nombreCompleto =
+      `${alumno.nombre} ${alumno.apellidos || ""}`.toLowerCase();
+
+    return nombreCompleto.includes(busquedaAlumno.toLowerCase());
+  });
+
   const bonosActivos = bonos.filter(
     (bono) => bono.activo && bono.clases_restantes > 0
   ).length;
@@ -259,6 +269,14 @@ export default function BonosPage() {
             </h2>
 
             <form onSubmit={guardarBono} className="mt-6 space-y-4">
+              <input
+                type="text"
+                placeholder="Buscar alumno..."
+                value={busquedaAlumno}
+                onChange={(e) => setBusquedaAlumno(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              />
+
               <select
                 value={alumnoId}
                 onChange={(e) => setAlumnoId(e.target.value)}
@@ -269,7 +287,7 @@ export default function BonosPage() {
                   Seleccionar alumno
                 </option>
 
-                {alumnos.map((alumno) => (
+                {alumnosFiltrados.map((alumno) => (
                   <option key={alumno.id} value={alumno.id}>
                     {alumno.nombre} {alumno.apellidos || ""}
                   </option>
@@ -287,13 +305,8 @@ export default function BonosPage() {
                 }}
                 className="w-full rounded-xl border border-slate-300 px-4 py-3"
               >
-                <option value="5">
-                  Bono de 5 clases
-                </option>
-
-                <option value="10">
-                  Bono de 10 clases
-                </option>
+                <option value="5">Bono de 5 clases</option>
+                <option value="10">Bono de 10 clases</option>
               </select>
 
               {bonoEditandoId && (
@@ -335,13 +348,8 @@ export default function BonosPage() {
                   }
                   className="w-full rounded-xl border border-slate-300 px-4 py-3"
                 >
-                  <option value="activo">
-                    Activo
-                  </option>
-
-                  <option value="inactivo">
-                    Inactivo
-                  </option>
+                  <option value="activo">Activo</option>
+                  <option value="inactivo">Inactivo</option>
                 </select>
               )}
 
@@ -449,9 +457,7 @@ export default function BonosPage() {
                         <div className="mt-3 flex flex-wrap gap-2 sm:justify-end">
                           <button
                             onClick={() => restarClase(bono)}
-                            disabled={
-                              bono.clases_restantes <= 0
-                            }
+                            disabled={bono.clases_restantes <= 0}
                             className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
                           >
                             -1 clase

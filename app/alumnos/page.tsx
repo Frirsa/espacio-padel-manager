@@ -22,6 +22,7 @@ export default function AlumnosPage() {
   const [email, setEmail] = useState("");
   const [precio, setPrecio] = useState("");
   const [activo, setActivo] = useState(true);
+  const [busqueda, setBusqueda] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [alumnoEditandoId, setAlumnoEditandoId] = useState<string | null>(null);
 
@@ -159,6 +160,11 @@ export default function AlumnosPage() {
     cargarAlumnos();
   }
 
+  const alumnosFiltrados = alumnos.filter((alumno) => {
+  const texto = `${alumno.nombre} ${alumno.apellidos || ""} ${alumno.telefono || ""} ${alumno.email || ""}`.toLowerCase();
+
+  return texto.includes(busqueda.toLowerCase());
+});
   const alumnosActivos = alumnos.filter(
     (alumno) => alumno.activo
   ).length;
@@ -302,6 +308,13 @@ export default function AlumnosPage() {
               Alumnos registrados
             </h2>
 
+<input
+  type="text"
+  placeholder="Buscar por nombre, apellidos, teléfono o email..."
+  value={busqueda}
+  onChange={(e) => setBusqueda(e.target.value)}
+  className="mt-6 w-full rounded-xl border border-slate-300 px-4 py-3"
+/>
             <div className="mt-6 space-y-3">
               {alumnos.length === 0 && (
                 <p className="text-slate-500">
@@ -309,7 +322,7 @@ export default function AlumnosPage() {
                 </p>
               )}
 
-              {alumnos.map((alumno) => (
+              {alumnosFiltrados.map((alumno) => (
                 <div
                   key={alumno.id}
                   className={

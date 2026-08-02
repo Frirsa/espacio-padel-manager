@@ -26,6 +26,7 @@ export default function GruposPage() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [nombreGrupo, setNombreGrupo] = useState("");
+  const [busquedaAlumno, setBusquedaAlumno] = useState("");
   const [alumnosSeleccionados, setAlumnosSeleccionados] = useState<string[]>([]);
   const [activo, setActivo] = useState(true);
   const [mensaje, setMensaje] = useState("");
@@ -72,6 +73,7 @@ export default function GruposPage() {
 
   function limpiarFormulario() {
     setNombreGrupo("");
+    setBusquedaAlumno("");
     setAlumnosSeleccionados([]);
     setActivo(true);
     setGrupoEditandoId(null);
@@ -148,6 +150,7 @@ export default function GruposPage() {
   function editarGrupo(grupo: Grupo) {
     setGrupoEditandoId(grupo.id);
     setNombreGrupo(grupo.nombre);
+    setBusquedaAlumno("");
     setActivo(grupo.activo);
     setAlumnosSeleccionados(
       grupo.grupo_alumnos.map((item) => item.alumno_id)
@@ -201,6 +204,13 @@ export default function GruposPage() {
     cargarDatos();
   }
 
+  const alumnosFiltrados = alumnos.filter((alumno) => {
+    const nombreCompleto =
+      `${alumno.nombre} ${alumno.apellidos || ""}`.toLowerCase();
+
+    return nombreCompleto.includes(busquedaAlumno.toLowerCase());
+  });
+
   const gruposActivos = grupos.filter((grupo) => grupo.activo).length;
   const gruposInactivos = grupos.filter((grupo) => !grupo.activo).length;
 
@@ -220,6 +230,7 @@ export default function GruposPage() {
             <p className="text-sm text-slate-500">
               Grupos activos
             </p>
+
             <p className="mt-2 text-3xl font-bold text-green-600">
               {gruposActivos}
             </p>
@@ -229,6 +240,7 @@ export default function GruposPage() {
             <p className="text-sm text-slate-500">
               Grupos inactivos
             </p>
+
             <p className="mt-2 text-3xl font-bold text-slate-500">
               {gruposInactivos}
             </p>
@@ -256,8 +268,26 @@ export default function GruposPage() {
                   Alumnos
                 </p>
 
-                <div className="space-y-2">
-                  {alumnos.map((alumno) => (
+                <input
+                  type="text"
+                  placeholder="Buscar alumno..."
+                  value={busquedaAlumno}
+                  onChange={(e) => setBusquedaAlumno(e.target.value)}
+                  className="mb-3 w-full rounded-xl border border-slate-300 px-4 py-3"
+                />
+
+                <p className="mb-3 text-sm text-slate-500">
+                  {alumnosSeleccionados.length} alumno(s) seleccionado(s)
+                </p>
+
+                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                  {alumnosFiltrados.length === 0 && (
+                    <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+                      No se han encontrado alumnos.
+                    </p>
+                  )}
+
+                  {alumnosFiltrados.map((alumno) => (
                     <label
                       key={alumno.id}
                       className="flex items-center gap-3 rounded-lg border border-slate-200 p-3"
@@ -350,8 +380,9 @@ export default function GruposPage() {
                         : "rounded-xl border border-slate-200 bg-slate-50 p-4 opacity-70"
                     }
                   >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
+                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-center">
+
+                      <div className="min-w-0">
                         <p className="font-semibold">
                           {grupo.nombre}
                         </p>
@@ -371,28 +402,35 @@ export default function GruposPage() {
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => editarGrupo(grupo)}
-                          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-                        >
-                          Editar
-                        </button>
+                      <div className="lg:border-l lg:border-slate-200 lg:pl-6">
+                        <p className="mb-3 text-sm text-slate-500">
+                          {grupo.grupo_alumnos.length} alumno(s)
+                        </p>
 
-                        <button
-                          onClick={() => cambiarEstadoGrupo(grupo)}
-                          className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800"
-                        >
-                          {grupo.activo ? "Desactivar" : "Activar"}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => editarGrupo(grupo)}
+                            className="w-[85px] shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
+                          >
+                            Editar
+                          </button>
 
-                        <button
-                          onClick={() => borrarGrupo(grupo.id)}
-                          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white"
-                        >
-                          Borrar
-                        </button>
+                          <button
+                            onClick={() => cambiarEstadoGrupo(grupo)}
+                            className="w-[115px] shrink-0 rounded-lg bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-800"
+                          >
+                            {grupo.activo ? "Desactivar" : "Activar"}
+                          </button>
+
+                          <button
+                            onClick={() => borrarGrupo(grupo.id)}
+                            className="w-[85px] shrink-0 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white"
+                          >
+                            Borrar
+                          </button>
+                        </div>
                       </div>
+
                     </div>
                   </div>
                 );
