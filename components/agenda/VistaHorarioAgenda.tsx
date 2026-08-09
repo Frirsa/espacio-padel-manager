@@ -103,6 +103,21 @@ export default function VistaHorarioAgenda({
     mensajeAccion,
     setMensajeAccion,
   ] = useState("");
+
+  const [
+    claseArrastrandoId,
+    setClaseArrastrandoId,
+  ] = useState<string | null>(null);
+
+  const [
+    mensajeMovimiento,
+    setMensajeMovimiento,
+  ] = useState("");
+
+  const [
+    desplazamientoArrastreY,
+    setDesplazamientoArrastreY,
+  ] = useState(0);
   const inicio = inicioSemana(fechaSeleccionada);
   const dias = Array.from({length:7},(_,i)=>{
     const d=new Date(inicio);
@@ -795,6 +810,314 @@ export default function VistaHorarioAgenda({
     }
   }
 
+  function minutosDesdeMedianoche(
+    horaTexto: string
+  ) {
+    const [
+      hora,
+      minuto,
+    ] =
+      horaTexto
+        .slice(
+          0,
+          5
+        )
+        .split(":")
+        .map(Number);
+
+    return (
+      hora * 60 +
+      minuto
+    );
+  }
+
+  function haySolapamiento(
+    claseId: string,
+    fechaNueva: string,
+    horaNueva: string,
+    duracion: number
+  ) {
+    const inicioNuevo =
+      minutosDesdeMedianoche(
+        horaNueva
+      );
+
+    const finNuevo =
+      inicioNuevo +
+      duracion;
+
+    return clases.some(
+      (otraClase) => {
+        if (
+          otraClase.id ===
+            claseId ||
+          otraClase.fecha !==
+            fechaNueva ||
+          otraClase.estado ===
+            "cancelada"
+        ) {
+          return false;
+        }
+
+        const inicioOtra =
+          minutosDesdeMedianoche(
+            otraClase.hora_inicio
+          );
+
+        const finOtra =
+          inicioOtra +
+          otraClase.duracion_minutos;
+
+        return (
+          inicioNuevo <
+            finOtra &&
+          finNuevo >
+            inicioOtra
+        );
+      }
+    );
+  }
+
+  async function moverClase(
+    claseId: string,
+    fechaNueva: string,
+    hora: number,
+    minuto = 0
+  ) {
+    const clase =
+      clases.find(
+        (item) =>
+          item.id ===
+          claseId
+      );
+
+    if (!clase) {
+      return;
+    }
+
+    if (
+      noDisponible(
+        fechaNueva
+      )
+    ) {
+      setMensajeMovimiento(
+        "❌ No puedes mover una clase a un día no disponible."
+      );
+
+      setTimeout(
+        () =>
+          setMensajeMovimiento(
+            ""
+          ),
+        3500
+      );
+
+      return;
+    }
+
+    const horaNueva =
+      `${String(
+        hora
+      ).padStart(
+        2,
+        "0"
+      )}:${String(
+        minuto
+      ).padStart(
+        2,
+        "0"
+      )}`;
+
+    const inicioMinutos =
+      hora * 60 +
+      minuto;
+
+    const finMinutos =
+      inicioMinutos +
+      clase.duracion_minutos;
+
+    if (
+      finMinutos >
+      horaFin * 60
+    ) {
+      setMensajeMovimiento(
+        "❌ La clase terminaría fuera del horario visible."
+      );
+
+      setTimeout(
+        () =>
+          setMensajeMovimiento(
+            ""
+          ),
+        3500
+      );
+
+      return;
+    }
+
+    if (
+      haySolapamiento(
+        clase.id,
+        fechaNueva,
+        horaNueva,
+        clase.duracion_minutos
+      )
+    ) {
+      setMensajeMovimiento(
+        "❌ Ese horario se solapa con otra clase."
+      );
+
+      setTimeout(
+        () =>
+          setMensajeMovimiento(
+            ""
+          ),
+        3500
+      );
+
+      return;
+    }
+
+    setActualizando(
+      true
+    );
+
+    const {
+      error,
+    } =
+      await supabase
+        .from("clases")
+        .update({
+          fecha:
+            fechaNueva,
+          hora_inicio:
+            horaNueva,
+        })
+        .eq(
+          "id",
+          clase.id
+        );
+
+    setActualizando(
+      false
+    );
+
+    if (error) {
+      setMensajeMovimiento(
+        "❌ No se pudo mover la clase."
+      );
+
+      setTimeout(
+        () =>
+          setMensajeMovimiento(
+            ""
+          ),
+        3500
+      );
+
+      return;
+    }
+
+    setMensajeMovimiento(
+      `✅ Clase movida al ${fechaNueva
+        .split("-")
+        .reverse()
+        .join("/")} a las ${horaNueva}`
+    );
+
+    setTimeout(
+      () =>
+        setMensajeMovimiento(
+          ""
+        ),
+      3500
+    );
+
+    await onClaseActualizada();
+  }
+
+  function soltarClaseEnDia(
+    evento:
+      React.DragEvent<HTMLDivElement>,
+    fecha: string
+  ) {
+    evento.preventDefault();
+
+    if (
+      noDisponible(
+        fecha
+      )
+    ) {
+      return;
+    }
+
+    const claseId =
+      evento.dataTransfer.getData(
+        "text/plain"
+      ) ||
+      claseArrastrandoId;
+
+    if (!claseId) {
+      return;
+    }
+
+    const rect =
+      evento.currentTarget.getBoundingClientRect();
+
+    const posicionSuperiorTarjeta =
+      evento.clientY -
+      rect.top -
+      desplazamientoArrastreY;
+
+    const altoMediaHora =
+      altoHora / 2;
+
+    let indiceMediaHora =
+      Math.floor(
+        posicionSuperiorTarjeta /
+          altoMediaHora
+      );
+
+    const totalHuecos =
+      (horaFin -
+        horaInicio) *
+      2;
+
+    indiceMediaHora =
+      Math.max(
+        0,
+        Math.min(
+          totalHuecos - 1,
+          indiceMediaHora
+        )
+      );
+
+    const minutosTotales =
+      horaInicio * 60 +
+      indiceMediaHora *
+        30;
+
+    const horaNueva =
+      Math.floor(
+        minutosTotales / 60
+      );
+
+    const minutoNuevo =
+      minutosTotales % 60;
+
+    moverClase(
+      claseId,
+      fecha,
+      horaNueva,
+      minutoNuevo
+    );
+
+    setClaseArrastrandoId(
+      null
+    );
+  }
+
+
   function crearClase(
     fecha: string,
     hora: number,
@@ -837,8 +1160,14 @@ export default function VistaHorarioAgenda({
       <div className="border-b border-slate-200 px-6 py-5">
         <h2 className="text-xl font-bold text-slate-900">Horario semanal</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Pulsa en un hueco para crear una clase. Pulsa una clase para abrir sus acciones rápidas.
+          Pulsa en un hueco para crear una clase. Pulsa una clase para abrir sus acciones rápidas. También puedes arrastrar una clase programada para moverla en tramos de 30 minutos.
         </p>
+
+        {mensajeMovimiento && (
+          <p className="mt-3 text-sm font-semibold text-slate-700">
+            {mensajeMovimiento}
+          </p>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -884,6 +1213,19 @@ export default function VistaHorarioAgenda({
               return (
                 <div
                   key={fecha}
+                  onDragOver={(evento) => {
+                    if (!nd) {
+                      evento.preventDefault();
+                      evento.dataTransfer.dropEffect =
+                        "move";
+                    }
+                  }}
+                  onDrop={(evento) =>
+                    soltarClaseEnDia(
+                      evento,
+                      fecha
+                    )
+                  }
                   className={nd ? "relative border-r border-slate-200 bg-red-50/40" : "relative border-r border-slate-200 bg-white"}
                   style={{height:altoTotal}}
                 >
@@ -895,7 +1237,7 @@ export default function VistaHorarioAgenda({
                         onClick={()=>crearClase(fecha,h)}
                         className="absolute left-0 right-0 border-t border-slate-200 hover:bg-teal-50/70 disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora,height:altoHora/2}}
-                        title={nd ? "Día no disponible" : `Crear clase a las ${String(h).padStart(2,"0")}:00`}
+                        title={nd ? "Día no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:00`}
                       />
                       <button
                         type="button"
@@ -903,7 +1245,7 @@ export default function VistaHorarioAgenda({
                         onClick={()=>crearClase(fecha,h,30)}
                         className="absolute left-0 right-0 border-t border-dashed border-slate-100 hover:bg-teal-50/70 disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora+altoHora/2,height:altoHora/2}}
-                        title={nd ? "Día no disponible" : `Crear clase a las ${String(h).padStart(2,"0")}:30`}
+                        title={nd ? "Día no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:30`}
                       />
                     </div>
                   ))}
@@ -921,15 +1263,75 @@ export default function VistaHorarioAgenda({
                       <button
                         key={clase.id}
                         type="button"
+                        draggable={
+                          clase.estado ===
+                          "programada"
+                        }
+                        onDragStart={(evento) => {
+                          if (
+                            clase.estado !==
+                            "programada"
+                          ) {
+                            evento.preventDefault();
+                            return;
+                          }
+
+                          const rect =
+                            evento.currentTarget.getBoundingClientRect();
+
+                          setDesplazamientoArrastreY(
+                            evento.clientY -
+                              rect.top
+                          );
+
+                          setClaseArrastrandoId(
+                            clase.id
+                          );
+
+                          evento.dataTransfer.setData(
+                            "text/plain",
+                            clase.id
+                          );
+
+                          evento.dataTransfer.effectAllowed =
+                            "move";
+                        }}
+                        onDragEnd={() =>
+                          setClaseArrastrandoId(
+                            null
+                          )
+                        }
                         onClick={() => {
+                          if (
+                            claseArrastrandoId
+                          ) {
+                            return;
+                          }
+
                           setMensajeAccion("");
                           setClaseSeleccionada(
                             clase
                           );
                         }}
-                        className={`absolute left-1 right-1 z-10 overflow-hidden rounded-lg border p-2 text-left text-[11px] leading-tight shadow-sm transition hover:z-20 hover:shadow-md ${colorClase(clase)}`}
-                        style={{top,height}}
-                        title="Abrir acciones rápidas"
+                        className={`absolute left-1 right-1 z-10 overflow-hidden rounded-lg border p-2 text-left text-[11px] leading-tight shadow-sm transition hover:z-20 hover:shadow-md ${
+                          clase.estado === "programada"
+                            ? "cursor-grab active:cursor-grabbing"
+                            : "cursor-pointer"
+                        } ${colorClase(clase)}`}
+                        style={{
+                          top,
+                          height,
+                          opacity:
+                            claseArrastrandoId ===
+                            clase.id
+                              ? 0.55
+                              : 1,
+                        }}
+                        title={
+                          clase.estado === "programada"
+                            ? "Pulsa para acciones rápidas o arrastra para mover"
+                            : "Abrir acciones rápidas"
+                        }
                       >
                         <div className="font-bold">
                           {clase.hora_inicio.slice(0,5)} · {clase.duracion_minutos} min
