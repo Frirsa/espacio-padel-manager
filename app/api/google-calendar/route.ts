@@ -173,10 +173,10 @@ function nombreEtiqueta(clase: ClaseGoogle) {
 }
 
 function colorGoogleAntiguo(clase: ClaseGoogle) {
-  if (clase.estado === "cancelada") return "11";
-  if (clase.tipo === "club") return "6";
-  if (clase.tipo === "privada") return "3";
-  return "7";
+  if (clase.estado === "cancelada") return "11"; // rojo
+  if (clase.tipo === "club") return "5"; // amarillo
+  if (clase.tipo === "privada") return "3"; // morado
+  return "10"; // verde
 }
 
 function crearEvento(
@@ -388,13 +388,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const eventLabelId = await obtenerEtiquetaId(
-      calendario,
-      accessToken,
-      clase
-    );
-    const usarEtiqueta = Boolean(eventLabelId);
-    const evento = crearEvento(clase, eventLabelId);
+    // Usamos los colores estándar de Google Calendar para mantener
+    // compatibilidad con aplicaciones externas como Business Calendar.
+    const eventLabelId = null;
+    const usarEtiqueta = false;
+    const evento = crearEvento(clase, null);
     let eventId = clase.google_calendar_event_id || null;
 
     if (!eventId) {

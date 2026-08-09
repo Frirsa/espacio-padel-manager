@@ -229,7 +229,7 @@ export default function SincronizarGooglePage() {
       }
 
       const confirmar = window.confirm(
-        `Se van a actualizar ${clases.length} evento(s) de Google Calendar con el nuevo formato, poniendo primero el nombre del alumno o alumnos. No se crearán duplicados. ¿Continuar?`
+        `Se van a actualizar ${clases.length} evento(s) de Google Calendar con colores compatibles con Business Calendar: amarillo para club, verde para propia, morado para privada y rojo para cancelada. No se crearán duplicados. ¿Continuar?`
       );
 
       if (!confirmar) {
@@ -239,7 +239,7 @@ export default function SincronizarGooglePage() {
 
       await ejecutarSincronizacion(
         clases,
-        "Actualización de títulos terminada."
+        "Actualización de colores terminada."
       );
     } catch (error) {
       const texto =
@@ -330,7 +330,7 @@ export default function SincronizarGooglePage() {
               disabled={cargando || sincronizando}
               className="rounded-xl bg-[#09a9a3] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Poner nombres primero en todos los eventos
+              Actualizar colores en todos los eventos
             </button>
 
             <button
