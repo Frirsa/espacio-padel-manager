@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
+import {
+  borrarClaseDeGoogleCalendar,
+  sincronizarClaseConGoogleCalendar,
+} from "../../lib/googleCalendarClient";
 
 type Clase = {
   id: string;
+  google_calendar_event_id: string | null;
+  google_calendar_synced_at: string | null;
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
@@ -59,6 +65,38 @@ function inicioSemana(fecha: string) {
   const dow = d.getDay();
   d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
   return d;
+}
+
+function datosGoogleClase(
+  clase: Clase,
+  cambios?: Partial<
+    Pick<Clase, "fecha" | "hora_inicio" | "estado">
+  >
+) {
+  return {
+    id: clase.id,
+    google_calendar_event_id:
+      clase.google_calendar_event_id,
+    fecha: cambios?.fecha || clase.fecha,
+    hora_inicio:
+      cambios?.hora_inicio || clase.hora_inicio,
+    duracion_minutos: clase.duracion_minutos,
+    tipo: clase.tipo,
+    estado: cambios?.estado || clase.estado,
+    observaciones: clase.observaciones,
+    ubicacion: clase.ubicaciones?.nombre || null,
+    alumnos: clase.clase_alumnos
+      .map((participante) => {
+        const alumno = participante.alumnos;
+
+        if (!alumno) {
+          return "";
+        }
+
+        return `${alumno.nombre} ${alumno.apellidos || ""}`.trim();
+      })
+      .filter(Boolean),
+  };
 }
 
 function colorClase(clase: Clase) {
@@ -172,6 +210,19 @@ export default function VistaHorarioAgenda({
     setMensajeAccion("");
 
     try {
+      let avisoGoogle = "";
+
+      try {
+        await borrarClaseDeGoogleCalendar({
+          id: clase.id,
+          google_calendar_event_id:
+            clase.google_calendar_event_id,
+        });
+      } catch {
+        avisoGoogle =
+          "Clase borrada en Manager, pero no se pudo borrar su evento de Google Calendar.";
+      }
+
       const {
         error: errorPagos,
       } =
@@ -239,10 +290,15 @@ export default function VistaHorarioAgenda({
 
       await onClaseActualizada();
 
-      if (avisoBono) {
-        window.alert(
-          avisoBono
-        );
+      const avisos = [
+        avisoBono,
+        avisoGoogle,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      if (avisos) {
+        window.alert(avisos);
       }
     } catch (error) {
       setMensajeAccion(
@@ -554,11 +610,27 @@ export default function VistaHorarioAgenda({
         estado
       );
 
+      let falloGoogle = false;
+
+      try {
+        await sincronizarClaseConGoogleCalendar(
+          datosGoogleClase(clase, { estado })
+        );
+      } catch {
+        falloGoogle = true;
+      }
+
       setClaseSeleccionada(
         null
       );
 
       await onClaseActualizada();
+
+      if (falloGoogle) {
+        window.alert(
+          "La clase se actualizó en Manager, pero no se pudo sincronizar el cambio con Google Calendar."
+        );
+      }
     } catch (
       error
     ) {
@@ -998,11 +1070,11 @@ export default function VistaHorarioAgenda({
           clase.id
         );
 
-    setActualizando(
-      false
-    );
-
     if (error) {
+      setActualizando(
+        false
+      );
+
       setMensajeMovimiento(
         "❌ No se pudo mover la clase."
       );
@@ -1018,11 +1090,32 @@ export default function VistaHorarioAgenda({
       return;
     }
 
+    let falloGoogle = false;
+
+    try {
+      await sincronizarClaseConGoogleCalendar(
+        datosGoogleClase(clase, {
+          fecha: fechaNueva,
+          hora_inicio: horaNueva,
+        })
+      );
+    } catch {
+      falloGoogle = true;
+    }
+
+    setActualizando(
+      false
+    );
+
     setMensajeMovimiento(
       `✅ Clase movida al ${fechaNueva
         .split("-")
         .reverse()
-        .join("/")} a las ${horaNueva}`
+        .join("/")} a las ${horaNueva}${
+        falloGoogle
+          ? " · ⚠️ Sin sincronizar con Google Calendar"
+          : ""
+      }`
     );
 
     setTimeout(

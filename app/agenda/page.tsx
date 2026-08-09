@@ -25,6 +25,8 @@ type NoDisponibilidad = {
 
 type Clase = {
   id: string;
+  google_calendar_event_id: string | null;
+  google_calendar_synced_at: string | null;
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
@@ -293,6 +295,8 @@ export default function AgendaPage() {
       .from("clases")
       .select(`
         id,
+        google_calendar_event_id,
+        google_calendar_synced_at,
         fecha,
         hora_inicio,
         duracion_minutos,

@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import {
+  borrarClaseDeGoogleCalendar,
+  sincronizarClaseConGoogleCalendar,
+} from "../../lib/googleCalendarClient";
 
 type Alumno = {
   id: string;
@@ -57,6 +61,8 @@ type ParticipanteClase = {
 type Clase = {
   id: string;
   serie_id: string | null;
+  google_calendar_event_id: string | null;
+  google_calendar_synced_at: string | null;
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
@@ -616,6 +622,8 @@ export default function ClasesPage() {
         .select(`
           id,
           serie_id,
+          google_calendar_event_id,
+          google_calendar_synced_at,
           fecha,
           hora_inicio,
           duracion_minutos,
@@ -2115,6 +2123,46 @@ export default function ClasesPage() {
     return data?.[0] || null;
   }
 
+  function datosGoogleDesdeFormulario(
+    claseId: string,
+    googleEventId: string | null | undefined,
+    fechaClase: string,
+    estadoClase: string
+  ) {
+    const nombres =
+      alumnosSeleccionados
+        .map((alumnoId) => {
+          const alumno = alumnos.find(
+            (item) => item.id === alumnoId
+          );
+
+          if (!alumno) {
+            return "";
+          }
+
+          return `${alumno.nombre} ${alumno.apellidos || ""}`.trim();
+        })
+        .filter(Boolean);
+
+    const ubicacion =
+      ubicaciones.find(
+        (item) => item.id === ubicacionId
+      )?.nombre || null;
+
+    return {
+      id: claseId,
+      google_calendar_event_id: googleEventId || null,
+      fecha: fechaClase,
+      hora_inicio: hora,
+      duracion_minutos: Number(duracion),
+      tipo,
+      estado: estadoClase,
+      observaciones: observaciones.trim() || null,
+      ubicacion,
+      alumnos: nombres,
+    };
+  }
+
   async function guardarSerie() {
     if (
       !fecha ||
@@ -2414,8 +2462,32 @@ export default function ClasesPage() {
       }
     }
 
+    let falloGoogleSerie = false;
+
+    for (let i = 0; i < clasesCreadas.length; i += 1) {
+      const claseCreada = clasesCreadas[i];
+      const fechaClase = fechas[i];
+
+      try {
+        await sincronizarClaseConGoogleCalendar(
+          datosGoogleDesdeFormulario(
+            claseCreada.id,
+            null,
+            fechaClase,
+            "programada"
+          )
+        );
+      } catch {
+        falloGoogleSerie = true;
+      }
+    }
+
     setMensaje(
-      `✅ Serie creada correctamente: ${fechas.length} clase(s) programada(s)`
+      `✅ Serie creada correctamente: ${fechas.length} clase(s) programada(s)${
+        falloGoogleSerie
+          ? " · ⚠️ Alguna clase no pudo sincronizarse con Google Calendar."
+          : ""
+      }`
     );
 
     limpiarFormulario();
@@ -2528,6 +2600,20 @@ export default function ClasesPage() {
           clasesABorrar
         );
 
+      let falloGoogle = false;
+
+      for (const claseABorrar of clasesABorrar) {
+        try {
+          await borrarClaseDeGoogleCalendar({
+            id: claseABorrar.id,
+            google_calendar_event_id:
+              claseABorrar.google_calendar_event_id,
+          });
+        } catch {
+          falloGoogle = true;
+        }
+      }
+
       if (
         ids.length > 0
       ) {
@@ -2609,13 +2695,19 @@ export default function ClasesPage() {
         null
       );
 
-      setMensaje(
+      const mensajeBorrado =
         alcance === "una"
           ? "✅ Clase borrada correctamente"
           : alcance ===
             "siguientes"
           ? "✅ Esta clase y las siguientes se han borrado correctamente"
-          : "✅ Serie completa borrada correctamente"
+          : "✅ Serie completa borrada correctamente";
+
+      setMensaje(
+        mensajeBorrado +
+          (falloGoogle
+            ? " · ⚠️ Algún evento no pudo borrarse de Google Calendar."
+            : "")
       );
 
       await cargarDatos();
@@ -3166,6 +3258,19 @@ export default function ClasesPage() {
             participantesNuevos,
             tipo
           );
+
+          try {
+            await sincronizarClaseConGoogleCalendar(
+              datosGoogleDesdeFormulario(
+                claseObjetivo.id,
+                claseObjetivo.google_calendar_event_id,
+                fechaObjetivo,
+                estado
+              )
+            );
+          } catch {
+            // La clase queda guardada en Manager aunque Google falle.
+          }
         }
 
         alcanceEdicionSerieRef.current =
@@ -3358,11 +3463,31 @@ export default function ClasesPage() {
       return;
     }
 
+    let falloGoogle = false;
+
+    try {
+      await sincronizarClaseConGoogleCalendar(
+        datosGoogleDesdeFormulario(
+          claseGuardada.id,
+          claseGuardada.google_calendar_event_id ||
+            claseAnterior?.google_calendar_event_id ||
+            null,
+          fecha,
+          estado
+        )
+      );
+    } catch {
+      falloGoogle = true;
+    }
+
     alcanceEdicionSerieRef.current =
       null;
 
     setMensaje(
-      "✅ Clase guardada correctamente"
+      "✅ Clase guardada correctamente" +
+        (falloGoogle
+          ? " · ⚠️ No se pudo sincronizar con Google Calendar."
+          : "")
     );
 
     if (
