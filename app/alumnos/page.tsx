@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
+
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+
+import FichaAlumno from "../../components/alumnos/FichaAlumno";
+import HistorialAlumno from "../../components/alumnos/HistorialAlumno";
+import FormularioAlumno from "../../components/alumnos/FormularioAlumno";
 
 type Alumno = {
   id: string;
@@ -11,38 +21,244 @@ type Alumno = {
   email: string | null;
   precio_habitual: number | null;
   activo: boolean;
+  foto_url: string | null;
+  procedencia: string | null;
+  club_origen: string | null;
+  ubicacion_habitual_id: string | null;
+  tipo_clase_habitual: string | null;
+};
+
+type Ubicacion = {
+  id: string;
+  nombre: string;
+};
+
+type BonoResumen = {
+  id: string;
+  alumno_id: string;
+  numero_clases: number;
+  clases_restantes: number;
+  activo: boolean;
+};
+
+type PagoResumen = {
+  id: string;
+  alumno_id: string | null;
+  clase_id: string | null;
+  importe: number;
+  estado: string;
+  metodo: string;
+  fecha_pago: string;
+};
+
+type ClaseAlumnoResumen = {
+  alumno_id: string;
+  importe: number;
+  usa_bono: boolean;
+
+  clases: {
+    id: string;
+    fecha: string;
+    hora_inicio: string;
+    duracion_minutos: number;
+    estado: string;
+    tipo: string;
+
+    ubicaciones: {
+      nombre: string;
+    } | null;
+  } | null;
 };
 
 export default function AlumnosPage() {
-  const [alumnos, setAlumnos] = useState<Alumno[]>([]);
+  const router = useRouter();
 
-  const [nombre, setNombre] = useState("");
-  const [apellidos, setApellidos] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [email, setEmail] = useState("");
-  const [precio, setPrecio] = useState("");
-  const [activo, setActivo] = useState(true);
-  const [busqueda, setBusqueda] = useState("");
-  const [mensaje, setMensaje] = useState("");
-  const [alumnoEditandoId, setAlumnoEditandoId] = useState<string | null>(null);
+  const [alumnos, setAlumnos] =
+    useState<Alumno[]>([]);
+
+  const [ubicaciones, setUbicaciones] =
+    useState<Ubicacion[]>([]);
+
+  const [bonos, setBonos] =
+    useState<BonoResumen[]>([]);
+
+  const [pagos, setPagos] =
+    useState<PagoResumen[]>([]);
+
+  const [
+    historialClases,
+    setHistorialClases,
+  ] = useState<ClaseAlumnoResumen[]>([]);
+
+  const [nombre, setNombre] =
+    useState("");
+
+  const [apellidos, setApellidos] =
+    useState("");
+
+  const [telefono, setTelefono] =
+    useState("");
+
+  const [email, setEmail] =
+    useState("");
+
+  const [precio, setPrecio] =
+    useState("");
+
+  const [procedencia, setProcedencia] =
+    useState("propio");
+
+  const [clubOrigen, setClubOrigen] =
+    useState("");
+
+  const [
+    ubicacionHabitualId,
+    setUbicacionHabitualId,
+  ] = useState("");
+
+  const [
+    tipoClaseHabitual,
+    setTipoClaseHabitual,
+  ] = useState("");
+
+  const [activo, setActivo] =
+    useState(true);
+
+  const [fotoUrl, setFotoUrl] =
+    useState("");
+
+  const [
+    fotoArchivo,
+    setFotoArchivo,
+  ] = useState<File | null>(null);
+
+  const [mensaje, setMensaje] =
+    useState("");
+
+  const [
+    alumnoEditandoId,
+    setAlumnoEditandoId,
+  ] =
+    useState<string | null>(null);
+
+  const [busqueda, setBusqueda] =
+    useState("");
+
+  const [
+    filtroEstado,
+    setFiltroEstado,
+  ] = useState("todos");
+
+  const [
+    filtroProcedencia,
+    setFiltroProcedencia,
+  ] = useState("todos");
+
+  const [
+    historialesAbiertos,
+    setHistorialesAbiertos,
+  ] = useState<string[]>([]);
+
+  useEffect(() => {
+    cargarAlumnos();
+  }, []);
 
   async function cargarAlumnos() {
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from("alumnos")
       .select("*")
       .order("nombre");
 
     if (error) {
-      setMensaje("❌ Error al cargar alumnos: " + error.message);
+      setMensaje(
+        "❌ Error al cargar alumnos: " +
+          error.message
+      );
+
       return;
     }
 
-    setAlumnos(data || []);
-  }
+    const {
+      data: ubicacionesData,
+    } = await supabase
+      .from("ubicaciones")
+      .select("id,nombre")
+      .eq("activa", true)
+      .order("nombre");
 
-  useEffect(() => {
-    cargarAlumnos();
-  }, []);
+    const {
+      data: bonosData,
+    } = await supabase
+      .from("bonos")
+      .select(`
+        id,
+        alumno_id,
+        numero_clases,
+        clases_restantes,
+        activo
+      `);
+
+    const {
+      data: pagosData,
+    } = await supabase
+      .from("pagos")
+      .select(`
+        id,
+        alumno_id,
+        clase_id,
+        importe,
+        estado,
+        metodo,
+        fecha_pago
+      `);
+
+    const {
+      data: historialData,
+    } = await supabase
+      .from("clase_alumnos")
+      .select(`
+        alumno_id,
+        importe,
+        usa_bono,
+        clases (
+          id,
+          fecha,
+          hora_inicio,
+          duracion_minutos,
+          estado,
+          tipo,
+          ubicaciones (
+            nombre
+          )
+        )
+      `);
+
+    setAlumnos(
+      (data || []) as Alumno[]
+    );
+
+    setUbicaciones(
+      (ubicacionesData || []) as Ubicacion[]
+    );
+
+    setBonos(
+      (bonosData ||
+        []) as BonoResumen[]
+    );
+
+    setPagos(
+      (pagosData ||
+        []) as PagoResumen[]
+    );
+
+    setHistorialClases(
+      (historialData ||
+        []) as unknown as ClaseAlumnoResumen[]
+    );
+  }
 
   function limpiarFormulario() {
     setNombre("");
@@ -50,44 +266,212 @@ export default function AlumnosPage() {
     setTelefono("");
     setEmail("");
     setPrecio("");
+    setProcedencia("propio");
+    setClubOrigen("");
+    setUbicacionHabitualId("");
+    setTipoClaseHabitual("");
     setActivo(true);
+
+    setFotoArchivo(null);
+    setFotoUrl("");
+
     setAlumnoEditandoId(null);
   }
 
-  async function guardarAlumno(e: React.FormEvent) {
-    e.preventDefault();
+  function seleccionarFoto(
+    archivo: File | null
+  ) {
+    if (!archivo) {
+      return;
+    }
+
+    const formatosPermitidos = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (
+      !formatosPermitidos.includes(
+        archivo.type
+      )
+    ) {
+      setMensaje(
+        "❌ La foto debe ser JPG, PNG o WEBP"
+      );
+
+      return;
+    }
+
+    const limite =
+      5 * 1024 * 1024;
+
+    if (
+      archivo.size > limite
+    ) {
+      setMensaje(
+        "❌ La foto no puede superar 5 MB"
+      );
+
+      return;
+    }
+
+    setFotoArchivo(
+      archivo
+    );
+
+    setFotoUrl(
+      URL.createObjectURL(
+        archivo
+      )
+    );
+
     setMensaje("");
+  }
+
+  async function subirFoto() {
+    if (!fotoArchivo) {
+      return fotoUrl || null;
+    }
+
+    const extension =
+      fotoArchivo.name
+        .split(".")
+        .pop()
+        ?.toLowerCase() ||
+      "jpg";
+
+    const nombreArchivo =
+      `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}.${extension}`;
+
+    const rutaArchivo =
+      `perfiles/${nombreArchivo}`;
+
+    const {
+      error: errorSubida,
+    } = await supabase.storage
+      .from("alumnos")
+      .upload(
+        rutaArchivo,
+        fotoArchivo,
+        {
+          cacheControl: "3600",
+          upsert: false,
+        }
+      );
+
+    if (errorSubida) {
+      throw new Error(
+        errorSubida.message
+      );
+    }
+
+    const {
+      data: urlData,
+    } = supabase.storage
+      .from("alumnos")
+      .getPublicUrl(
+        rutaArchivo
+      );
+
+    return (
+      urlData.publicUrl ||
+      null
+    );
+  }
+
+  async function guardarAlumno(
+    e: FormEvent
+  ) {
+    e.preventDefault();
+
+    setMensaje("");
+
+    let fotoFinal:
+      string | null = null;
+
+    try {
+      fotoFinal =
+        await subirFoto();
+    } catch (error) {
+      const mensajeError =
+        error instanceof Error
+          ? error.message
+          : "Error desconocido";
+
+      setMensaje(
+        "❌ Error al subir la foto: " +
+          mensajeError
+      );
+
+      return;
+    }
 
     const datos = {
       nombre,
-      apellidos: apellidos || null,
-      telefono: telefono || null,
-      email: email || null,
-      precio_habitual: precio ? Number(precio) : null,
+      apellidos:
+        apellidos || null,
+      telefono:
+        telefono || null,
+      email:
+        email || null,
+      precio_habitual:
+        precio
+          ? Number(precio)
+          : null,
+      procedencia,
+      club_origen:
+        procedencia === "otro_club"
+          ? clubOrigen || null
+          : procedencia === "iql"
+          ? "IQL"
+          : null,
+      ubicacion_habitual_id:
+        ubicacionHabitualId || null,
+      tipo_clase_habitual:
+        tipoClaseHabitual || null,
       activo,
+      foto_url:
+        fotoFinal,
     };
 
     let error;
 
     if (alumnoEditandoId) {
-      const resultado = await supabase
-        .from("alumnos")
-        .update(datos)
-        .eq("id", alumnoEditandoId);
+      const resultado =
+        await supabase
+          .from("alumnos")
+          .update(datos)
+          .eq(
+            "id",
+            alumnoEditandoId
+          );
 
-      error = resultado.error;
+      error =
+        resultado.error;
     } else {
-      const resultado = await supabase
-        .from("alumnos")
-        .insert(datos);
+      const resultado =
+        await supabase
+          .from("alumnos")
+          .insert(datos);
 
-      error = resultado.error;
+      error =
+        resultado.error;
     }
 
     if (error) {
-      setMensaje("❌ Error al guardar alumno: " + error.message);
+      setMensaje(
+        "❌ Error al guardar alumno: " +
+          error.message
+      );
+
       return;
     }
+
+    const alumnoQueSeEstabaEditando =
+      alumnoEditandoId;
 
     setMensaje(
       alumnoEditandoId
@@ -96,21 +480,90 @@ export default function AlumnosPage() {
     );
 
     limpiarFormulario();
-    cargarAlumnos();
+
+    await cargarAlumnos();
+
+    if (
+      alumnoQueSeEstabaEditando
+    ) {
+      setTimeout(
+        () => {
+          document
+            .getElementById(
+              `alumno-${alumnoQueSeEstabaEditando}`
+            )
+            ?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+        },
+        100
+      );
+    }
   }
 
-  function editarAlumno(alumno: Alumno) {
-    setAlumnoEditandoId(alumno.id);
-    setNombre(alumno.nombre);
-    setApellidos(alumno.apellidos || "");
-    setTelefono(alumno.telefono || "");
-    setEmail(alumno.email || "");
+  function editarAlumno(
+    alumno: Alumno
+  ) {
+    setAlumnoEditandoId(
+      alumno.id
+    );
+
+    setNombre(
+      alumno.nombre
+    );
+
+    setApellidos(
+      alumno.apellidos ||
+        ""
+    );
+
+    setTelefono(
+      alumno.telefono ||
+        ""
+    );
+
+    setEmail(
+      alumno.email ||
+        ""
+    );
+
     setPrecio(
-      alumno.precio_habitual !== null
-        ? String(alumno.precio_habitual)
+      alumno.precio_habitual !==
+        null
+        ? String(
+            alumno.precio_habitual
+          )
         : ""
     );
-    setActivo(alumno.activo);
+
+    setProcedencia(
+      alumno.procedencia || "propio"
+    );
+
+    setClubOrigen(
+      alumno.club_origen || ""
+    );
+
+    setUbicacionHabitualId(
+      alumno.ubicacion_habitual_id || ""
+    );
+
+    setTipoClaseHabitual(
+      alumno.tipo_clase_habitual || ""
+    );
+
+    setActivo(
+      alumno.activo
+    );
+
+    setFotoArchivo(null);
+
+    setFotoUrl(
+      alumno.foto_url ||
+        ""
+    );
+
     setMensaje("");
 
     window.scrollTo({
@@ -119,73 +572,594 @@ export default function AlumnosPage() {
     });
   }
 
-  async function borrarAlumno(id: string) {
-    const confirmar = window.confirm(
-      "¿Seguro que quieres borrar este alumno?"
-    );
+  async function borrarAlumno(
+    id: string
+  ) {
+    const confirmar =
+      window.confirm(
+        "¿Seguro que quieres borrar este alumno?"
+      );
 
-    if (!confirmar) return;
+    if (!confirmar) {
+      return;
+    }
 
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("alumnos")
       .delete()
       .eq("id", id);
 
     if (error) {
-      setMensaje("❌ Error al borrar alumno: " + error.message);
+      setMensaje(
+        "❌ Error al borrar alumno: " +
+          error.message
+      );
+
       return;
     }
 
-    if (alumnoEditandoId === id) {
+    if (
+      alumnoEditandoId ===
+      id
+    ) {
       limpiarFormulario();
     }
 
-    setMensaje("✅ Alumno borrado correctamente");
-    cargarAlumnos();
+    setMensaje(
+      "✅ Alumno borrado correctamente"
+    );
+
+    await cargarAlumnos();
   }
 
-  async function cambiarEstadoAlumno(alumno: Alumno) {
-    const { error } = await supabase
+  async function cambiarEstadoAlumno(
+    alumno: Alumno
+  ) {
+    const {
+      error,
+    } = await supabase
       .from("alumnos")
       .update({
-        activo: !alumno.activo,
+        activo:
+          !alumno.activo,
       })
-      .eq("id", alumno.id);
+      .eq(
+        "id",
+        alumno.id
+      );
 
     if (error) {
-      setMensaje("❌ Error al cambiar el estado: " + error.message);
+      setMensaje(
+        "❌ Error al cambiar el estado: " +
+          error.message
+      );
+
       return;
     }
 
-    cargarAlumnos();
+    await cargarAlumnos();
   }
 
-  const alumnosFiltrados = alumnos.filter((alumno) => {
-  const texto = `${alumno.nombre} ${alumno.apellidos || ""} ${alumno.telefono || ""} ${alumno.email || ""}`.toLowerCase();
+  function cambiarHistorial(
+    alumnoId: string
+  ) {
+    setHistorialesAbiertos(
+      (actuales) =>
+        actuales.includes(
+          alumnoId
+        )
+          ? actuales.filter(
+              (id) =>
+                id !==
+                alumnoId
+            )
+          : [
+              ...actuales,
+              alumnoId,
+            ]
+    );
+  }
 
-  return texto.includes(busqueda.toLowerCase());
-});
-  const alumnosActivos = alumnos.filter(
-    (alumno) => alumno.activo
-  ).length;
+  function calcularHorario(
+    horaInicio: string,
+    duracionMinutos: number
+  ) {
+    const [
+      hora,
+      minuto,
+    ] =
+      horaInicio
+        .split(":")
+        .map(Number);
 
-  const alumnosInactivos = alumnos.filter(
-    (alumno) => !alumno.activo
-  ).length;
+    const inicio =
+      new Date();
+
+    inicio.setHours(
+      hora,
+      minuto,
+      0,
+      0
+    );
+
+    const fin =
+      new Date(
+        inicio.getTime() +
+          duracionMinutos *
+            60 *
+            1000
+      );
+
+    const inicioTexto =
+      `${String(
+        inicio.getHours()
+      ).padStart(
+        2,
+        "0"
+      )}:` +
+      `${String(
+        inicio.getMinutes()
+      ).padStart(
+        2,
+        "0"
+      )} h`;
+
+    const finTexto =
+      `${String(
+        fin.getHours()
+      ).padStart(
+        2,
+        "0"
+      )}:` +
+      `${String(
+        fin.getMinutes()
+      ).padStart(
+        2,
+        "0"
+      )} h`;
+
+    return `${inicioTexto} a ${finTexto}`;
+  }
+
+  function formatearFecha(
+    fecha: string
+  ) {
+    const [
+      anio,
+      mes,
+      dia,
+    ] =
+      fecha.split("-");
+
+    return `${dia}/${mes}/${anio}`;
+  }
+
+  function diferenciaDias(
+    fecha: string
+  ) {
+    const hoy =
+      new Date();
+
+    hoy.setHours(
+      0,
+      0,
+      0,
+      0
+    );
+
+    const fechaClase =
+      new Date(
+        `${fecha}T00:00:00`
+      );
+
+    fechaClase.setHours(
+      0,
+      0,
+      0,
+      0
+    );
+
+    const diferencia =
+      hoy.getTime() -
+      fechaClase.getTime();
+
+    return Math.max(
+      0,
+      Math.floor(
+        diferencia /
+          (
+            1000 *
+            60 *
+            60 *
+            24
+          )
+      )
+    );
+  }
+
+  function obtenerResumenAlumno(
+    alumnoId: string
+  ) {
+    const bonosAlumno =
+      bonos.filter(
+        (bono) =>
+          bono.alumno_id ===
+            alumnoId &&
+          bono.activo &&
+          bono.clases_restantes >
+            0
+      );
+
+    const clasesRestantes =
+      bonosAlumno.reduce(
+        (
+          total,
+          bono
+        ) =>
+          total +
+          Number(
+            bono.clases_restantes ||
+              0
+          ),
+        0
+      );
+
+    const pendienteCobro =
+      pagos
+        .filter(
+          (pago) =>
+            pago.alumno_id ===
+              alumnoId &&
+            pago.estado ===
+              "pendiente"
+        )
+        .reduce(
+          (
+            total,
+            pago
+          ) =>
+            total +
+            Number(
+              pago.importe ||
+                0
+            ),
+          0
+        );
+
+    const registrosAlumno =
+      historialClases.filter(
+        (registro) =>
+          registro.alumno_id ===
+            alumnoId &&
+          registro.clases
+      );
+
+    const clasesRealizadas =
+      registrosAlumno
+        .filter(
+          (registro) =>
+            registro.clases
+              ?.estado ===
+            "realizada"
+        )
+        .sort(
+          (
+            a,
+            b
+          ) => {
+            const fechaA =
+              `${
+                a.clases
+                  ?.fecha ||
+                ""
+              } ${
+                a.clases
+                  ?.hora_inicio ||
+                ""
+              }`;
+
+            const fechaB =
+              `${
+                b.clases
+                  ?.fecha ||
+                ""
+              } ${
+                b.clases
+                  ?.hora_inicio ||
+                ""
+              }`;
+
+            return fechaB.localeCompare(
+              fechaA
+            );
+          }
+        );
+
+    const ultimaClase =
+      clasesRealizadas.length >
+      0
+        ? clasesRealizadas[0]
+            .clases
+        : null;
+
+    let ultimaClaseFecha =
+      "Sin clases";
+
+    let ultimaClaseHorario =
+      "—";
+
+    let diasDesdeUltimaClase:
+      number | null = null;
+
+    if (ultimaClase) {
+      ultimaClaseFecha =
+        formatearFecha(
+          ultimaClase.fecha
+        );
+
+      ultimaClaseHorario =
+        calcularHorario(
+          ultimaClase.hora_inicio,
+          ultimaClase.duracion_minutos
+        );
+
+      diasDesdeUltimaClase =
+        diferenciaDias(
+          ultimaClase.fecha
+        );
+    }
+
+    const ahora =
+      new Date();
+
+    const clasesFuturas =
+      registrosAlumno
+        .filter(
+          (registro) => {
+            const clase =
+              registro.clases;
+
+            if (!clase) {
+              return false;
+            }
+
+            if (
+              clase.estado ===
+              "cancelada"
+            ) {
+              return false;
+            }
+
+            const fechaHora =
+              new Date(
+                `${clase.fecha}T${clase.hora_inicio}`
+              );
+
+            return (
+              fechaHora.getTime() >=
+              ahora.getTime()
+            );
+          }
+        )
+        .sort(
+          (
+            a,
+            b
+          ) => {
+            const fechaA =
+              `${
+                a.clases
+                  ?.fecha ||
+                ""
+              } ${
+                a.clases
+                  ?.hora_inicio ||
+                ""
+              }`;
+
+            const fechaB =
+              `${
+                b.clases
+                  ?.fecha ||
+                ""
+              } ${
+                b.clases
+                  ?.hora_inicio ||
+                ""
+              }`;
+
+            return fechaA.localeCompare(
+              fechaB
+            );
+          }
+        );
+
+    const proximaClase =
+      clasesFuturas.length >
+      0
+        ? clasesFuturas[0]
+            .clases
+        : null;
+
+    let proximaClaseFecha =
+      "Sin clase";
+
+    let proximaClaseHorario =
+      "—";
+
+    if (proximaClase) {
+      proximaClaseFecha =
+        formatearFecha(
+          proximaClase.fecha
+        );
+
+      proximaClaseHorario =
+        calcularHorario(
+          proximaClase.hora_inicio,
+          proximaClase.duracion_minutos
+        );
+    }
+
+    return {
+      clasesRestantes,
+      pendienteCobro,
+      totalClasesRealizadas:
+        clasesRealizadas.length,
+      ultimaClaseFecha,
+      ultimaClaseHorario,
+      proximaClaseFecha,
+      proximaClaseHorario,
+      diasDesdeUltimaClase,
+    };
+  }
+
+  function obtenerClasesAlumno(
+    alumnoId: string
+  ) {
+    return historialClases
+      .filter(
+        (registro) =>
+          registro.alumno_id ===
+            alumnoId &&
+          registro.clases
+      )
+      .sort(
+        (
+          a,
+          b
+        ) => {
+          const fechaA =
+            `${
+              a.clases
+                ?.fecha ||
+              ""
+            } ${
+              a.clases
+                ?.hora_inicio ||
+              ""
+            }`;
+
+          const fechaB =
+            `${
+              b.clases
+                ?.fecha ||
+              ""
+            } ${
+              b.clases
+                ?.hora_inicio ||
+              ""
+            }`;
+
+          return fechaB.localeCompare(
+            fechaA
+          );
+        }
+      );
+  }
+
+  function obtenerPagosAlumno(
+    alumnoId: string
+  ) {
+    return pagos
+      .filter(
+        (pago) =>
+          pago.alumno_id ===
+          alumnoId
+      )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          b.fecha_pago.localeCompare(
+            a.fecha_pago
+          )
+      );
+  }
+
+  const alumnosFiltrados =
+    alumnos.filter(
+      (alumno) => {
+        const texto =
+          `${alumno.nombre} ${
+            alumno.apellidos ||
+            ""
+          } ${
+            alumno.telefono ||
+            ""
+          } ${
+            alumno.email ||
+            ""
+          } ${
+            alumno.club_origen ||
+            ""
+          }`.toLowerCase();
+
+        const coincideBusqueda =
+          texto.includes(
+            busqueda.toLowerCase()
+          );
+
+        const coincideEstado =
+          filtroEstado ===
+            "todos" ||
+          (filtroEstado ===
+            "activos" &&
+            alumno.activo) ||
+          (filtroEstado ===
+            "inactivos" &&
+            !alumno.activo);
+
+        const procedenciaAlumno =
+          alumno.procedencia || "propio";
+
+        const coincideProcedencia =
+          filtroProcedencia === "todos" ||
+          procedenciaAlumno === filtroProcedencia;
+
+        return (
+          coincideBusqueda &&
+          coincideEstado &&
+          coincideProcedencia
+        );
+      }
+    );
+
+  const alumnosActivos =
+    alumnos.filter(
+      (alumno) =>
+        alumno.activo
+    ).length;
+
+  const alumnosInactivos =
+    alumnos.filter(
+      (alumno) =>
+        !alumno.activo
+    ).length;
 
   return (
     <main className="min-h-screen bg-slate-100 p-8">
-      <div className="mx-auto max-w-6xl">
-        <h1 className="text-4xl font-bold text-slate-900">
-          Alumnos
-        </h1>
 
-        <p className="mt-2 text-slate-600">
-          Gestión de alumnos de Espacio Pádel Manager
-        </p>
+      <div className="mx-auto max-w-7xl">
+
+        <div>
+
+          <h1 className="text-4xl font-bold text-slate-900">
+            Alumnos
+          </h1>
+
+          <p className="mt-2 text-slate-600">
+            Gestión y seguimiento de alumnos
+          </p>
+
+        </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
+
           <div className="rounded-2xl bg-white p-5 shadow">
+
             <p className="text-sm text-slate-500">
               Alumnos activos
             </p>
@@ -193,9 +1167,11 @@ export default function AlumnosPage() {
             <p className="mt-2 text-3xl font-bold text-green-600">
               {alumnosActivos}
             </p>
+
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow">
+
             <p className="text-sm text-slate-500">
               Alumnos inactivos
             </p>
@@ -203,201 +1179,288 @@ export default function AlumnosPage() {
             <p className="mt-2 text-3xl font-bold text-slate-500">
               {alumnosInactivos}
             </p>
+
           </div>
+
         </div>
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-3">
-          <div className="rounded-2xl bg-white p-6 shadow">
-            <h2 className="text-xl font-bold">
-              {alumnoEditandoId ? "Editar alumno" : "Nuevo alumno"}
-            </h2>
+        <div className="mt-8 grid gap-8 xl:grid-cols-[330px_1fr]">
 
-            <form onSubmit={guardarAlumno} className="mt-6 space-y-4">
-              <input
-                type="text"
-                placeholder="Nombre"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              />
+          <FormularioAlumno
+            nombre={nombre}
+            apellidos={apellidos}
+            telefono={telefono}
+            email={email}
+            precio={precio}
+            procedencia={procedencia}
+            clubOrigen={clubOrigen}
+            ubicaciones={ubicaciones}
+            ubicacionHabitualId={ubicacionHabitualId}
+            tipoClaseHabitual={tipoClaseHabitual}
+            activo={activo}
+            fotoUrl={fotoUrl}
+            alumnoEditandoId={
+              alumnoEditandoId
+            }
+            mensaje={mensaje}
+            setNombre={setNombre}
+            setApellidos={
+              setApellidos
+            }
+            setTelefono={
+              setTelefono
+            }
+            setEmail={setEmail}
+            setPrecio={setPrecio}
+            setProcedencia={setProcedencia}
+            setClubOrigen={setClubOrigen}
+            setUbicacionHabitualId={setUbicacionHabitualId}
+            setTipoClaseHabitual={setTipoClaseHabitual}
+            setActivo={setActivo}
+            onFotoSeleccionada={
+              seleccionarFoto
+            }
+            onGuardar={
+              guardarAlumno
+            }
+            onCancelar={() => {
+              const alumnoQueSeEstabaEditando =
+                alumnoEditandoId;
 
-              <input
-                type="text"
-                placeholder="Apellidos"
-                value={apellidos}
-                onChange={(e) => setApellidos(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              />
+              limpiarFormulario();
+              setMensaje("");
 
-              <input
-                type="text"
-                placeholder="Teléfono"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              />
+              if (
+                alumnoQueSeEstabaEditando
+              ) {
+                setTimeout(
+                  () => {
+                    document
+                      .getElementById(
+                        `alumno-${alumnoQueSeEstabaEditando}`
+                      )
+                      ?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                  },
+                  100
+                );
+              }
+            }}
+          />
 
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              />
+          <div>
 
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Precio habitual"
-                value={precio}
-                onChange={(e) => setPrecio(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              />
+            <div className="rounded-2xl bg-white p-6 shadow">
 
-              {alumnoEditandoId && (
-                <select
-                  value={activo ? "activo" : "inactivo"}
+              <h2 className="text-xl font-bold text-slate-900">
+                Alumnos registrados
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                {alumnosFiltrados.length} alumno(s) mostrado(s)
+              </p>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-[1fr_160px_180px_160px]">
+
+                <input
+                  type="text"
+                  placeholder="Buscar nombre, teléfono o email..."
+                  value={busqueda}
                   onChange={(e) =>
-                    setActivo(e.target.value === "activo")
+                    setBusqueda(
+                      e.target.value
+                    )
                   }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  className="rounded-xl border border-slate-300 px-4 py-3"
+                />
+
+                <select
+                  value={filtroEstado}
+                  onChange={(e) =>
+                    setFiltroEstado(
+                      e.target.value
+                    )
+                  }
+                  className="rounded-xl border border-slate-300 px-4 py-3"
                 >
-                  <option value="activo">
-                    Activo
+                  <option value="todos">
+                    Todos
                   </option>
 
-                  <option value="inactivo">
-                    Inactivo
+                  <option value="activos">
+                    Activos
+                  </option>
+
+                  <option value="inactivos">
+                    Inactivos
                   </option>
                 </select>
-              )}
 
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white"
-              >
-                {alumnoEditandoId
-                  ? "Guardar cambios"
-                  : "Guardar alumno"}
-              </button>
+                <select
+                  value={filtroProcedencia}
+                  onChange={(e) =>
+                    setFiltroProcedencia(
+                      e.target.value
+                    )
+                  }
+                  className="rounded-xl border border-slate-300 px-4 py-3"
+                >
+                  <option value="todos">
+                    Todas las procedencias
+                  </option>
 
-              {alumnoEditandoId && (
+                  <option value="propio">
+                    Alumnos propios
+                  </option>
+
+                  <option value="iql">
+                    IQL
+                  </option>
+
+                  <option value="otro_club">
+                    Otros clubs
+                  </option>
+                </select>
+
                 <button
                   type="button"
                   onClick={() => {
-                    limpiarFormulario();
-                    setMensaje("");
+                    setBusqueda("");
+                    setFiltroEstado(
+                      "todos"
+                    );
+                    setFiltroProcedencia(
+                      "todos"
+                    );
                   }}
-                  className="w-full rounded-xl bg-slate-200 px-5 py-3 font-semibold text-slate-800"
+                  className="rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-800"
                 >
-                  Cancelar edición
+                  Limpiar filtros
                 </button>
-              )}
-            </form>
 
-            {mensaje && (
-              <p className="mt-4 text-sm">
-                {mensaje}
-              </p>
-            )}
-          </div>
+              </div>
 
-          <div className="rounded-2xl bg-white p-6 shadow lg:col-span-2">
-            <h2 className="text-xl font-bold">
-              Alumnos registrados
-            </h2>
-
-<input
-  type="text"
-  placeholder="Buscar por nombre, apellidos, teléfono o email..."
-  value={busqueda}
-  onChange={(e) => setBusqueda(e.target.value)}
-  className="mt-6 w-full rounded-xl border border-slate-300 px-4 py-3"
-/>
-            <div className="mt-6 space-y-3">
-              {alumnos.length === 0 && (
-                <p className="text-slate-500">
-                  Todavía no hay alumnos registrados.
-                </p>
-              )}
-
-              {alumnosFiltrados.map((alumno) => (
-                <div
-                  key={alumno.id}
-                  className={
-                    alumno.activo
-                      ? "rounded-xl border border-slate-200 bg-white p-4"
-                      : "rounded-xl border border-slate-200 bg-slate-50 p-4 opacity-70"
-                  }
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-semibold">
-                        {alumno.nombre} {alumno.apellidos || ""}
-                      </p>
-
-                      <p
-                        className={
-                          alumno.activo
-                            ? "mt-1 text-sm font-semibold text-green-600"
-                            : "mt-1 text-sm font-semibold text-red-600"
-                        }
-                      >
-                        {alumno.activo ? "Activo" : "Inactivo"}
-                      </p>
-
-                      {alumno.telefono && (
-                        <p className="mt-2 text-sm text-slate-600">
-                          Tel: {alumno.telefono}
-                        </p>
-                      )}
-
-                      {alumno.email && (
-                        <p className="text-sm text-slate-600">
-                          {alumno.email}
-                        </p>
-                      )}
-
-                      {alumno.precio_habitual !== null && (
-                        <p className="mt-2 text-sm font-medium text-teal-700">
-                          Precio habitual:{" "}
-                          {Number(alumno.precio_habitual).toFixed(2)} €
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => editarAlumno(alumno)}
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-                      >
-                        Editar
-                      </button>
-
-                      <button
-                        onClick={() => cambiarEstadoAlumno(alumno)}
-                        className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800"
-                      >
-                        {alumno.activo
-                          ? "Desactivar"
-                          : "Activar"}
-                      </button>
-
-                      <button
-                        onClick={() => borrarAlumno(alumno.id)}
-                        className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white"
-                      >
-                        Borrar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
+
+            <div className="mt-5 space-y-4">
+
+              {alumnosFiltrados.length ===
+                0 && (
+
+                <div className="rounded-2xl bg-white p-6 shadow">
+
+                  <p className="text-slate-500">
+                    No hay alumnos que coincidan con los filtros.
+                  </p>
+
+                </div>
+
+              )}
+
+              {alumnosFiltrados.map(
+                (alumno) => {
+                  const resumen =
+                    obtenerResumenAlumno(
+                      alumno.id
+                    );
+
+                  const clasesAlumno =
+                    obtenerClasesAlumno(
+                      alumno.id
+                    );
+
+                  const pagosAlumno =
+                    obtenerPagosAlumno(
+                      alumno.id
+                    );
+
+                  const historialAbierto =
+                    historialesAbiertos.includes(
+                      alumno.id
+                    );
+
+                  return (
+                    <div
+                      key={alumno.id}
+                      id={`alumno-${alumno.id}`}
+                    >
+                    <FichaAlumno
+                      alumno={alumno}
+                      ubicacionHabitualNombre={
+                        ubicaciones.find(
+                          (ubicacion) =>
+                            ubicacion.id ===
+                            alumno.ubicacion_habitual_id
+                        )?.nombre || null
+                      }
+                      tipoClaseHabitual={alumno.tipo_clase_habitual}
+                      resumen={resumen}
+                      historialAbierto={
+                        historialAbierto
+                      }
+                      onRegistrarPago={() =>
+                        router.push(
+                          `/pagos?alumno=${alumno.id}`
+                        )
+                      }
+                      onGestionarBono={() =>
+                        router.push(
+                          `/bonos?alumno=${alumno.id}`
+                        )
+                      }
+                      onVerHistorial={() =>
+                        cambiarHistorial(
+                          alumno.id
+                        )
+                      }
+                      onEditar={() =>
+                        editarAlumno(
+                          alumno
+                        )
+                      }
+                      onCambiarEstado={() =>
+                        cambiarEstadoAlumno(
+                          alumno
+                        )
+                      }
+                      onBorrar={() =>
+                        borrarAlumno(
+                          alumno.id
+                        )
+                      }
+                    >
+
+                      <HistorialAlumno
+                        clasesAlumno={
+                          clasesAlumno
+                        }
+                        pagosAlumno={
+                          pagosAlumno
+                        }
+                        formatearFecha={
+                          formatearFecha
+                        }
+                        calcularHorario={
+                          calcularHorario
+                        }
+                      />
+
+                    </FichaAlumno>
+                    </div>
+                  );
+                }
+              )}
+
+            </div>
+
           </div>
+
         </div>
+
       </div>
+
     </main>
   );
 }
