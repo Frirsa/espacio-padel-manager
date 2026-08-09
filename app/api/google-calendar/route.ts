@@ -21,6 +21,12 @@ type ClaseGoogle = {
   alumnos?: string[];
 };
 
+type EtiquetaGoogle = {
+  id?: string;
+  name?: string;
+  backgroundColor?: string;
+};
+
 function base64Url(valor: string | Buffer) {
   const buffer = Buffer.isBuffer(valor)
     ? valor
@@ -159,14 +165,24 @@ function nombreTipo(tipo: string) {
   return "Clase propia";
 }
 
-function colorGoogle(clase: ClaseGoogle) {
-  if (clase.estado === "cancelada") return "11"; // rojo
-  if (clase.tipo === "club") return "6"; // naranja
-  if (clase.tipo === "privada") return "3"; // violeta
-  return "7"; // turquesa / peacock
+function nombreEtiqueta(clase: ClaseGoogle) {
+  if (clase.estado === "cancelada") return "Cancelada";
+  if (clase.tipo === "club") return "Club";
+  if (clase.tipo === "privada") return "Privada";
+  return "Propia";
 }
 
-function crearEvento(clase: ClaseGoogle) {
+function colorGoogleAntiguo(clase: ClaseGoogle) {
+  if (clase.estado === "cancelada") return "11";
+  if (clase.tipo === "club") return "6";
+  if (clase.tipo === "privada") return "3";
+  return "7";
+}
+
+function crearEvento(
+  clase: ClaseGoogle,
+  eventLabelId: string | null
+) {
   const alumnos = (clase.alumnos || []).filter(Boolean);
   const nombres = alumnos.length > 0 ? alumnos.join(", ") : "Sin alumnos";
   const prefijo = clase.estado === "cancelada" ? "CANCELADA · " : "";
@@ -187,7 +203,9 @@ function crearEvento(clase: ClaseGoogle) {
     summary: `${prefijo}${tipo} · ${nombres}`,
     description: descripcion,
     location: clase.ubicacion || undefined,
-    colorId: colorGoogle(clase),
+    ...(eventLabelId
+      ? { eventLabelId }
+      : { colorId: colorGoogleAntiguo(clase) }),
     start: {
       dateTime: `${clase.fecha}T${hora}:00`,
       timeZone: TIME_ZONE,
@@ -222,6 +240,46 @@ async function llamarGoogle(
     },
     cache: "no-store",
   });
+}
+
+async function obtenerEtiquetaId(
+  calendario: string,
+  accessToken: string,
+  clase: ClaseGoogle
+) {
+  const respuesta = await llamarGoogle(
+    `${GOOGLE_CALENDAR_API}/calendars/${calendario}`,
+    accessToken,
+    { method: "GET" }
+  );
+
+  if (!respuesta.ok) {
+    return null;
+  }
+
+  const datos = await respuesta.json();
+  const etiquetas =
+    (datos?.labelProperties?.eventLabels || []) as EtiquetaGoogle[];
+
+  const buscada = nombreEtiqueta(clase).toLocaleLowerCase("es");
+
+  const etiqueta = etiquetas.find(
+    (item) =>
+      (item.name || "").trim().toLocaleLowerCase("es") === buscada
+  );
+
+  return etiqueta?.id || null;
+}
+
+function urlEventos(
+  calendario: string,
+  sufijo: string,
+  usarEtiqueta: boolean
+) {
+  const separador = sufijo.includes("?") ? "&" : "?";
+  return `${GOOGLE_CALENDAR_API}/calendars/${calendario}/events${sufijo}${
+    usarEtiqueta ? `${separador}eventLabelVersion=1` : ""
+  }`;
 }
 
 export async function POST(request: NextRequest) {
@@ -292,14 +350,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const evento = crearEvento(clase);
+    const eventLabelId = await obtenerEtiquetaId(
+      calendario,
+      accessToken,
+      clase
+    );
+    const usarEtiqueta = Boolean(eventLabelId);
+    const evento = crearEvento(clase, eventLabelId);
     let eventId = clase.google_calendar_event_id || null;
 
     if (eventId) {
       const respuestaActualizar = await llamarGoogle(
-        `${GOOGLE_CALENDAR_API}/calendars/${calendario}/events/${encodeURIComponent(
-          eventId
-        )}?sendUpdates=none`,
+        urlEventos(
+          calendario,
+          `/${encodeURIComponent(eventId)}?sendUpdates=none`,
+          usarEtiqueta
+        ),
         accessToken,
         {
           method: "PATCH",
@@ -312,6 +378,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           ok: true,
           eventId: actualizado.id || eventId,
+          etiqueta: nombreEtiqueta(clase),
+          etiquetaAplicada: usarEtiqueta,
         });
       }
 
@@ -329,7 +397,11 @@ export async function POST(request: NextRequest) {
     }
 
     const respuestaCrear = await llamarGoogle(
-      `${GOOGLE_CALENDAR_API}/calendars/${calendario}/events?sendUpdates=none`,
+      urlEventos(
+        calendario,
+        "?sendUpdates=none",
+        usarEtiqueta
+      ),
       accessToken,
       {
         method: "POST",
@@ -349,6 +421,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       eventId: creado.id,
+      etiqueta: nombreEtiqueta(clase),
+      etiquetaAplicada: usarEtiqueta,
     });
   } catch (error) {
     const mensaje =
