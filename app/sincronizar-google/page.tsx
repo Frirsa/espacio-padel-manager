@@ -18,7 +18,7 @@ type UbicacionRelacion =
   | { nombre: string }[]
   | null;
 
-type ClasePendiente = {
+type ClaseSincronizable = {
   id: string;
   google_calendar_event_id: string | null;
   fecha: string;
@@ -30,6 +30,26 @@ type ClasePendiente = {
   ubicaciones: UbicacionRelacion;
   clase_alumnos: RelacionAlumno[];
 };
+
+const CAMPOS_CLASES = `
+  id,
+  google_calendar_event_id,
+  fecha,
+  hora_inicio,
+  duracion_minutos,
+  tipo,
+  estado,
+  observaciones,
+  ubicaciones (
+    nombre
+  ),
+  clase_alumnos (
+    alumnos (
+      nombre,
+      apellidos
+    )
+  )
+`;
 
 function nombreUbicacion(valor: UbicacionRelacion) {
   if (!valor) return null;
@@ -66,10 +86,11 @@ function nombresAlumnos(relaciones: RelacionAlumno[]) {
 }
 
 export default function SincronizarGooglePage() {
-  const [pendientes, setPendientes] = useState<ClasePendiente[]>([]);
+  const [pendientes, setPendientes] = useState<ClaseSincronizable[]>([]);
   const [cargando, setCargando] = useState(true);
   const [sincronizando, setSincronizando] = useState(false);
   const [procesadas, setProcesadas] = useState(0);
+  const [totalProceso, setTotalProceso] = useState(0);
   const [correctas, setCorrectas] = useState(0);
   const [errores, setErrores] = useState<string[]>([]);
   const [mensaje, setMensaje] = useState("");
@@ -83,25 +104,7 @@ export default function SincronizarGooglePage() {
 
     const { data, error } = await supabase
       .from("clases")
-      .select(`
-        id,
-        google_calendar_event_id,
-        fecha,
-        hora_inicio,
-        duracion_minutos,
-        tipo,
-        estado,
-        observaciones,
-        ubicaciones (
-          nombre
-        ),
-        clase_alumnos (
-          alumnos (
-            nombre,
-            apellidos
-          )
-        )
-      `)
+      .select(CAMPOS_CLASES)
       .is("google_calendar_event_id", null)
       .order("fecha", { ascending: true })
       .order("hora_inicio", { ascending: true });
@@ -113,25 +116,31 @@ export default function SincronizarGooglePage() {
       return;
     }
 
-    setPendientes((data || []) as unknown as ClasePendiente[]);
+    setPendientes((data || []) as unknown as ClaseSincronizable[]);
     setCargando(false);
   }
 
-  async function sincronizarTodas() {
-    if (sincronizando || pendientes.length === 0) {
-      return;
+  async function cargarTodasLasClases() {
+    const { data, error } = await supabase
+      .from("clases")
+      .select(CAMPOS_CLASES)
+      .order("fecha", { ascending: true })
+      .order("hora_inicio", { ascending: true });
+
+    if (error) {
+      throw new Error(`No se pudieron cargar las clases: ${error.message}`);
     }
 
-    const confirmar = window.confirm(
-      `Se van a sincronizar ${pendientes.length} clase(s) que todavía no tienen evento asociado en Google Calendar. ¿Continuar?`
-    );
+    return (data || []) as unknown as ClaseSincronizable[];
+  }
 
-    if (!confirmar) {
-      return;
-    }
-
+  async function ejecutarSincronizacion(
+    clases: ClaseSincronizable[],
+    textoFinal: string
+  ) {
     setSincronizando(true);
     setProcesadas(0);
+    setTotalProceso(clases.length);
     setCorrectas(0);
     setErrores([]);
     setMensaje("");
@@ -139,8 +148,8 @@ export default function SincronizarGooglePage() {
     let totalCorrectas = 0;
     const fallos: string[] = [];
 
-    for (let indice = 0; indice < pendientes.length; indice += 1) {
-      const clase = pendientes[indice];
+    for (let indice = 0; indice < clases.length; indice += 1) {
+      const clase = clases[indice];
 
       try {
         await sincronizarClaseConGoogleCalendar({
@@ -175,15 +184,68 @@ export default function SincronizarGooglePage() {
 
     if (fallos.length === 0) {
       setMensaje(
-        `✅ Sincronización terminada. ${totalCorrectas} clase(s) sincronizadas correctamente.`
+        `✅ ${textoFinal} ${totalCorrectas} clase(s) actualizadas correctamente.`
       );
     } else {
       setMensaje(
-        `⚠️ Sincronización terminada. ${totalCorrectas} correcta(s) y ${fallos.length} con error.`
+        `⚠️ Proceso terminado. ${totalCorrectas} correcta(s) y ${fallos.length} con error.`
       );
     }
 
     setSincronizando(false);
+  }
+
+  async function sincronizarPendientes() {
+    if (sincronizando || pendientes.length === 0) {
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Se van a sincronizar ${pendientes.length} clase(s) que todavía no tienen evento asociado en Google Calendar. ¿Continuar?`
+    );
+
+    if (!confirmar) {
+      return;
+    }
+
+    await ejecutarSincronizacion(
+      pendientes,
+      "Sincronización terminada."
+    );
+  }
+
+  async function actualizarTodosLosEventos() {
+    if (sincronizando) {
+      return;
+    }
+
+    try {
+      setMensaje("Comprobando clases para actualizar...");
+      const clases = await cargarTodasLasClases();
+
+      if (clases.length === 0) {
+        setMensaje("No hay clases para actualizar.");
+        return;
+      }
+
+      const confirmar = window.confirm(
+        `Se van a actualizar ${clases.length} evento(s) de Google Calendar con el nuevo formato, poniendo primero el nombre del alumno o alumnos. No se crearán duplicados. ¿Continuar?`
+      );
+
+      if (!confirmar) {
+        setMensaje("");
+        return;
+      }
+
+      await ejecutarSincronizacion(
+        clases,
+        "Actualización de títulos terminada."
+      );
+    } catch (error) {
+      const texto =
+        error instanceof Error ? error.message : "Error desconocido";
+      setMensaje(`❌ ${texto}`);
+    }
   }
 
   return (
@@ -195,13 +257,12 @@ export default function SincronizarGooglePage() {
           </p>
 
           <h1 className="mt-2 text-3xl font-bold text-slate-900">
-            Sincronización inicial
+            Sincronización con Google Calendar
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            Esta pantalla sincroniza únicamente las clases que todavía no tienen
-            un evento de Google Calendar asociado. Las clases ya sincronizadas no
-            se vuelven a crear.
+            Esta pantalla permite sincronizar clases pendientes y también
+            actualizar los eventos ya existentes sin volver a crearlos.
           </p>
 
           <div className="mt-7 rounded-2xl bg-slate-50 p-5">
@@ -224,7 +285,7 @@ export default function SincronizarGooglePage() {
           {sincronizando && (
             <div className="mt-5 rounded-2xl border border-teal-200 bg-teal-50 p-5">
               <p className="font-bold text-teal-800">
-                Sincronizando {procesadas} de {pendientes.length}
+                Procesando {procesadas} de {totalProceso}
               </p>
               <p className="mt-1 text-sm text-teal-700">
                 Correctas hasta ahora: {correctas}
@@ -241,7 +302,7 @@ export default function SincronizarGooglePage() {
           {errores.length > 0 && (
             <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-5">
               <p className="font-bold text-red-800">
-                Clases que no se pudieron sincronizar
+                Clases que no se pudieron actualizar
               </p>
               <div className="mt-3 space-y-2 text-sm text-red-700">
                 {errores.map((error, indice) => (
@@ -254,15 +315,22 @@ export default function SincronizarGooglePage() {
           <div className="mt-7 flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={sincronizarTodas}
+              onClick={sincronizarPendientes}
               disabled={
                 cargando || sincronizando || pendientes.length === 0
               }
               className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {sincronizando
-                ? "Sincronizando..."
-                : "Sincronizar clases pendientes"}
+              Sincronizar clases pendientes
+            </button>
+
+            <button
+              type="button"
+              onClick={actualizarTodosLosEventos}
+              disabled={cargando || sincronizando}
+              className="rounded-xl bg-[#09a9a3] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Poner nombres primero en todos los eventos
             </button>
 
             <button

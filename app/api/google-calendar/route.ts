@@ -200,7 +200,7 @@ function crearEvento(
     .join("\n");
 
   return {
-    summary: `${prefijo}${tipo} · ${nombres}`,
+    summary: `${nombres} · ${prefijo}${tipo}`,
     description: descripcion,
     location: clase.ubicacion || undefined,
     ...(eventLabelId
