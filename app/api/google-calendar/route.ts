@@ -282,6 +282,36 @@ function urlEventos(
   }`;
 }
 
+async function buscarEventoPorClaseId(
+  calendario: string,
+  accessToken: string,
+  claseId: string
+) {
+  const propiedad = encodeURIComponent(
+    `espacioPadelManagerClaseId=${claseId}`
+  );
+
+  const respuesta = await llamarGoogle(
+    `${GOOGLE_CALENDAR_API}/calendars/${calendario}/events?privateExtendedProperty=${propiedad}&showDeleted=false&maxResults=10&singleEvents=true`,
+    accessToken,
+    { method: "GET" }
+  );
+
+  if (!respuesta.ok) {
+    return null;
+  }
+
+  const datos = await respuesta.json();
+  const eventos = Array.isArray(datos?.items) ? datos.items : [];
+
+  const evento = eventos.find(
+    (item: { id?: string; status?: string }) =>
+      item?.id && item?.status !== "cancelled"
+  );
+
+  return evento?.id ? String(evento.id) : null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const usuarioValido = await comprobarUsuario(request);
@@ -317,7 +347,15 @@ export async function POST(request: NextRequest) {
     const calendario = encodeURIComponent(calendarId);
 
     if (accion === "delete") {
-      const eventId = clase.google_calendar_event_id;
+      let eventId = clase.google_calendar_event_id || null;
+
+      if (!eventId) {
+        eventId = await buscarEventoPorClaseId(
+          calendario,
+          accessToken,
+          clase.id
+        );
+      }
 
       if (!eventId) {
         return NextResponse.json({ ok: true, eliminado: false });
@@ -359,6 +397,14 @@ export async function POST(request: NextRequest) {
     const evento = crearEvento(clase, eventLabelId);
     let eventId = clase.google_calendar_event_id || null;
 
+    if (!eventId) {
+      eventId = await buscarEventoPorClaseId(
+        calendario,
+        accessToken,
+        clase.id
+      );
+    }
+
     if (eventId) {
       const respuestaActualizar = await llamarGoogle(
         urlEventos(
@@ -380,6 +426,7 @@ export async function POST(request: NextRequest) {
           eventId: actualizado.id || eventId,
           etiqueta: nombreEtiqueta(clase),
           etiquetaAplicada: usarEtiqueta,
+          reutilizado: !clase.google_calendar_event_id,
         });
       }
 
@@ -423,6 +470,7 @@ export async function POST(request: NextRequest) {
       eventId: creado.id,
       etiqueta: nombreEtiqueta(clase),
       etiquetaAplicada: usarEtiqueta,
+      reutilizado: false,
     });
   } catch (error) {
     const mensaje =
