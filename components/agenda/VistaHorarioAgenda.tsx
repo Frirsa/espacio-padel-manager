@@ -72,7 +72,7 @@ function inicioSemana(fecha: string) {
 function datosGoogleClase(
   clase: Clase,
   cambios?: Partial<
-    Pick<Clase, "fecha" | "hora_inicio" | "estado">
+    Pick<Clase, "fecha" | "hora_inicio" | "estado" | "observaciones">
   >
 ) {
   return {
@@ -85,7 +85,10 @@ function datosGoogleClase(
     duracion_minutos: clase.duracion_minutos,
     tipo: clase.tipo,
     estado: cambios?.estado || clase.estado,
-    observaciones: clase.observaciones,
+    observaciones:
+      cambios?.observaciones !== undefined
+        ? cambios.observaciones
+        : clase.observaciones,
     ubicacion: clase.ubicaciones?.nombre || null,
     alumnos: clase.clase_alumnos
       .map((participante) => {
@@ -224,6 +227,16 @@ export default function VistaHorarioAgenda({
     participanteCobroId,
     setParticipanteCobroId,
   ] = useState<string | null>(null);
+
+  const [
+    cancelacionFacturablePendiente,
+    setCancelacionFacturablePendiente,
+  ] = useState<boolean | null>(null);
+
+  const [
+    motivoCancelacion,
+    setMotivoCancelacion,
+  ] = useState("");
 
   const [
     claseArrastrandoId,
@@ -550,6 +563,7 @@ export default function VistaHorarioAgenda({
       facturable?: boolean;
       cobrar?: boolean;
       metodoCobro?: string;
+      observaciones?: string | null;
     }
   ) {
     if (!claseSeleccionada) {
@@ -645,12 +659,18 @@ export default function VistaHorarioAgenda({
         }
       }
 
+      const observacionesNuevas =
+        opciones?.observaciones !== undefined
+          ? opciones.observaciones
+          : clase.observaciones;
+
       const { error: errorClase } = await supabase
         .from("clases")
         .update({
           estado,
           facturable: facturableNueva,
           cobrada: cobradaNueva,
+          observaciones: observacionesNuevas,
         })
         .eq("id", clase.id);
 
@@ -663,6 +683,7 @@ export default function VistaHorarioAgenda({
         estado,
         facturable: facturableNueva,
         cobrada: cobradaNueva,
+        observaciones: observacionesNuevas,
         clase_alumnos: participantesActualizados,
       };
 
@@ -677,7 +698,10 @@ export default function VistaHorarioAgenda({
 
       try {
         await sincronizarClaseConGoogleCalendar(
-          datosGoogleClase(clase, { estado })
+          datosGoogleClase(clase, {
+            estado,
+            observaciones: observacionesNuevas,
+          })
         );
       } catch {
         falloGoogle = true;
@@ -1757,12 +1781,17 @@ export default function VistaHorarioAgenda({
                   <button
                     type="button"
                     disabled={actualizando}
-                    onClick={() =>
-                      cambiarEstadoClase("cancelada", {
-                        facturable: true,
-                      })
-                    }
-                    className="flex min-w-0 items-center justify-center rounded-lg bg-red-600 px-2 py-2 text-xs font-bold leading-none text-white transition hover:bg-red-700 disabled:opacity-50"
+                    onClick={() => {
+                      setCancelacionFacturablePendiente(true);
+                      setMotivoCancelacion(
+                        claseSeleccionada.observaciones || ""
+                      );
+                    }}
+                    className={`flex min-w-0 items-center justify-center rounded-lg px-2 py-2 text-xs font-bold leading-none transition disabled:opacity-50 ${
+                      cancelacionFacturablePendiente === true
+                        ? "bg-red-600 text-white"
+                        : "border border-red-300 bg-white text-red-700 hover:bg-red-50"
+                    }`}
                   >
                     Se cobra
                   </button>
@@ -1770,16 +1799,69 @@ export default function VistaHorarioAgenda({
                   <button
                     type="button"
                     disabled={actualizando}
-                    onClick={() =>
-                      cambiarEstadoClase("cancelada", {
-                        facturable: false,
-                      })
-                    }
-                    className="flex min-w-0 items-center justify-center rounded-lg border border-red-300 bg-white px-2 py-2 text-xs font-bold leading-none text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                    onClick={() => {
+                      setCancelacionFacturablePendiente(false);
+                      setMotivoCancelacion(
+                        claseSeleccionada.observaciones || ""
+                      );
+                    }}
+                    className={`flex min-w-0 items-center justify-center rounded-lg px-2 py-2 text-xs font-bold leading-none transition disabled:opacity-50 ${
+                      cancelacionFacturablePendiente === false
+                        ? "bg-red-600 text-white"
+                        : "border border-red-300 bg-white text-red-700 hover:bg-red-50"
+                    }`}
                   >
                     No se cobra
                   </button>
                 </div>
+
+                {cancelacionFacturablePendiente !== null && (
+                  <div className="mt-3 rounded-xl border border-red-200 bg-white p-3">
+                    <label className="block text-center text-[11px] font-bold uppercase tracking-wide text-red-600">
+                      Motivo de cancelación
+                    </label>
+
+                    <textarea
+                      value={motivoCancelacion}
+                      onChange={(e) =>
+                        setMotivoCancelacion(e.target.value)
+                      }
+                      placeholder="Ej.: Cancela porque se encuentra mal."
+                      rows={2}
+                      className="mt-2 w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-red-400"
+                    />
+
+                    <button
+                      type="button"
+                      disabled={
+                        actualizando ||
+                        motivoCancelacion.trim().length === 0
+                      }
+                      onClick={() =>
+                        cambiarEstadoClase("cancelada", {
+                          facturable:
+                            cancelacionFacturablePendiente,
+                          observaciones:
+                            motivoCancelacion.trim(),
+                        })
+                      }
+                      className="mt-2 w-full rounded-lg bg-red-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Confirmar cancelación
+                    </button>
+                  </div>
+                )}
+
+                {claseSeleccionada.estado === "cancelada" &&
+                  claseSeleccionada.observaciones &&
+                  cancelacionFacturablePendiente === null && (
+                    <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs leading-5 text-slate-600">
+                      <span className="font-bold text-slate-700">
+                        Motivo:
+                      </span>{" "}
+                      {claseSeleccionada.observaciones}
+                    </p>
+                  )}
               </div>
 
               {claseSeleccionada.tipo === "club" &&

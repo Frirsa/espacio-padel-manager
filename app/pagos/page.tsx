@@ -55,6 +55,9 @@ export default function PagosPage() {
   const filtroDesdeDashboard =
     searchParams.get("filtro");
 
+  const seccionDesdeDashboard =
+    searchParams.get("seccion");
+
   const [alumnos, setAlumnos] =
     useState<Alumno[]>([]);
 
@@ -122,7 +125,11 @@ export default function PagosPage() {
   const [
     seccionActiva,
     setSeccionActiva,
-  ] = useState<"pagos" | "clubs">("pagos");
+  ] = useState<"pagos" | "clubs">(
+    seccionDesdeDashboard === "clubs"
+      ? "clubs"
+      : "pagos"
+  );
 
   useEffect(() => {
     cargarDatos();
@@ -133,6 +140,12 @@ export default function PagosPage() {
       setFiltroEstado("pendiente");
     }
   }, [filtroDesdeDashboard]);
+
+  useEffect(() => {
+    if (seccionDesdeDashboard === "clubs") {
+      setSeccionActiva("clubs");
+    }
+  }, [seccionDesdeDashboard]);
 
   useEffect(() => {
     if (alumnoDesdeFicha) {

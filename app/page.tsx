@@ -167,15 +167,6 @@ export default function Home() {
   const [clasesHoy, setClasesHoy] =
     useState(0);
 
-  const [clasesHoyTotal, setClasesHoyTotal] =
-    useState(0);
-
-  const [clasesHoyProgramadas, setClasesHoyProgramadas] =
-    useState(0);
-
-  const [horasHoyPrevistas, setHorasHoyPrevistas] =
-    useState(0);
-
   const [totalClasesMes, setTotalClasesMes] =
     useState(0);
 
@@ -189,6 +180,12 @@ export default function Home() {
     useState(0);
 
   const [pendiente, setPendiente] =
+    useState(0);
+
+  const [pendienteAlumnos, setPendienteAlumnos] =
+    useState(0);
+
+  const [pendienteClub, setPendienteClub] =
     useState(0);
 
   const [gastosPistaMes, setGastosPistaMes] =
@@ -219,6 +216,12 @@ export default function Home() {
     useState<any[]>([]);
 
   const [numeroPagosPendientes, setNumeroPagosPendientes] =
+    useState(0);
+
+  const [numeroPendientesAlumnos, setNumeroPendientesAlumnos] =
+    useState(0);
+
+  const [numeroPendientesClub, setNumeroPendientesClub] =
     useState(0);
 
   useEffect(() => {
@@ -263,10 +266,11 @@ export default function Home() {
         .select(`
           id,
           fecha,
-          hora_inicio,
           duracion_minutos,
           tipo,
           estado,
+          facturable,
+          cobrada,
           importe_club,
           coste_pista,
           ingreso_extra,
@@ -296,6 +300,16 @@ export default function Home() {
           "realizada"
       );
 
+    const clasesEconomicas =
+      clasesMes.filter(
+        (clase: any) =>
+          clase.estado === "realizada" ||
+          (
+            clase.estado === "cancelada" &&
+            clase.facturable === true
+          )
+      );
+
     setTotalClasesMes(
       clasesRealizadas.length
     );
@@ -309,41 +323,6 @@ export default function Home() {
 
     setClasesHoy(
       clasesHoyRealizadas.length
-    );
-
-    const clasesDeHoy =
-      clasesMes.filter(
-        (clase) =>
-          clase.fecha === hoy &&
-          clase.estado !== "cancelada"
-      );
-
-    const clasesProgramadasHoy =
-      clasesDeHoy.filter(
-        (clase) =>
-          clase.estado === "programada"
-      );
-
-    const minutosPrevistosHoy =
-      clasesDeHoy.reduce(
-        (total, clase) =>
-          total +
-          Number(
-            clase.duracion_minutos || 0
-          ),
-        0
-      );
-
-    setClasesHoyTotal(
-      clasesDeHoy.length
-    );
-
-    setClasesHoyProgramadas(
-      clasesProgramadasHoy.length
-    );
-
-    setHorasHoyPrevistas(
-      minutosPrevistosHoy / 60
     );
 
     const minutosMes =
@@ -365,7 +344,7 @@ export default function Home() {
     );
 
     const totalGastosPista =
-      clasesRealizadas.reduce(
+      clasesEconomicas.reduce(
         (
           total,
           clase
@@ -383,7 +362,7 @@ export default function Home() {
     );
 
     const totalIngresosClub =
-      clasesRealizadas.reduce(
+      clasesEconomicas.reduce(
         (
           total,
           clase
@@ -462,7 +441,7 @@ export default function Home() {
     );
 
     const totalIngresosExtra =
-      clasesRealizadas.reduce(
+      clasesEconomicas.reduce(
         (
           total,
           clase
@@ -480,7 +459,7 @@ export default function Home() {
     );
 
     const ingresosGeneradosMes =
-      clasesRealizadas.reduce(
+      clasesEconomicas.reduce(
         (
           total,
           clase
@@ -544,11 +523,54 @@ export default function Home() {
           "pendiente"
         );
 
-    setNumeroPagosPendientes(
-      (pagosPendientesData || []).length
+    const {
+      data: clasesClubPendientesData,
+    } =
+      await supabase
+        .from("clases")
+        .select(
+          "id,importe_club"
+        )
+        .eq(
+          "tipo",
+          "club"
+        )
+        .eq(
+          "facturable",
+          true
+        )
+        .eq(
+          "cobrada",
+          false
+        )
+        .in(
+          "estado",
+          [
+            "realizada",
+            "cancelada",
+          ]
+        );
+
+    const numeroPendientesNormales =
+      (pagosPendientesData || []).length;
+
+    const numeroPendientesClubCalculado =
+      (clasesClubPendientesData || []).length;
+
+    setNumeroPendientesAlumnos(
+      numeroPendientesNormales
     );
 
-    const totalPendiente =
+    setNumeroPendientesClub(
+      numeroPendientesClubCalculado
+    );
+
+    setNumeroPagosPendientes(
+      numeroPendientesNormales +
+      numeroPendientesClubCalculado
+    );
+
+    const totalPendienteNormal =
       (
         pagosPendientesData ||
         []
@@ -564,6 +586,35 @@ export default function Home() {
           ),
         0
       );
+
+    const totalPendienteClub =
+      (
+        clasesClubPendientesData ||
+        []
+      ).reduce(
+        (
+          total,
+          clase
+        ) =>
+          total +
+          Number(
+            clase.importe_club ||
+              0
+          ),
+        0
+      );
+
+    setPendienteAlumnos(
+      totalPendienteNormal
+    );
+
+    setPendienteClub(
+      totalPendienteClub
+    );
+
+    const totalPendiente =
+      totalPendienteNormal +
+      totalPendienteClub;
 
     const resultadoTotalMes =
       ingresosGeneradosMes -
@@ -727,28 +778,6 @@ export default function Home() {
     return `${dia}/${mes}/${anio}`;
   }
 
-  function nombreMesActual() {
-    return new Date().toLocaleDateString(
-      "es-ES",
-      {
-        month: "long",
-        year: "numeric",
-      }
-    );
-  }
-
-  function siguienteClaseHoy() {
-    const hoy =
-      fechaLocalISO(
-        new Date()
-      );
-
-    return proximasClases.find(
-      (clase: any) =>
-        clase.fecha === hoy
-    );
-  }
-
   function nombreTitularBono(bono: any) {
     if (!bono?.alumnos) {
       return "Bono";
@@ -763,133 +792,15 @@ export default function Home() {
     <main className="min-h-screen bg-slate-100 px-5 py-7 sm:px-7 lg:px-9">
       <div className="mx-auto w-full max-w-[1540px]">
 
-        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-7">
+          <h1 className="text-4xl font-bold text-slate-900">
+            Dashboard
+          </h1>
 
-          <div>
-            <h1 className="text-4xl font-bold text-slate-900">
-              Dashboard
-            </h1>
-
-            <p className="mt-2 text-slate-600">
-              Resumen de tu actividad
-            </p>
-          </div>
-
-          <div className="w-fit rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-bold capitalize text-[#078b86]">
-            {nombreMesActual()}
-          </div>
-
+          <p className="mt-2 text-slate-600">
+            Resumen de tu actividad
+          </p>
         </div>
-
-        {/* HOY */}
-
-        <section className="mb-6 rounded-3xl border border-teal-200 bg-white p-6 shadow-sm">
-
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-
-            <div className="flex items-center gap-4">
-
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
-                <IconoCalendario />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-[#078b86]">
-                  Hoy
-                </p>
-
-                <h2 className="mt-1 text-xl font-bold text-slate-900">
-                  {new Date().toLocaleDateString(
-                    "es-ES",
-                    {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                    }
-                  )}
-                </h2>
-              </div>
-
-            </div>
-
-            <a
-              href={`/agenda?vista=horario&fecha=${fechaLocalISO(
-                new Date()
-              )}`}
-              className="rounded-xl bg-[#09a9a3] px-5 py-3 text-center text-sm font-bold text-white transition hover:bg-[#078b86]"
-            >
-              Abrir horario de hoy
-            </a>
-
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                Clases hoy
-              </p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">
-                {clasesHoyTotal}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-green-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-green-600">
-                Realizadas
-              </p>
-              <p className="mt-2 text-2xl font-bold text-green-700">
-                {clasesHoy}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-orange-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-orange-600">
-                Pendientes hoy
-              </p>
-              <p className="mt-2 text-2xl font-bold text-orange-700">
-                {clasesHoyProgramadas}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-blue-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-blue-600">
-                Horas previstas
-              </p>
-              <p className="mt-2 text-2xl font-bold text-blue-700">
-                {horasHoyPrevistas.toFixed(1)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-violet-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-violet-600">
-                Siguiente hoy
-              </p>
-
-              {siguienteClaseHoy() ? (
-                <>
-                  <p className="mt-2 text-2xl font-bold text-violet-800">
-                    {siguienteClaseHoy().hora_inicio.slice(0, 5)}
-                  </p>
-                  <p className="mt-1 truncate text-xs font-semibold text-violet-700">
-                    {nombresClase(
-                      siguienteClaseHoy()
-                    ) ||
-                      siguienteClaseHoy().ubicaciones?.nombre ||
-                      "Clase programada"}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-2 text-sm font-bold text-violet-700">
-                  No quedan clases hoy
-                </p>
-              )}
-
-            </div>
-
-          </div>
-
-        </section>
 
         {/* ESTADÍSTICAS PRINCIPALES */}
 
@@ -1054,7 +965,11 @@ export default function Home() {
           {/* PENDIENTE */}
 
           <a
-            href="/pagos?filtro=pendientes"
+            href={
+              pendienteClub > 0 && pendienteAlumnos === 0
+                ? "/pagos?seccion=clubs"
+                : "/pagos?filtro=pendientes"
+            }
             className="block rounded-2xl border border-red-200 bg-red-50/50 p-5 shadow-sm transition hover:border-red-300 hover:bg-red-50"
           >
             <div className="flex items-start justify-between gap-4">
@@ -1074,9 +989,23 @@ export default function Home() {
                   {pendiente.toFixed(2)} €
                 </p>
 
-                <p className="mt-1 text-xs text-red-500/80">
-                  pagos pendientes · ver pagos
-                </p>
+                <div className="mt-2 space-y-0.5 text-xs text-red-500/80">
+                  {pendienteAlumnos > 0 && (
+                    <p>
+                      Alumnos: {pendienteAlumnos.toFixed(2)} €
+                    </p>
+                  )}
+
+                  {pendienteClub > 0 && (
+                    <p>
+                      Clubs: {pendienteClub.toFixed(2)} €
+                    </p>
+                  )}
+
+                  {pendiente === 0 && (
+                    <p>Todo cobrado</p>
+                  )}
+                </div>
               </div>
 
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
@@ -1143,23 +1072,38 @@ export default function Home() {
 
               {numeroPagosPendientes > 0 && (
                 <a
-                  href="/pagos?filtro=pendientes"
+                  href={
+                    numeroPendientesClub > 0 &&
+                    numeroPendientesAlumnos === 0
+                      ? "/pagos?seccion=clubs"
+                      : "/pagos?filtro=pendientes"
+                  }
                   className="rounded-2xl border border-red-200 bg-red-50 p-4 transition hover:border-red-300 hover:bg-red-100/70"
                 >
                   <p className="text-xs font-bold uppercase tracking-wide text-red-500">
-                    Pagos pendientes
+                    Cobros pendientes
                   </p>
 
                   <p className="mt-2 text-3xl font-bold text-red-600">
                     {numeroPagosPendientes}
                   </p>
 
-                  <p className="mt-1 text-sm text-red-800">
-                    Pendiente total: {pendiente.toFixed(2)} €
-                  </p>
+                  <div className="mt-1 space-y-0.5 text-sm text-red-800">
+                    {numeroPendientesAlumnos > 0 && (
+                      <p>
+                        Alumnos: {numeroPendientesAlumnos} · {pendienteAlumnos.toFixed(2)} €
+                      </p>
+                    )}
+
+                    {numeroPendientesClub > 0 && (
+                      <p>
+                        Clubs: {numeroPendientesClub} · {pendienteClub.toFixed(2)} €
+                      </p>
+                    )}
+                  </div>
 
                   <p className="mt-3 text-xs font-bold text-red-600">
-                    Revisar pagos →
+                    Revisar cobros →
                   </p>
                 </a>
               )}
@@ -1300,6 +1244,183 @@ export default function Home() {
 
         </section>
 
+        {/* PRÓXIMA CLASE + ACCESOS */}
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+
+          {/* PRÓXIMAS CLASES */}
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-7">
+
+            <div className="flex items-center gap-4">
+
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                <IconoCalendario />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Próximas clases
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Tus siguientes clases programadas
+                </p>
+              </div>
+
+            </div>
+
+            {proximasClases.length > 0 ? (
+
+              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+
+                {proximasClases.map(
+                  (clase: any, indice: number) => {
+                    const nombres =
+                      nombresClase(clase);
+
+                    return (
+                      <div
+                        key={`${clase.fecha}-${clase.hora_inicio}-${indice}`}
+                        className={`rounded-xl border px-3 py-2.5 ${colorProximaClase(
+                          clase.tipo,
+                          clase.estado
+                        )}`}
+                      >
+                        <div className="flex items-center gap-3">
+
+                          <div className="flex h-11 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-white shadow-sm">
+                            <span className="text-xl font-bold text-slate-900">
+                              {clase.hora_inicio.slice(0, 5)}
+                            </span>
+
+                            <span className="text-[9px] font-semibold text-slate-400">
+                              horas
+                            </span>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+
+                            {nombres && (
+                              <p className="truncate text-sm font-bold text-slate-900">
+                                {nombres}
+                              </p>
+                            )}
+
+                            <p className="mt-0.5 truncate text-xs font-semibold text-purple-700">
+                              {clase.ubicaciones?.nombre ||
+                                "Sin ubicación"}
+                            </p>
+
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                {formatearFecha(clase.fecha)}
+                              </span>
+
+                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+                                {clase.duracion_minutos} min
+                              </span>
+
+                            </div>
+
+                          </div>
+
+                        </div>
+                      </div>
+                    );
+                  }
+                )}
+
+              </div>
+
+            ) : (
+
+              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+
+                <p className="font-semibold text-slate-600">
+                  No hay próximas clases programadas
+                </p>
+
+              </div>
+
+            )}
+
+
+
+          </section>
+
+          {/* ACCESOS RÁPIDOS */}
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-7">
+
+            <div className="flex items-center gap-4">
+
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
+                <IconoResultado />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Accesos rápidos
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Funciones habituales
+                </p>
+              </div>
+
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
+              <a
+                href="/clases"
+                className="rounded-xl bg-[#09a9a3] px-5 py-4 text-center font-bold text-white transition hover:bg-[#078b86]"
+              >
+                + Nueva clase
+              </a>
+
+              <a
+                href="/alumnos"
+                className="rounded-xl bg-slate-900 px-5 py-4 text-center font-bold text-white transition hover:bg-slate-700"
+              >
+                + Nuevo alumno
+              </a>
+
+              <a
+                href="/pagos"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-center font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Registrar pago
+              </a>
+
+              <a
+                href="/bonos"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-center font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Crear bono
+              </a>
+
+              <a
+                href="/agenda"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-center font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Ver agenda
+              </a>
+
+              <a
+                href="/informes"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-center font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Ver informes
+              </a>
+
+            </div>
+
+          </section>
+
+        </div>
 
       </div>
     </main>

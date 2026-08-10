@@ -23,6 +23,8 @@ import type {
 } from "../../components/informes/tipos";
 type ClaseConExtra = Clase & {
   ingreso_extra?: number | null;
+  facturable?: boolean;
+  cobrada?: boolean;
 };
 
 type DatoEvolucion = {
@@ -326,6 +328,8 @@ const {
       duracion_minutos,
       tipo,
       estado,
+      facturable,
+      cobrada,
       importe_club,
       coste_pista,
       ingreso_extra,
@@ -411,6 +415,8 @@ const {
       duracion_minutos,
       tipo,
       estado,
+      facturable,
+      cobrada,
       importe_club,
       coste_pista,
       ingreso_extra,
@@ -481,8 +487,13 @@ for (
         clase.fecha.startsWith(
           claveMes
         ) &&
-        clase.estado ===
-          "realizada"
+        (
+          clase.estado === "realizada" ||
+          (
+            clase.estado === "cancelada" &&
+            clase.facturable === true
+          )
+        )
     );
 
   const ingresosDelMes =
@@ -616,8 +627,28 @@ const clasesRealizadasMesAnterior =
       "realizada"
   );
 
+const clasesEconomicas =
+  clases.filter(
+    (clase) =>
+      clase.estado === "realizada" ||
+      (
+        clase.estado === "cancelada" &&
+        clase.facturable === true
+      )
+  );
+
+const clasesEconomicasMesAnterior =
+  clasesMesAnterior.filter(
+    (clase) =>
+      clase.estado === "realizada" ||
+      (
+        clase.estado === "cancelada" &&
+        clase.facturable === true
+      )
+  );
+
 const ingresosMesAnterior =
-  clasesRealizadasMesAnterior.reduce(
+  clasesEconomicasMesAnterior.reduce(
     (
       total,
       clase
@@ -669,7 +700,7 @@ const ingresosMesAnterior =
   );
 
 const gastosMesAnterior =
-  clasesRealizadasMesAnterior.reduce(
+  clasesEconomicasMesAnterior.reduce(
     (
       total,
       clase
@@ -795,7 +826,7 @@ const horasMesAnterior =
         "pendiente"
     );
 
-  const totalPendiente =
+  const totalPendienteNormal =
     pagosPendientes.reduce(
       (
         total,
@@ -808,6 +839,36 @@ const horasMesAnterior =
         ),
       0
     );
+
+  const clasesClubPendientes =
+    clases.filter(
+      (clase) =>
+        clase.tipo === "club" &&
+        clase.facturable === true &&
+        clase.cobrada !== true &&
+        (
+          clase.estado === "realizada" ||
+          clase.estado === "cancelada"
+        )
+    );
+
+  const totalPendienteClub =
+    clasesClubPendientes.reduce(
+      (
+        total,
+        clase
+      ) =>
+        total +
+        Number(
+          clase.importe_club ||
+            0
+        ),
+      0
+    );
+
+  const totalPendiente =
+    totalPendienteNormal +
+    totalPendienteClub;
 
   const totalHoras =
     clasesRealizadas.reduce(
@@ -824,7 +885,7 @@ const horasMesAnterior =
     ) / 60;
 
   const ingresosClubGeneral =
-    clasesRealizadas.reduce(
+    clasesEconomicas.reduce(
       (
         total,
         clase
@@ -838,7 +899,7 @@ const horasMesAnterior =
     );
 
   const gastosPistaGeneral =
-    clasesRealizadas.reduce(
+    clasesEconomicas.reduce(
       (
         total,
         clase
@@ -852,7 +913,7 @@ const horasMesAnterior =
     );
 
   const ingresosGenerados =
-    clasesRealizadas.reduce(
+    clasesEconomicas.reduce(
       (
         total,
         clase
@@ -1264,7 +1325,7 @@ const acumuladoDiario = (() => {
     }
   >();
 
-  clasesRealizadas.forEach(
+  clasesEconomicas.forEach(
     (clase) => {
       const actual =
         porDia.get(
@@ -1314,13 +1375,17 @@ const acumuladoDiario = (() => {
             0
         );
 
-      actual.clases += 1;
+      if (
+        clase.estado === "realizada"
+      ) {
+        actual.clases += 1;
 
-      actual.horas +=
-        Number(
-          clase.duracion_minutos ||
-            0
-        ) / 60;
+        actual.horas +=
+          Number(
+            clase.duracion_minutos ||
+              0
+          ) / 60;
+      }
 
       actual.ingresos +=
         ingresoClase +
