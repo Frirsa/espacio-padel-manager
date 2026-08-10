@@ -224,6 +224,21 @@ export default function Home() {
   const [numeroPendientesClub, setNumeroPendientesClub] =
     useState(0);
 
+  const [acumuladoDiario, setAcumuladoDiario] =
+    useState<any[]>([]);
+
+  const [clubGeneradoMes, setClubGeneradoMes] =
+    useState(0);
+
+  const [clubCobradoMes, setClubCobradoMes] =
+    useState(0);
+
+  const [pistasPagadasClubMes, setPistasPagadasClubMes] =
+    useState(0);
+
+  const [saldoClubMes, setSaldoClubMes] =
+    useState(0);
+
   useEffect(() => {
     cargarDashboard();
   }, []);
@@ -274,6 +289,9 @@ export default function Home() {
           importe_club,
           coste_pista,
           ingreso_extra,
+          ubicaciones (
+            nombre
+          ),
           clase_alumnos (
             alumno_id,
             importe,
@@ -309,6 +327,212 @@ export default function Home() {
             clase.facturable === true
           )
       );
+
+    const porDia = new Map<string, any>();
+
+    clasesMes
+      .filter(
+        (clase: any) =>
+          clase.estado === "realizada" ||
+          clase.estado === "cancelada"
+      )
+      .forEach((clase: any) => {
+        const actual =
+          porDia.get(clase.fecha) || {
+            fecha: clase.fecha,
+            clases: 0,
+            canceladas: 0,
+            canceladasFacturables: 0,
+            horas: 0,
+            ingresos: 0,
+            clubGenerado: 0,
+            pistasPagadasClub: 0,
+            saldoClub: 0,
+            clubCobrado: 0,
+            ingresoExtra: 0,
+            gastos: 0,
+            resultado: 0,
+            acumulado: 0,
+          };
+
+        const realizada =
+          clase.estado === "realizada";
+
+        const cancelada =
+          clase.estado === "cancelada";
+
+        const cuentaEconomicamente =
+          realizada ||
+          (
+            cancelada &&
+            clase.facturable === true
+          );
+
+        if (realizada) {
+          actual.clases += 1;
+          actual.horas +=
+            Number(
+              clase.duracion_minutos || 0
+            ) / 60;
+        }
+
+        if (cancelada) {
+          actual.canceladas += 1;
+
+          if (
+            clase.facturable === true
+          ) {
+            actual.canceladasFacturables += 1;
+          }
+        }
+
+        if (cuentaEconomicamente) {
+          const ingresoClase =
+            clase.tipo === "club"
+              ? Number(
+                  clase.importe_club || 0
+                )
+              : (
+                  clase.clase_alumnos || []
+                ).reduce(
+                  (
+                    total: number,
+                    participante: any
+                  ) =>
+                    total +
+                    Number(
+                      participante.importe || 0
+                    ),
+                  0
+                );
+
+          const extra =
+            Number(
+              clase.ingreso_extra || 0
+            );
+
+          const gasto =
+            Number(
+              clase.coste_pista || 0
+            );
+
+          actual.ingresos +=
+            ingresoClase + extra;
+
+          actual.ingresoExtra +=
+            extra;
+
+          actual.gastos +=
+            gasto;
+
+          actual.resultado +=
+            ingresoClase +
+            extra -
+            gasto;
+
+          if (
+            clase.tipo === "club"
+          ) {
+            actual.clubGenerado +=
+              ingresoClase;
+
+            if (
+              clase.cobrada === true
+            ) {
+              actual.clubCobrado +=
+                ingresoClase;
+            }
+          }
+
+          const esIQL =
+            clase.ubicaciones?.nombre ===
+            "IQL Sports";
+
+          if (
+            esIQL &&
+            clase.tipo !== "club"
+          ) {
+            actual.pistasPagadasClub +=
+              gasto;
+          }
+
+          actual.saldoClub =
+            actual.clubGenerado -
+            actual.pistasPagadasClub;
+        }
+
+        porDia.set(
+          clase.fecha,
+          actual
+        );
+      });
+
+    let acumuladoResultado = 0;
+
+    const diasOrdenados =
+      Array.from(
+        porDia.values()
+      )
+        .sort(
+          (a: any, b: any) =>
+            a.fecha.localeCompare(
+              b.fecha
+            )
+        )
+        .map((dia: any) => {
+          acumuladoResultado +=
+            dia.resultado;
+
+          return {
+            ...dia,
+            acumulado:
+              acumuladoResultado,
+          };
+        });
+
+    setAcumuladoDiario(
+      diasOrdenados
+    );
+
+    setClubGeneradoMes(
+      diasOrdenados.reduce(
+        (total: number, dia: any) =>
+          total +
+          dia.clubGenerado,
+        0
+      )
+    );
+
+    setClubCobradoMes(
+      diasOrdenados.reduce(
+        (total: number, dia: any) =>
+          total +
+          dia.clubCobrado,
+        0
+      )
+    );
+
+    const totalPistasIQL =
+      diasOrdenados.reduce(
+        (total: number, dia: any) =>
+          total +
+          dia.pistasPagadasClub,
+        0
+      );
+
+    setPistasPagadasClubMes(
+      totalPistasIQL
+    );
+
+    setSaldoClubMes(
+      diasOrdenados.reduce(
+        (total: number, dia: any) =>
+          total +
+          dia.clubGenerado,
+        0
+      ) -
+      totalPistasIQL
+    );
 
     setTotalClasesMes(
       clasesRealizadas.length
@@ -802,221 +1026,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* ESTADÍSTICAS PRINCIPALES */}
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-
-          {/* CLASES DEL MES */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  Clases del mes
-                </p>
-
-                <p className="mt-3 text-3xl font-bold text-slate-900">
-                  {totalClasesMes}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  {clasesHoy} realizadas hoy
-                </p>
-              </div>
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                <IconoCalendario />
-              </div>
-
-            </div>
-          </div>
-
-          {/* HORAS DEL MES */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  Horas del mes
-                </p>
-
-                <p className="mt-3 text-3xl font-bold text-slate-900">
-                  {horasMes.toFixed(1)}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  horas impartidas
-                </p>
-              </div>
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-500">
-                <IconoReloj />
-              </div>
-
-            </div>
-          </div>
-
-          {/* INGRESOS */}
-
-          <div className="rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  Ingresos del mes
-                </p>
-
-                <p className="mt-3 text-3xl font-bold text-green-600">
-                  {ingresosMes.toFixed(2)} €
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  alumnos + clubs + extras
-                </p>
-
-                {ingresosExtraMes > 0 && (
-                  <p className="mt-1 text-xs font-semibold text-purple-600">
-                    Extras: {ingresosExtraMes.toFixed(2)} €
-                  </p>
-                )}
-              </div>
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
-                <IconoEuro />
-              </div>
-
-            </div>
-          </div>
-
-          {/* GASTOS */}
-
-          <div className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  Gastos de pista
-                </p>
-
-                <p className="mt-3 text-3xl font-bold text-red-600">
-                  {gastosPistaMes.toFixed(2)} €
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  acumulado del mes
-                </p>
-              </div>
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
-                <IconoGasto />
-              </div>
-
-            </div>
-          </div>
-
-          {/* RESULTADO */}
-
-          <div
-            className={
-              resultadoMes >= 0
-                ? "rounded-2xl border border-teal-200 bg-white p-5 shadow-sm"
-                : "rounded-2xl border border-red-200 bg-white p-5 shadow-sm"
-            }
-          >
-            <div className="flex items-start justify-between gap-4">
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  Resultado del mes
-                </p>
-
-                <p
-                  className={
-                    resultadoMes > 0
-                      ? "mt-3 text-3xl font-bold text-[#078b86]"
-                      : resultadoMes < 0
-                      ? "mt-3 text-3xl font-bold text-red-600"
-                      : "mt-3 text-3xl font-bold text-slate-700"
-                  }
-                >
-                  {resultadoMes.toFixed(2)} €
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  ingresos − pistas
-                </p>
-              </div>
-
-              <div
-                className={
-                  resultadoMes >= 0
-                    ? "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]"
-                    : "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600"
-                }
-              >
-                <IconoResultado />
-              </div>
-
-            </div>
-          </div>
-
-          {/* PENDIENTE */}
-
-          <a
-            href={
-              pendienteClub > 0 && pendienteAlumnos === 0
-                ? "/pagos?seccion=clubs"
-                : "/pagos?filtro=pendientes"
-            }
-            className="block rounded-2xl border border-red-200 bg-red-50/50 p-5 shadow-sm transition hover:border-red-300 hover:bg-red-50"
-          >
-            <div className="flex items-start justify-between gap-4">
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-red-500">
-                  Pendiente de cobro
-                </p>
-
-                <p
-                  className={
-                    pendiente > 0
-                      ? "mt-3 text-3xl font-bold text-red-600"
-                      : "mt-3 text-3xl font-bold text-slate-700"
-                  }
-                >
-                  {pendiente.toFixed(2)} €
-                </p>
-
-                <div className="mt-2 space-y-0.5 text-xs text-red-500/80">
-                  {pendienteAlumnos > 0 && (
-                    <p>
-                      Alumnos: {pendienteAlumnos.toFixed(2)} €
-                    </p>
-                  )}
-
-                  {pendienteClub > 0 && (
-                    <p>
-                      Clubs: {pendienteClub.toFixed(2)} €
-                    </p>
-                  )}
-
-                  {pendiente === 0 && (
-                    <p>Todo cobrado</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-                <IconoPendiente />
-              </div>
-
-            </div>
-          </a>
-
-        </div>
-
         {/* AVISOS IMPORTANTES */}
 
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-7">
@@ -1050,7 +1059,7 @@ export default function Home() {
                   href="/agenda?filtro=sin-cerrar"
                   className="rounded-2xl border border-orange-200 bg-orange-50 p-4 transition hover:border-orange-300 hover:bg-orange-100/70"
                 >
-                  <p className="text-xs font-bold uppercase tracking-wide text-orange-600">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-orange-600">
                     Clases sin cerrar
                   </p>
 
@@ -1080,7 +1089,7 @@ export default function Home() {
                   }
                   className="rounded-2xl border border-red-200 bg-red-50 p-4 transition hover:border-red-300 hover:bg-red-100/70"
                 >
-                  <p className="text-xs font-bold uppercase tracking-wide text-red-500">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-red-500">
                     Cobros pendientes
                   </p>
 
@@ -1113,7 +1122,7 @@ export default function Home() {
                   href="/bonos?filtro=por-terminar"
                   className="rounded-2xl border border-amber-200 bg-amber-50 p-4 transition hover:border-amber-300 hover:bg-amber-100/70"
                 >
-                  <p className="text-xs font-bold uppercase tracking-wide text-amber-600">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
                     Bonos por terminar
                   </p>
 
@@ -1136,291 +1145,503 @@ export default function Home() {
 
           </section>
 
-        {/* ACTIVIDAD DEL MES */}
 
-        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-7">
+        {/* ESTADÍSTICAS · RESUMEN DEL PERIODO */}
 
-          <div className="flex items-center gap-4">
+        <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
 
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
-              <IconoPersonas />
+          <div className="border-b border-slate-200 px-6 py-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#09a9a3]">
+              Estadísticas
+            </p>
+
+            <h2 className="mt-1 text-xl font-bold text-slate-900">
+              Resumen del periodo
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Situación económica y actividad del mes actual
+            </p>
+          </div>
+
+          <div className="grid gap-3 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Ingresos
+              </p>
+              <p className="mt-2 text-2xl font-bold text-green-600">
+                {ingresosMes.toFixed(2)} €
+              </p>
+              {ingresosExtraMes > 0 && (
+                <p className="mt-1 text-xs font-semibold text-purple-600">
+                  Extras: {ingresosExtraMes.toFixed(2)} €
+                </p>
+              )}
             </div>
 
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Actividad del mes
-              </h2>
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Gastos
+              </p>
+              <p className="mt-2 text-2xl font-bold text-red-600">
+                {gastosPistaMes.toFixed(2)} €
+              </p>
+            </div>
 
-              <p className="mt-1 text-sm text-slate-500">
-                Resumen de las clases realizadas
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Resultado
+              </p>
+              <p
+                className={
+                  resultadoMes >= 0
+                    ? "mt-2 text-2xl font-bold text-[#078b86]"
+                    : "mt-2 text-2xl font-bold text-red-600"
+                }
+              >
+                {resultadoMes.toFixed(2)} €
+              </p>
+            </div>
+
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Clases
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {totalClasesMes}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                realizadas
+              </p>
+            </div>
+
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Horas
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {horasMes.toFixed(1)}
+              </p>
+            </div>
+
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Ingreso medio
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {totalClasesMes > 0
+                  ? (ingresosMes / totalClasesMes).toFixed(2)
+                  : "0.00"} €
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                por clase realizada
               </p>
             </div>
 
           </div>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="border-t border-slate-200 px-3 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+              Análisis de actividad
+            </p>
+          </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
-              <div className="flex items-center justify-between gap-4">
+          <div className="grid gap-3 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
 
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                    Alumnos distintos
-                  </p>
-
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {alumnosDistintos}
-                  </p>
-                </div>
-
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
-                  <IconoPersonas />
-                </div>
-
-              </div>
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Alumnos distintos
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {alumnosDistintos}
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
-              <div className="flex items-center justify-between gap-4">
-
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                    Media alumnos / clase
-                  </p>
-
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {mediaAlumnos.toFixed(1)}
-                  </p>
-                </div>
-
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-50 text-purple-600">
-                  <IconoPersonas />
-                </div>
-
-              </div>
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Media alumnos
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {mediaAlumnos.toFixed(1)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                por clase
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
-              <div className="flex items-center justify-between gap-4">
-
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                    Clases para club
-                  </p>
-
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {clasesClubMes}
-                  </p>
-                </div>
-
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                  <IconoClub />
-                </div>
-
-              </div>
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Clases para club
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {clasesClubMes}
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
-              <div className="flex items-center justify-between gap-4">
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Clases propias
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {clasesPropiasMes}
+              </p>
+            </div>
 
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                    Clases propias
-                  </p>
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Club generado
+              </p>
+              <p className="mt-2 text-2xl font-bold text-blue-700">
+                {clubGeneradoMes.toFixed(2)} €
+              </p>
+            </div>
 
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {clasesPropiasMes}
-                  </p>
-                </div>
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Pistas pagadas
+              </p>
+              <p className="mt-2 text-2xl font-bold text-red-600">
+                {pistasPagadasClubMes.toFixed(2)} €
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                IQL Sports
+              </p>
+            </div>
 
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-orange-500">
-                  <IconoCalendario />
-                </div>
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Saldo club
+              </p>
+              <p
+                className={
+                  saldoClubMes >= 0
+                    ? "mt-2 text-2xl font-bold text-[#078b86]"
+                    : "mt-2 text-2xl font-bold text-red-600"
+                }
+              >
+                {saldoClubMes.toFixed(2)} €
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                generado − pistas
+              </p>
+            </div>
 
-              </div>
+            <div className="min-h-[118px] rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Club cobrado
+              </p>
+              <p className="mt-2 text-2xl font-bold text-emerald-700">
+                {clubCobradoMes.toFixed(2)} €
+              </p>
             </div>
 
           </div>
 
         </section>
 
-        {/* PRÓXIMA CLASE + ACCESOS */}
+        {/* EVOLUCIÓN DEL MES */}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
 
-          {/* PRÓXIMAS CLASES */}
+          <div className="border-b border-slate-200 px-6 py-5">
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-7">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#09a9a3]">
+              Evolución del mes
+            </p>
 
-            <div className="flex items-center gap-4">
+            <h2 className="mt-1 text-xl font-bold text-slate-900">
+              Acumulado diario
+            </h2>
 
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                <IconoCalendario />
-              </div>
+            <p className="mt-1 text-sm text-slate-500">
+              Resultado de cada día y acumulado progresivo durante el mes actual
+            </p>
 
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Próximas clases
-                </h2>
+          </div>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Tus siguientes clases programadas
-                </p>
-              </div>
+          {acumuladoDiario.length === 0 ? (
 
+            <div className="px-6 py-8 text-sm text-slate-500">
+              No hay clases realizadas ni canceladas en este mes.
             </div>
 
-            {proximasClases.length > 0 ? (
+          ) : (
 
-              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="overflow-x-auto">
 
-                {proximasClases.map(
-                  (clase: any, indice: number) => {
-                    const nombres =
-                      nombresClase(clase);
+              <table className="w-full min-w-[1180px] table-fixed">
 
-                    return (
-                      <div
-                        key={`${clase.fecha}-${clase.hora_inicio}-${indice}`}
-                        className={`rounded-xl border px-3 py-2.5 ${colorProximaClase(
-                          clase.tipo,
-                          clase.estado
-                        )}`}
-                      >
-                        <div className="flex items-center gap-3">
+                <thead className="bg-slate-50">
 
-                          <div className="flex h-11 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-white shadow-sm">
-                            <span className="text-xl font-bold text-slate-900">
-                              {clase.hora_inicio.slice(0, 5)}
-                            </span>
+                  <tr className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
 
-                            <span className="text-[9px] font-semibold text-slate-400">
-                              horas
-                            </span>
-                          </div>
+                    <th className="px-3 py-3">
+                      Día
+                    </th>
 
-                          <div className="min-w-0 flex-1">
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Realizadas
+                    </th>
 
-                            {nombres && (
-                              <p className="truncate text-sm font-bold text-slate-900">
-                                {nombres}
-                              </p>
-                            )}
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Canceladas
+                    </th>
 
-                            <p className="mt-0.5 truncate text-xs font-semibold text-purple-700">
-                              {clase.ubicaciones?.nombre ||
-                                "Sin ubicación"}
-                            </p>
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Horas
+                    </th>
 
-                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Ingresos
+                    </th>
 
-                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-                                {formatearFecha(clase.fecha)}
-                              </span>
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Club generado
+                    </th>
 
-                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
-                                {clase.duracion_minutos} min
-                              </span>
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Pistas pagadas
+                    </th>
 
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Saldo club día
+                    </th>
+
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Club cobrado
+                    </th>
+
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Ingreso extra
+                    </th>
+
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Gastos
+                    </th>
+
+                    <th className="px-2 py-3 text-center leading-tight">
+                      Resultado
+                    </th>
+
+                    <th className="px-3 py-3 text-center">
+                      Acumulado
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+                <tbody className="divide-y divide-slate-100">
+
+                  {acumuladoDiario.map(
+                    (dia: any) => {
+
+                      const [
+                        anio,
+                        numeroMes,
+                        numeroDia,
+                      ] =
+                        dia.fecha.split("-");
+
+                      return (
+
+                        <tr
+                          key={dia.fecha}
+                          className="text-xs text-slate-700"
+                        >
+
+                          <td className="px-3 py-3 font-semibold text-slate-900">
+                            {numeroDia}/{numeroMes}/{anio}
+                          </td>
+
+                          <td className="px-2 py-3 text-center">
+                            {dia.clases}
+                          </td>
+
+                          <td className="px-2 py-3 text-center">
+                            <div className="font-semibold text-red-600">
+                              {dia.canceladas}
                             </div>
 
-                          </div>
+                            {dia.canceladas > 0 && (
+                              <div className="mt-0.5 text-[10px] font-medium text-slate-400">
+                                {dia.canceladasFacturables} facturable{dia.canceladasFacturables === 1 ? "" : "s"}
+                              </div>
+                            )}
+                          </td>
 
-                        </div>
+                          <td className="px-2 py-3 text-center">
+                            {dia.horas.toFixed(1)}
+                          </td>
+
+                          <td className="px-2 py-3 text-center font-semibold text-slate-900">
+                            {dia.ingresos.toFixed(2)} €
+                          </td>
+
+                          <td className="px-2 py-3 text-center font-semibold text-blue-700">
+                            {dia.clubGenerado.toFixed(2)} €
+                          </td>
+
+                          <td className="px-2 py-3 text-center font-semibold text-red-600">
+                            {dia.pistasPagadasClub.toFixed(2)} €
+                          </td>
+
+                          <td
+                            className={
+                              dia.saldoClub >= 0
+                                ? "px-2 py-3 text-center font-bold text-[#078b86]"
+                                : "px-2 py-3 text-center font-bold text-red-600"
+                            }
+                          >
+                            {dia.saldoClub.toFixed(2)} €
+                          </td>
+
+                          <td className="px-2 py-3 text-center font-semibold text-emerald-700">
+                            {dia.clubCobrado.toFixed(2)} €
+                          </td>
+
+                          <td className="px-2 py-3 text-center font-semibold text-purple-700">
+                            {dia.ingresoExtra.toFixed(2)} €
+                          </td>
+
+                          <td className="px-2 py-3 text-center text-red-600">
+                            {dia.gastos.toFixed(2)} €
+                          </td>
+
+                          <td
+                            className={
+                              dia.resultado >= 0
+                                ? "px-2 py-3 text-center font-bold text-emerald-600"
+                                : "px-2 py-3 text-center font-bold text-red-600"
+                            }
+                          >
+                            {dia.resultado.toFixed(2)} €
+                          </td>
+
+                          <td
+                            className={
+                              dia.acumulado >= 0
+                                ? "px-3 py-3 text-center text-sm font-bold text-[#09a9a3]"
+                                : "px-3 py-3 text-center text-sm font-bold text-red-600"
+                            }
+                          >
+                            {dia.acumulado.toFixed(2)} €
+                          </td>
+
+                        </tr>
+
+                      );
+                    }
+                  )}
+
+                </tbody>
+
+                <tfoot className="border-t border-slate-200 bg-slate-50">
+
+                  <tr className="text-sm font-bold text-slate-900">
+
+                    <td className="px-3 py-3">
+                      TOTAL MES
+                    </td>
+
+                    <td className="px-2 py-3 text-center">
+                      {totalClasesMes}
+                    </td>
+
+                    <td className="px-2 py-3 text-center">
+                      <div className="text-red-600">
+                        {acumuladoDiario.reduce(
+                          (total: number, dia: any) =>
+                            total + dia.canceladas,
+                          0
+                        )}
                       </div>
-                    );
-                  }
-                )}
 
-              </div>
+                      {acumuladoDiario.reduce(
+                        (total: number, dia: any) =>
+                          total + dia.canceladas,
+                        0
+                      ) > 0 && (
+                        <div className="mt-0.5 text-[10px] font-medium text-slate-400">
+                          {acumuladoDiario.reduce(
+                            (total: number, dia: any) =>
+                              total + dia.canceladasFacturables,
+                            0
+                          )} facturables
+                        </div>
+                      )}
+                    </td>
 
-            ) : (
+                    <td className="px-2 py-3 text-center">
+                      {horasMes.toFixed(1)}
+                    </td>
 
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+                    <td className="px-2 py-3 text-center">
+                      {ingresosMes.toFixed(2)} €
+                    </td>
 
-                <p className="font-semibold text-slate-600">
-                  No hay próximas clases programadas
-                </p>
+                    <td className="px-2 py-3 text-center text-blue-700">
+                      {clubGeneradoMes.toFixed(2)} €
+                    </td>
 
-              </div>
+                    <td className="px-2 py-3 text-center text-red-600">
+                      {pistasPagadasClubMes.toFixed(2)} €
+                    </td>
 
-            )}
+                    <td
+                      className={
+                        saldoClubMes >= 0
+                          ? "px-2 py-3 text-center text-[#078b86]"
+                          : "px-2 py-3 text-center text-red-600"
+                      }
+                    >
+                      {saldoClubMes.toFixed(2)} €
+                    </td>
 
+                    <td className="px-2 py-3 text-center text-emerald-700">
+                      {clubCobradoMes.toFixed(2)} €
+                    </td>
 
+                    <td className="px-2 py-3 text-center text-purple-700">
+                      {ingresosExtraMes.toFixed(2)} €
+                    </td>
 
-          </section>
+                    <td className="px-2 py-3 text-center text-red-600">
+                      {gastosPistaMes.toFixed(2)} €
+                    </td>
 
-          {/* ACCESOS RÁPIDOS */}
+                    <td
+                      className={
+                        resultadoMes >= 0
+                          ? "px-2 py-3 text-center text-emerald-600"
+                          : "px-2 py-3 text-center text-red-600"
+                      }
+                    >
+                      {resultadoMes.toFixed(2)} €
+                    </td>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-7">
+                    <td
+                      className={
+                        resultadoMes >= 0
+                          ? "px-3 py-3 text-center text-[#09a9a3]"
+                          : "px-3 py-3 text-center text-red-600"
+                      }
+                    >
+                      {resultadoMes.toFixed(2)} €
+                    </td>
 
-            <div className="flex items-center gap-4">
+                  </tr>
 
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
-                <IconoResultado />
-              </div>
+                </tfoot>
 
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Accesos rápidos
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Funciones habituales
-                </p>
-              </div>
-
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-
-              <a
-                href="/clases"
-                className="rounded-xl bg-[#09a9a3] px-5 py-4 text-center font-bold text-white transition hover:bg-[#078b86]"
-              >
-                + Nueva clase
-              </a>
-
-              <a
-                href="/alumnos"
-                className="rounded-xl bg-slate-900 px-5 py-4 text-center font-bold text-white transition hover:bg-slate-700"
-              >
-                + Nuevo alumno
-              </a>
-
-              <a
-                href="/pagos"
-                className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-center font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Registrar pago
-              </a>
-
-              <a
-                href="/bonos"
-                className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-center font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Crear bono
-              </a>
-
-              <a
-                href="/agenda"
-                className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-center font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Ver agenda
-              </a>
-
-              <a
-                href="/informes"
-                className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-center font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Ver informes
-              </a>
+              </table>
 
             </div>
 
-          </section>
+          )}
 
-        </div>
+        </section>
 
       </div>
     </main>

@@ -220,6 +220,8 @@ const {
           duracion_minutos,
           tipo,
           estado,
+          facturable,
+          cobrada,
           importe_club,
           coste_pista,
           ingreso_extra,
@@ -562,8 +564,14 @@ for (
       0
     );
 
+  const clasesRealizadasDelMes =
+    clasesDelMes.filter(
+      (clase) =>
+        clase.estado === "realizada"
+    );
+
   const horasDelMes =
-    clasesDelMes.reduce(
+    clasesRealizadasDelMes.reduce(
       (
         total,
         clase
@@ -601,7 +609,7 @@ for (
       gastosDelMes,
 
     clases:
-      clasesDelMes.length,
+      clasesRealizadasDelMes.length,
 
     horas:
       horasDelMes,
@@ -966,7 +974,7 @@ const horasMesAnterior =
       0
     );
 const ingresosExtraGeneral =
-  clasesRealizadas.reduce(
+  clasesEconomicas.reduce(
     (
       total,
       clase
@@ -980,7 +988,7 @@ const ingresosExtraGeneral =
   );
 
 const ingresosClasesClub =
-  clasesRealizadas
+  clasesEconomicas
     .filter(
       (clase) =>
         clase.tipo === "club"
@@ -996,7 +1004,7 @@ const ingresosClasesClub =
     );
 
 const ingresosClasesPropiasPago =
-  clasesRealizadas
+  clasesEconomicas
     .filter(
       (clase) =>
         clase.tipo === "propia"
@@ -1020,7 +1028,7 @@ const ingresosClasesPropiasPago =
     );
 
 const ingresosClasesPrivadas =
-  clasesRealizadas
+  clasesEconomicas
     .filter(
       (clase) =>
         clase.tipo === "privada"
@@ -1044,7 +1052,7 @@ const ingresosClasesPrivadas =
     );
 
 const ingresosPorBonoConsumido =
-  clasesRealizadas.reduce(
+  clasesEconomicas.reduce(
     (total, clase) =>
       total +
       (
@@ -1069,7 +1077,7 @@ const ingresosPorBonoConsumido =
   );
 
 const ingresosPagoNormalGenerado =
-  clasesRealizadas.reduce(
+  clasesEconomicas.reduce(
     (total, clase) =>
       total +
       (
@@ -1316,8 +1324,14 @@ const acumuladoDiario = (() => {
     {
       fecha: string;
       clases: number;
+      canceladas: number;
+      canceladasFacturables: number;
       horas: number;
       ingresos: number;
+      clubGenerado: number;
+      pistasPagadasClub: number;
+      saldoClub: number;
+      clubCobrado: number;
       ingresoExtra: number;
       gastos: number;
       resultado: number;
@@ -1325,7 +1339,13 @@ const acumuladoDiario = (() => {
     }
   >();
 
-  clasesEconomicas.forEach(
+  clases
+    .filter(
+      (clase) =>
+        clase.estado === "realizada" ||
+        clase.estado === "cancelada"
+    )
+    .forEach(
     (clase) => {
       const actual =
         porDia.get(
@@ -1333,16 +1353,31 @@ const acumuladoDiario = (() => {
         ) || {
           fecha: clase.fecha,
           clases: 0,
+          canceladas: 0,
+          canceladasFacturables: 0,
           horas: 0,
           ingresos: 0,
+          clubGenerado: 0,
+          pistasPagadasClub: 0,
+          saldoClub: 0,
+          clubCobrado: 0,
           ingresoExtra: 0,
           gastos: 0,
           resultado: 0,
           acumulado: 0,
         };
 
+      const cuentaEconomicamente =
+        clase.estado === "realizada" ||
+        (
+          clase.estado === "cancelada" &&
+          clase.facturable === true
+        );
+
       const ingresoClase =
-        clase.tipo === "club"
+        !cuentaEconomicamente
+          ? 0
+          : clase.tipo === "club"
           ? Number(
               clase.importe_club ||
                 0
@@ -1364,16 +1399,20 @@ const acumuladoDiario = (() => {
             );
 
       const ingresoExtra =
-        Number(
-          clase.ingreso_extra ||
-            0
-        );
+        cuentaEconomicamente
+          ? Number(
+              clase.ingreso_extra ||
+                0
+            )
+          : 0;
 
       const gastoClase =
-        Number(
-          clase.coste_pista ||
-            0
-        );
+        cuentaEconomicamente
+          ? Number(
+              clase.coste_pista ||
+                0
+            )
+          : 0;
 
       if (
         clase.estado === "realizada"
@@ -1387,9 +1426,53 @@ const acumuladoDiario = (() => {
           ) / 60;
       }
 
+      if (
+        clase.estado === "cancelada"
+      ) {
+        actual.canceladas += 1;
+
+        if (
+          clase.facturable === true
+        ) {
+          actual.canceladasFacturables += 1;
+        }
+      }
+
       actual.ingresos +=
         ingresoClase +
         ingresoExtra;
+
+      if (
+        cuentaEconomicamente &&
+        clase.tipo === "club"
+      ) {
+        actual.clubGenerado +=
+          ingresoClase;
+
+        if (
+          clase.cobrada === true
+        ) {
+          actual.clubCobrado +=
+            ingresoClase;
+        }
+      }
+
+      const esIQL =
+        clase.ubicaciones?.nombre ===
+        "IQL Sports";
+
+      if (
+        cuentaEconomicamente &&
+        esIQL &&
+        clase.tipo !== "club"
+      ) {
+        actual.pistasPagadasClub +=
+          gastoClase;
+      }
+
+      actual.saldoClub =
+        actual.clubGenerado -
+        actual.pistasPagadasClub;
 
       actual.ingresoExtra +=
         ingresoExtra;
@@ -1430,6 +1513,47 @@ const acumuladoDiario = (() => {
       };
     });
 })();
+
+const totalCanceladas =
+  clases.filter(
+    (clase) =>
+      clase.estado === "cancelada"
+  ).length;
+
+const totalCanceladasFacturables =
+  clases.filter(
+    (clase) =>
+      clase.estado === "cancelada" &&
+      clase.facturable === true
+  ).length;
+
+const totalClubGenerado =
+  acumuladoDiario.reduce(
+    (total, dia) =>
+      total +
+      dia.clubGenerado,
+    0
+  );
+
+const totalPistasPagadasClub =
+  acumuladoDiario.reduce(
+    (total, dia) =>
+      total +
+      dia.pistasPagadasClub,
+    0
+  );
+
+const totalSaldoClub =
+  totalClubGenerado -
+  totalPistasPagadasClub;
+
+const totalClubCobrado =
+  acumuladoDiario.reduce(
+    (total, dia) =>
+      total +
+      dia.clubCobrado,
+    0
+  );
 
 const resultadoPeriodo =
   ingresosGenerados -
@@ -1555,7 +1679,7 @@ const ingresoMedio =
           <div className="mt-6 grid gap-4 md:grid-cols-3">
 
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
                 Informe
               </label>
 
@@ -1583,7 +1707,7 @@ const ingresoMedio =
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
                 Mes
               </label>
 
@@ -1633,7 +1757,7 @@ const ingresoMedio =
 <section className="mt-8 rounded-2xl border border-purple-200 bg-purple-50 p-5">
   <div className="flex items-center justify-between gap-4">
     <div>
-      <p className="text-xs font-bold uppercase tracking-wide text-purple-600">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-purple-600">
         Ingresos extra del mes
       </p>
 
@@ -1823,8 +1947,8 @@ const ingresoMedio =
   <div
     className={
       Math.abs(diferenciaComprobacion) < 0.01
-        ? "border-t border-green-200 bg-green-50 px-6 py-4"
-        : "border-t border-red-200 bg-red-50 px-6 py-4"
+        ? "border-t border-green-200 bg-green-50 px-3 py-3"
+        : "border-t border-red-200 bg-red-50 px-3 py-3"
     }
   >
     <p
@@ -1918,48 +2042,68 @@ variacionHoras={
   {acumuladoDiario.length === 0 ? (
 
     <div className="px-6 py-8 text-sm text-slate-500">
-      No hay clases realizadas en este mes.
+      No hay clases realizadas ni canceladas en este mes.
     </div>
 
   ) : (
 
     <div className="overflow-x-auto">
 
-      <table className="w-full min-w-[980px]">
+      <table className="w-full min-w-[1180px] table-fixed">
 
         <thead className="bg-slate-50">
 
-          <tr className="text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+          <tr className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
 
-            <th className="px-6 py-4">
+            <th className="px-3 py-3">
               Día
             </th>
 
-            <th className="px-4 py-4 text-right">
-              Clases
+            <th className="px-2 py-3 text-center leading-tight">
+              Realizadas
             </th>
 
-            <th className="px-4 py-4 text-right">
+            <th className="px-2 py-3 text-center leading-tight">
+              Canceladas
+            </th>
+
+            <th className="px-2 py-3 text-center leading-tight">
               Horas
             </th>
 
-            <th className="px-4 py-4 text-right">
+            <th className="px-2 py-3 text-center leading-tight">
               Ingresos
             </th>
 
-            <th className="px-4 py-4 text-right">
+            <th className="px-2 py-3 text-center leading-tight">
+              Club generado
+            </th>
+
+            <th className="px-2 py-3 text-center leading-tight">
+              Pistas pagadas
+            </th>
+
+            <th className="px-2 py-3 text-center leading-tight">
+              Saldo club
+            </th>
+
+            <th className="px-2 py-3 text-center leading-tight">
+              Club cobrado
+            </th>
+
+            <th className="px-2 py-3 text-center leading-tight">
               Ingreso extra
             </th>
 
-            <th className="px-4 py-4 text-right">
+            <th className="px-2 py-3 text-center leading-tight">
               Gastos
             </th>
 
-            <th className="px-4 py-4 text-right">
+            <th className="px-2 py-3 text-center leading-tight">
               Resultado
             </th>
 
-            <th className="px-6 py-4 text-right">
+            <th className="px-3 py-3 text-center">
               Acumulado
             </th>
 
@@ -1983,38 +2127,72 @@ variacionHoras={
 
                 <tr
                   key={dia.fecha}
-                  className="text-sm text-slate-700"
+                  className="text-xs text-slate-700"
                 >
 
-                  <td className="px-6 py-4 font-semibold text-slate-900">
+                  <td className="px-3 py-3 font-semibold text-slate-900">
                     {numeroDia}/{numeroMes}/{anio}
                   </td>
 
-                  <td className="px-4 py-4 text-right">
+                  <td className="px-2 py-3 text-center">
                     {dia.clases}
                   </td>
 
-                  <td className="px-4 py-4 text-right">
+                  <td className="px-2 py-3 text-center">
+                    <div className="font-semibold text-red-600">
+                      {dia.canceladas}
+                    </div>
+
+                    {dia.canceladas > 0 && (
+                      <div className="mt-0.5 text-[10px] font-medium text-slate-400">
+                        {dia.canceladasFacturables} facturable{dia.canceladasFacturables === 1 ? "" : "s"}
+                      </div>
+                    )}
+                  </td>
+
+                  <td className="px-2 py-3 text-center">
                     {dia.horas.toFixed(1)}
                   </td>
 
-                  <td className="px-4 py-4 text-right font-semibold text-slate-900">
+                  <td className="px-2 py-3 text-center font-semibold text-slate-900">
                     {dia.ingresos.toFixed(2)} €
                   </td>
 
-                  <td className="px-4 py-4 text-right font-semibold text-purple-700">
+                  <td className="px-2 py-3 text-center font-semibold text-blue-700">
+                    {dia.clubGenerado.toFixed(2)} €
+                  </td>
+
+                  <td className="px-2 py-3 text-center font-semibold text-red-600">
+                    {dia.pistasPagadasClub.toFixed(2)} €
+                  </td>
+
+                  <td
+                    className={
+                      dia.saldoClub >= 0
+                        ? "px-2 py-3 text-center font-bold text-[#078b86]"
+                        : "px-2 py-3 text-center font-bold text-red-600"
+                    }
+                  >
+                    {dia.saldoClub.toFixed(2)} €
+                  </td>
+
+                  <td className="px-2 py-3 text-center font-semibold text-emerald-700">
+                    {dia.clubCobrado.toFixed(2)} €
+                  </td>
+
+                  <td className="px-2 py-3 text-center font-semibold text-purple-700">
                     {dia.ingresoExtra.toFixed(2)} €
                   </td>
 
-                  <td className="px-4 py-4 text-right text-red-600">
+                  <td className="px-2 py-3 text-center text-red-600">
                     {dia.gastos.toFixed(2)} €
                   </td>
 
                   <td
                     className={
                       dia.resultado >= 0
-                        ? "px-4 py-4 text-right font-bold text-emerald-600"
-                        : "px-4 py-4 text-right font-bold text-red-600"
+                        ? "px-2 py-3 text-center font-bold text-emerald-600"
+                        : "px-2 py-3 text-center font-bold text-red-600"
                     }
                   >
                     {dia.resultado.toFixed(2)} €
@@ -2023,8 +2201,8 @@ variacionHoras={
                   <td
                     className={
                       dia.acumulado >= 0
-                        ? "px-6 py-4 text-right text-base font-bold text-[#09a9a3]"
-                        : "px-6 py-4 text-right text-base font-bold text-red-600"
+                        ? "px-3 py-3 text-center text-sm font-bold text-[#09a9a3]"
+                        : "px-3 py-3 text-center text-sm font-bold text-red-600"
                     }
                   >
                     {dia.acumulado.toFixed(2)} €
@@ -2042,35 +2220,69 @@ variacionHoras={
 
           <tr className="font-bold text-slate-900">
 
-            <td className="px-6 py-4">
+            <td className="px-3 py-3">
               TOTAL MES
             </td>
 
-            <td className="px-4 py-4 text-right">
+            <td className="px-2 py-3 text-center">
               {clasesRealizadas.length}
             </td>
 
-            <td className="px-4 py-4 text-right">
+            <td className="px-2 py-3 text-center">
+              <div className="text-red-600">
+                {totalCanceladas}
+              </div>
+
+              {totalCanceladas > 0 && (
+                <div className="mt-0.5 text-[10px] font-medium text-slate-400">
+                  {totalCanceladasFacturables} facturable{totalCanceladasFacturables === 1 ? "" : "s"}
+                </div>
+              )}
+            </td>
+
+            <td className="px-2 py-3 text-center">
               {totalHoras.toFixed(1)}
             </td>
 
-            <td className="px-4 py-4 text-right">
+            <td className="px-2 py-3 text-center">
               {ingresosGenerados.toFixed(2)} €
             </td>
 
-            <td className="px-4 py-4 text-right text-purple-700">
+            <td className="px-2 py-3 text-center text-blue-700">
+              {totalClubGenerado.toFixed(2)} €
+            </td>
+
+            <td className="px-2 py-3 text-center text-red-600">
+              {totalPistasPagadasClub.toFixed(2)} €
+            </td>
+
+            <td
+              className={
+                totalSaldoClub >= 0
+                  ? "px-2 py-3 text-center text-[#078b86]"
+                  : "px-2 py-3 text-center text-red-600"
+              }
+            >
+              {totalSaldoClub.toFixed(2)} €
+            </td>
+
+            <td className="px-2 py-3 text-center text-emerald-700">
+              {totalClubCobrado.toFixed(2)} €
+            </td>
+
+            <td className="px-2 py-3 text-center text-purple-700">
               {ingresosExtraGeneral.toFixed(2)} €
             </td>
 
-            <td className="px-4 py-4 text-right">
+            <td className="px-2 py-3 text-center">
               {gastosPistaGeneral.toFixed(2)} €
             </td>
 
-            <td className="px-4 py-4 text-right">
+            <td className="px-2 py-3 text-center">
               {resultadoPeriodo.toFixed(2)} €
             </td>
 
-            <td className="px-6 py-4 text-right text-[#09a9a3]">
+            <td className="px-3 py-3 text-center text-[#09a9a3]">
               {resultadoPeriodo.toFixed(2)} €
             </td>
 

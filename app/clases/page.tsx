@@ -49,6 +49,7 @@ type RelacionBonoAlumno = {
 type ParticipanteClase = {
   alumno_id: string;
   importe: number;
+  pagado: boolean;
   usa_bono: boolean;
   bono_id: string | null;
 
@@ -73,6 +74,8 @@ type Clase = {
   ingreso_extra: number;
   tipo: string;
   estado: string;
+  facturable: boolean;
+  cobrada: boolean;
   observaciones: string | null;
 
   ubicaciones: {
@@ -243,6 +246,11 @@ export default function ClasesPage() {
 
   const [estado, setEstado] =
     useState("programada");
+
+  const [
+    facturableCancelacion,
+    setFacturableCancelacion,
+  ] = useState<boolean | null>(null);
 
   const [
     observaciones,
@@ -631,6 +639,8 @@ export default function ClasesPage() {
           grupo_id,
           tipo,
           estado,
+          facturable,
+          cobrada,
           observaciones,
           importe_club,
           coste_pista,
@@ -641,6 +651,7 @@ export default function ClasesPage() {
           clase_alumnos (
             alumno_id,
             importe,
+            pagado,
             usa_bono,
             bono_id,
             alumnos (
@@ -747,6 +758,7 @@ export default function ClasesPage() {
     setTipo("club");
     setGrupoId("");
     setEstado("programada");
+    setFacturableCancelacion(null);
     setObservaciones("");
 
     setAlumnosSeleccionados(
@@ -1441,7 +1453,8 @@ export default function ClasesPage() {
         | string
         | null;
     }[],
-    estadoClase: string
+    estadoClase: string,
+    facturableClase = true
   ) {
     const resultado:
       Record<
@@ -1450,10 +1463,14 @@ export default function ClasesPage() {
       > =
       {};
 
-    if (
-      estadoClase !==
-      "realizada"
-    ) {
+    const consumeBono =
+      estadoClase === "realizada" ||
+      (
+        estadoClase === "cancelada" &&
+        facturableClase
+      );
+
+    if (!consumeBono) {
       return resultado;
     }
 
@@ -1621,7 +1638,8 @@ export default function ClasesPage() {
       importe: number;
       usa_bono: boolean;
     }[],
-    tipoClase: string
+    tipoClase: string,
+    facturableClase: boolean
   ) {
     const {
       data:
@@ -1648,9 +1666,15 @@ export default function ClasesPage() {
       existentes ||
       [];
 
+    const generaCobro =
+      estadoClase === "realizada" ||
+      (
+        estadoClase === "cancelada" &&
+        facturableClase
+      );
+
     if (
-      estadoClase !==
-        "realizada" ||
+      !generaCobro ||
       tipoClase ===
         "club"
     ) {
@@ -1757,7 +1781,9 @@ export default function ClasesPage() {
           fecha,
 
         notas:
-          "Generado automáticamente desde Clases",
+          estadoClase === "cancelada"
+            ? "Clase cancelada facturable · generado desde Clases"
+            : "Generado automáticamente desde Clases",
       };
 
       if (
@@ -1859,6 +1885,12 @@ export default function ClasesPage() {
 
     setEstado(
       clase.estado
+    );
+
+    setFacturableCancelacion(
+      clase.estado === "cancelada"
+        ? clase.facturable
+        : null
     );
 
     setObservaciones(
@@ -1978,7 +2010,9 @@ export default function ClasesPage() {
           participante.alumno_id
         ] =
           pago?.estado ===
-          "pagado"
+            "pagado" ||
+          participante.pagado ===
+            true
             ? "pagado"
             : "pendiente";
 
@@ -2513,7 +2547,8 @@ export default function ClasesPage() {
         const uso =
           contarUsoBonos(
             clase.clase_alumnos,
-            clase.estado
+            clase.estado,
+            clase.facturable ?? true
           );
 
         Object.entries(
@@ -2907,6 +2942,16 @@ export default function ClasesPage() {
       }
     }
 
+    if (
+      estado === "cancelada" &&
+      facturableCancelacion === null
+    ) {
+      setMensaje(
+        "❌ Elige si la clase cancelada se cobra o no se cobra."
+      );
+      return;
+    }
+
     const claseAnterior =
       claseEditandoId
         ? clases.find(
@@ -2934,9 +2979,16 @@ export default function ClasesPage() {
             claseAnterior
               .clase_alumnos,
             claseAnterior
-              .estado
+              .estado,
+            claseAnterior
+              .facturable ?? true
           )
         : {};
+
+    const facturableNueva =
+      estado === "cancelada"
+        ? facturableCancelacion === true
+        : true;
 
     const participantesNuevos =
       tipo ===
@@ -3020,6 +3072,9 @@ export default function ClasesPage() {
                 pagado:
                   usaBono
                     ? true
+                    : estado === "cancelada" &&
+                      !facturableNueva
+                    ? false
                     : estadoPagoAlumnos[
                         alumnoId
                       ] ===
@@ -3044,7 +3099,8 @@ export default function ClasesPage() {
     const usoNuevo =
       contarUsoBonos(
         participantesNuevos,
-        estado
+        estado,
+        facturableNueva
       );
 
     const datosClase = {
@@ -3096,6 +3152,19 @@ export default function ClasesPage() {
           : 0,
 
       estado,
+
+      facturable:
+        facturableNueva,
+
+      cobrada:
+        tipo === "club"
+          ? (
+              estado === "cancelada" &&
+              !facturableNueva
+                ? false
+                : claseAnterior?.cobrada ?? false
+            )
+          : false,
 
       observaciones:
         observaciones.trim() ||
@@ -3156,13 +3225,15 @@ export default function ClasesPage() {
           const usoAnteriorObjetivo =
             contarUsoBonos(
               claseObjetivo.clase_alumnos,
-              claseObjetivo.estado
+              claseObjetivo.estado,
+              claseObjetivo.facturable ?? true
             );
 
           const usoNuevoObjetivo =
             contarUsoBonos(
               participantesNuevos,
-              estado
+              estado,
+              facturableNueva
             );
 
           const {
@@ -3256,7 +3327,8 @@ export default function ClasesPage() {
             claseObjetivo.id,
             estado,
             participantesNuevos,
-            tipo
+            tipo,
+            facturableNueva
           );
 
           try {
@@ -3451,7 +3523,8 @@ export default function ClasesPage() {
         claseGuardada.id,
         estado,
         participantesNuevos,
-        tipo
+        tipo,
+        facturableNueva
       );
     } catch {
       setMensaje(
@@ -4692,15 +4765,59 @@ export default function ClasesPage() {
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
 
-                <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-                  <h3 className="font-bold text-slate-900">
-                    Precio y forma de pago
-                  </h3>
+                  <div>
 
-                  <p className="mt-1 text-xs text-slate-500">
-                    Configura el cobro de cada alumno
-                  </p>
+                    <h3 className="font-bold text-slate-900">
+                      Precio y forma de pago
+                    </h3>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Configura el cobro de cada alumno
+                    </p>
+
+                  </div>
+
+                  {alumnosElegidos.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEstadoPagoAlumnos(
+                          (actuales) => {
+                            const siguientes = {
+                              ...actuales,
+                            };
+
+                            alumnosElegidos.forEach(
+                              (alumno) => {
+                                const modo =
+                                  modoPagoAlumnos[
+                                    alumno.id
+                                  ] ||
+                                  "normal";
+
+                                if (
+                                  modo ===
+                                  "normal"
+                                ) {
+                                  siguientes[
+                                    alumno.id
+                                  ] =
+                                    "pagado";
+                                }
+                              }
+                            );
+
+                            return siguientes;
+                          }
+                        )
+                      }
+                      className="inline-flex items-center justify-center rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-bold text-green-700 transition hover:border-green-300 hover:bg-green-100"
+                    >
+                      Marcar todos como pagados
+                    </button>
+                  )}
 
                 </div>
 
@@ -5178,11 +5295,31 @@ export default function ClasesPage() {
                 value={
                   estado
                 }
-                onChange={(e) =>
+                onChange={(e) => {
+                  const nuevoEstado =
+                    e.target.value;
+
+                  if (
+                    nuevoEstado === "cancelada" &&
+                    estado !== "cancelada"
+                  ) {
+                    setFacturableCancelacion(
+                      null
+                    );
+                  }
+
+                  if (
+                    nuevoEstado !== "cancelada"
+                  ) {
+                    setFacturableCancelacion(
+                      null
+                    );
+                  }
+
                   setEstado(
-                    e.target.value
-                  )
-                }
+                    nuevoEstado
+                  );
+                }}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
               >
                 <option value="programada">
@@ -5221,6 +5358,48 @@ export default function ClasesPage() {
                 ? "Motivo de cancelación / anotación"
                 : "Anotación"}
             </label>
+
+            {estado === "cancelada" && (
+              <div className="mb-4">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-700">
+                  ¿Esta cancelación se cobra?
+                </p>
+
+                <div className="grid max-w-md grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFacturableCancelacion(
+                        true
+                      )
+                    }
+                    className={
+                      facturableCancelacion === true
+                        ? "rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white"
+                        : "rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50"
+                    }
+                  >
+                    Se cobra
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFacturableCancelacion(
+                        false
+                      )
+                    }
+                    className={
+                      facturableCancelacion === false
+                        ? "rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-bold text-white"
+                        : "rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                    }
+                  >
+                    No se cobra
+                  </button>
+                </div>
+              </div>
+            )}
 
             <textarea
               value={
@@ -5500,22 +5679,25 @@ export default function ClasesPage() {
                   );
 
                 const resultadoClase =
-                  (
-                    clase.tipo === "club"
-                      ? Number(
-                          clase.importe_club ||
-                            0
-                        )
-                      : importeTotalAlumnos -
-                        Number(
-                          clase.coste_pista ||
-                            0
-                        )
-                  ) +
-                  Number(
-                    clase.ingreso_extra ||
-                      0
-                  );
+                  clase.estado === "cancelada" &&
+                  clase.facturable === false
+                    ? 0
+                    : (
+                        clase.tipo === "club"
+                          ? Number(
+                              clase.importe_club ||
+                                0
+                            )
+                          : importeTotalAlumnos -
+                            Number(
+                              clase.coste_pista ||
+                                0
+                            )
+                      ) +
+                      Number(
+                        clase.ingreso_extra ||
+                          0
+                      );
 
                 return (
 
