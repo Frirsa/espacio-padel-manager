@@ -12,6 +12,7 @@ import { supabase } from "../../lib/supabase";
 import ResumenPagos from "../../components/pagos/ResumenPagos";
 import FormularioPago from "../../components/pagos/FormularioPago";
 import ListadoPagos from "../../components/pagos/ListadoPagos";
+import CobrosClub from "../../components/pagos/CobrosClub";
 
 type Alumno = {
   id: string;
@@ -117,6 +118,11 @@ export default function PagosPage() {
     filtroMes,
     setFiltroMes,
   ] = useState("");
+
+  const [
+    seccionActiva,
+    setSeccionActiva,
+  ] = useState<"pagos" | "clubs">("pagos");
 
   useEffect(() => {
     cargarDatos();
@@ -664,6 +670,41 @@ export default function PagosPage() {
 
         </div>
 
+
+        <div className="mt-6 inline-flex rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setSeccionActiva("pagos")}
+            className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+              seccionActiva === "pagos"
+                ? "bg-[#09a9a3] text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            Pagos normales
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSeccionActiva("clubs")}
+            className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+              seccionActiva === "clubs"
+                ? "bg-[#09a9a3] text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            Cobros de clubs
+          </button>
+        </div>
+
+        {seccionActiva === "clubs" && (
+          <div className="mt-6">
+            <CobrosClub />
+          </div>
+        )}
+
+        {seccionActiva === "pagos" && (
+          <>
         {filtroDesdeDashboard === "pendientes" && (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
             <div>
@@ -859,6 +900,17 @@ export default function PagosPage() {
                           Transferencia
                         </button>
 
+                        <button
+                          type="button"
+                          onClick={() =>
+                            editarPago(
+                              pago
+                            )
+                          }
+                          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                          Editar
+                        </button>
 
                       </div>
 
@@ -1002,6 +1054,9 @@ export default function PagosPage() {
           />
 
         </div>
+
+          </>
+        )}
 
       </div>
 
