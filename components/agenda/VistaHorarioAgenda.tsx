@@ -759,16 +759,9 @@ export default function VistaHorarioAgenda({
         pagado &&
         claseTrabajo.estado === "programada"
       ) {
-        const consumiaBonoAntes =
-          claseTrabajo.estado === "realizada" ||
-          (claseTrabajo.estado === "cancelada" &&
-            claseTrabajo.facturable);
-
-        if (!consumiaBonoAntes) {
-          for (const item of claseTrabajo.clase_alumnos) {
-            if (item.usa_bono && item.bono_id) {
-              await ajustarBono(item.bono_id, -1);
-            }
+        for (const item of claseTrabajo.clase_alumnos) {
+          if (item.usa_bono && item.bono_id) {
+            await ajustarBono(item.bono_id, -1);
           }
         }
 
