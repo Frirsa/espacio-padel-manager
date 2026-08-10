@@ -32,6 +32,8 @@ type Clase = {
   duracion_minutos: number;
   tipo: string;
   estado: string;
+  facturable: boolean;
+  cobrada: boolean;
   observaciones: string | null;
 
   ubicaciones: {
@@ -302,6 +304,8 @@ export default function AgendaPage() {
         duracion_minutos,
         tipo,
         estado,
+        facturable,
+        cobrada,
         observaciones,
         ubicaciones (
           nombre

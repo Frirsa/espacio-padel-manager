@@ -16,6 +16,8 @@ type Clase = {
   duracion_minutos: number;
   tipo: string;
   estado: string;
+  facturable: boolean;
+  cobrada: boolean;
   observaciones: string | null;
   ubicaciones: { nombre: string } | null;
   clase_alumnos: {
@@ -100,25 +102,101 @@ function datosGoogleClase(
 }
 
 function colorClase(clase: Clase) {
-  if (
-    clase.estado === "cancelada"
-  ) {
-    return "border-red-300 bg-red-50 text-red-800";
+  if (clase.tipo === "club") {
+    return "border-amber-300 bg-amber-50 text-amber-900";
   }
 
-  if (
-    clase.tipo === "club"
-  ) {
-    return "border-orange-300 bg-orange-50 text-orange-800";
-  }
-
-  if (
-    clase.tipo === "privada"
-  ) {
+  if (clase.tipo === "privada") {
     return "border-violet-300 bg-violet-100 text-violet-800";
   }
 
   return "border-[#09a9a3]/60 bg-[#09a9a3]/10 text-[#078b86]";
+}
+
+function estadoEconomicoClase(clase: Clase) {
+  if (!clase.facturable) {
+    return "no_facturable" as const;
+  }
+
+  if (clase.tipo === "club") {
+    return clase.cobrada ? "cobrada" as const : "pendiente" as const;
+  }
+
+  if (clase.clase_alumnos.length === 0) {
+    return "pendiente" as const;
+  }
+
+  const pagosNormales = clase.clase_alumnos.filter(
+    (participante) => !participante.usa_bono
+  );
+
+  if (pagosNormales.length === 0) {
+    return "cobrada" as const;
+  }
+
+  return pagosNormales.every((participante) => participante.pagado)
+    ? "cobrada" as const
+    : "pendiente" as const;
+}
+
+function IconoEstadoClase({ estado }: { estado: string }) {
+  if (estado === "realizada") {
+    return (
+      <svg viewBox="0 0 20 20" className="h-[10px] w-[10px]" fill="none" aria-hidden="true">
+        <path d="M4.5 10.2 8.1 13.8 15.6 6.3" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (estado === "cancelada") {
+    return (
+      <svg viewBox="0 0 20 20" className="h-[10px] w-[10px]" fill="none" aria-hidden="true">
+        <path d="M5.2 5.2 14.8 14.8M14.8 5.2 5.2 14.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 20 20" className="h-[10px] w-[10px]" fill="none" aria-hidden="true">
+      <circle cx="10" cy="10" r="6.7" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M10 6.4v4l2.7 1.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IndicadoresClase({ clase }: { clase: Clase }) {
+  const economico = estadoEconomicoClase(clase);
+
+  const estadoVisual =
+    clase.estado === "realizada"
+      ? { titulo: "Clase realizada", clase: "border-green-500 bg-green-500 text-white" }
+      : clase.estado === "cancelada"
+        ? { titulo: "Clase cancelada", clase: "border-red-600 bg-red-600 text-white" }
+        : { titulo: "Clase programada", clase: "border-slate-300 bg-slate-100 text-slate-600" };
+
+  const economicoVisual =
+    economico === "cobrada"
+      ? { titulo: "Cobrada", clase: "border-green-500 bg-green-500 text-white", tachado: false }
+      : economico === "no_facturable"
+        ? { titulo: "No facturable", clase: "border-slate-400 bg-slate-100 text-slate-500", tachado: true }
+        : { titulo: "Pendiente de cobro", clase: "border-red-600 bg-red-600 text-white", tachado: false };
+
+  return (
+    <span className="pointer-events-none absolute right-1 top-1 flex items-center gap-0.5">
+      <span
+        title={estadoVisual.titulo}
+        className={`inline-flex h-[13px] w-[13px] items-center justify-center rounded-full border ${estadoVisual.clase}`}
+      >
+        <IconoEstadoClase estado={clase.estado} />
+      </span>
+      <span
+        title={economicoVisual.titulo}
+        className={`inline-flex h-[13px] w-[13px] items-center justify-center rounded-full border text-[8px] font-medium leading-none ${economicoVisual.clase} ${economicoVisual.tachado ? "line-through" : ""}`}
+      >
+        €
+      </span>
+    </span>
+  );
 }
 
 export default function VistaHorarioAgenda({
@@ -141,6 +219,11 @@ export default function VistaHorarioAgenda({
     mensajeAccion,
     setMensajeAccion,
   ] = useState("");
+
+  const [
+    participanteCobroId,
+    setParticipanteCobroId,
+  ] = useState<string | null>(null);
 
   const [
     claseArrastrandoId,
@@ -385,229 +468,209 @@ export default function VistaHorarioAgenda({
 
   async function sincronizarPagosRapidos(
     clase: Clase,
-    estadoNuevo: string
+    estadoNuevo: string,
+    facturableNueva: boolean,
+    metodoCobro?: string
   ) {
-    if (
-      estadoNuevo !==
-        "realizada" ||
-      clase.tipo ===
-        "club"
-    ) {
+    const generaCobro =
+      estadoNuevo === "realizada" ||
+      (estadoNuevo === "cancelada" && facturableNueva);
+
+    if (!generaCobro || clase.tipo === "club") {
       await supabase
         .from("pagos")
         .delete()
-        .eq(
-          "clase_id",
-          clase.id
-        );
+        .eq("clase_id", clase.id);
 
       return;
     }
 
-    const {
-      data:
-        pagosExistentes,
-      error:
-        errorPagos,
-    } =
+    const { data: pagosExistentes, error: errorPagos } =
       await supabase
         .from("pagos")
-        .select(
-          "id,alumno_id,metodo"
-        )
-        .eq(
-          "clase_id",
-          clase.id
-        );
+        .select("id,alumno_id,metodo")
+        .eq("clase_id", clase.id);
 
-    if (
-      errorPagos
-    ) {
-      throw new Error(
-        "No se pudieron sincronizar los pagos."
-      );
+    if (errorPagos) {
+      throw new Error("No se pudieron sincronizar los pagos.");
     }
 
-    for (
-      const participante of
-      clase.clase_alumnos
-    ) {
-      if (
-        participante.usa_bono
-      ) {
+    for (const participante of clase.clase_alumnos) {
+      if (participante.usa_bono) {
         await supabase
           .from("pagos")
           .delete()
-          .eq(
-            "clase_id",
-            clase.id
-          )
-          .eq(
-            "alumno_id",
-            participante.alumno_id
-          );
+          .eq("clase_id", clase.id)
+          .eq("alumno_id", participante.alumno_id);
 
         continue;
       }
 
-      const existente =
-        (
-          pagosExistentes ||
-          []
-        ).find(
-          (pago) =>
-            pago.alumno_id ===
-            participante.alumno_id
-        );
+      const existente = (pagosExistentes || []).find(
+        (pago) => pago.alumno_id === participante.alumno_id
+      );
 
       const datosPago = {
-        alumno_id:
-          participante.alumno_id,
-        clase_id:
-          clase.id,
-        importe:
-          Number(
-            participante.importe ||
-              0
-          ),
-        metodo:
-          existente?.metodo ||
-          "efectivo",
-        estado:
-          participante.pagado
-            ? "pagado"
-            : "pendiente",
-        fecha_pago:
-          clase.fecha,
+        alumno_id: participante.alumno_id,
+        clase_id: clase.id,
+        importe: Number(participante.importe || 0),
+        metodo: metodoCobro || existente?.metodo || "efectivo",
+        estado: participante.pagado ? "pagado" : "pendiente",
+        fecha_pago: clase.fecha,
         notas:
-          "Actualizado desde Agenda",
+          estadoNuevo === "cancelada"
+            ? "Clase cancelada facturable · actualizado desde Agenda"
+            : "Actualizado desde Agenda",
       };
 
-      if (
-        existente
-      ) {
-        const {
-          error:
-            errorActualizar,
-        } =
-          await supabase
-            .from("pagos")
-            .update(
-              datosPago
-            )
-            .eq(
-              "id",
-              existente.id
-            );
+      if (existente) {
+        const { error: errorActualizar } = await supabase
+          .from("pagos")
+          .update(datosPago)
+          .eq("id", existente.id);
 
-        if (
-          errorActualizar
-        ) {
-          throw new Error(
-            "No se pudo actualizar un pago."
-          );
+        if (errorActualizar) {
+          throw new Error("No se pudo actualizar un pago.");
         }
       } else {
-        const {
-          error:
-            errorInsertar,
-        } =
-          await supabase
-            .from("pagos")
-            .insert(
-              datosPago
-            );
+        const { error: errorInsertar } = await supabase
+          .from("pagos")
+          .insert(datosPago);
 
-        if (
-          errorInsertar
-        ) {
-          throw new Error(
-            "No se pudo crear un pago."
-          );
+        if (errorInsertar) {
+          throw new Error("No se pudo crear un pago.");
         }
       }
     }
   }
 
   async function cambiarEstadoClase(
-    estado:
-      | "programada"
-      | "realizada"
-      | "cancelada"
+    estado: "programada" | "realizada" | "cancelada",
+    opciones?: {
+      facturable?: boolean;
+      cobrar?: boolean;
+      metodoCobro?: string;
+    }
   ) {
-    if (
-      !claseSeleccionada
-    ) {
+    if (!claseSeleccionada) {
       return;
     }
 
-    const clase =
-      claseSeleccionada;
+    const clase = claseSeleccionada;
+    const facturableNueva =
+      opciones?.facturable ?? (estado === "programada" ? true : clase.facturable);
+    const cobrarAhora = opciones?.cobrar === true;
 
-    setActualizando(
-      true
-    );
-
-    setMensajeAccion(
-      ""
-    );
+    setActualizando(true);
+    setMensajeAccion("");
 
     try {
-      const eraRealizada =
-        clase.estado ===
-        "realizada";
+      const consumiaBonoAntes =
+        clase.estado === "realizada" ||
+        (clase.estado === "cancelada" && clase.facturable);
 
-      const seraRealizada =
-        estado ===
-        "realizada";
+      const consumiraBonoAhora =
+        estado === "realizada" ||
+        (estado === "cancelada" && facturableNueva);
 
-      if (
-        eraRealizada !==
-        seraRealizada
-      ) {
-        for (
-          const participante of
-          clase.clase_alumnos
-        ) {
-          if (
-            participante.usa_bono &&
-            participante.bono_id
-          ) {
+      if (consumiaBonoAntes !== consumiraBonoAhora) {
+        for (const participante of clase.clase_alumnos) {
+          if (participante.usa_bono && participante.bono_id) {
             await ajustarBono(
               participante.bono_id,
-              seraRealizada
-                ? -1
-                : 1
+              consumiraBonoAhora ? -1 : 1
             );
           }
         }
       }
 
-      const {
-        error:
-          errorClase,
-      } =
-        await supabase
-          .from("clases")
-          .update({
-            estado,
-          })
-          .eq(
-            "id",
-            clase.id
-          );
+      let participantesActualizados = clase.clase_alumnos;
 
-      if (
-        errorClase
-      ) {
-        throw new Error(
-          "No se pudo actualizar la clase."
+      if (cobrarAhora && clase.tipo !== "club") {
+        const idsPagoNormal = clase.clase_alumnos
+          .filter((participante) => !participante.usa_bono)
+          .map((participante) => participante.id);
+
+        if (idsPagoNormal.length > 0) {
+          const { error: errorCobro } = await supabase
+            .from("clase_alumnos")
+            .update({ pagado: true })
+            .in("id", idsPagoNormal);
+
+          if (errorCobro) {
+            throw new Error("No se pudo marcar la clase como cobrada.");
+          }
+        }
+
+        participantesActualizados = clase.clase_alumnos.map((participante) =>
+          participante.usa_bono
+            ? participante
+            : { ...participante, pagado: true }
         );
       }
 
+      if (
+        (estado === "programada" || !facturableNueva) &&
+        clase.tipo !== "club"
+      ) {
+        const idsPagoNormal = clase.clase_alumnos
+          .filter((participante) => !participante.usa_bono)
+          .map((participante) => participante.id);
+
+        if (idsPagoNormal.length > 0) {
+          const { error: errorPendiente } = await supabase
+            .from("clase_alumnos")
+            .update({ pagado: false })
+            .in("id", idsPagoNormal);
+
+          if (errorPendiente) {
+            throw new Error("No se pudo actualizar el estado económico.");
+          }
+        }
+
+        participantesActualizados = participantesActualizados.map((participante) =>
+          participante.usa_bono
+            ? participante
+            : { ...participante, pagado: false }
+        );
+      }
+
+      let cobradaNueva = clase.cobrada;
+
+      if (clase.tipo === "club") {
+        if (cobrarAhora) {
+          cobradaNueva = true;
+        } else if (estado === "programada" || !facturableNueva) {
+          cobradaNueva = false;
+        }
+      }
+
+      const { error: errorClase } = await supabase
+        .from("clases")
+        .update({
+          estado,
+          facturable: facturableNueva,
+          cobrada: cobradaNueva,
+        })
+        .eq("id", clase.id);
+
+      if (errorClase) {
+        throw new Error("No se pudo actualizar la clase.");
+      }
+
+      const claseActualizada: Clase = {
+        ...clase,
+        estado,
+        facturable: facturableNueva,
+        cobrada: cobradaNueva,
+        clase_alumnos: participantesActualizados,
+      };
+
       await sincronizarPagosRapidos(
-        clase,
-        estado
+        claseActualizada,
+        estado,
+        facturableNueva,
+        opciones?.metodoCobro
       );
 
       let falloGoogle = false;
@@ -620,10 +683,7 @@ export default function VistaHorarioAgenda({
         falloGoogle = true;
       }
 
-      setClaseSeleccionada(
-        null
-      );
-
+      setClaseSeleccionada(null);
       await onClaseActualizada();
 
       if (falloGoogle) {
@@ -631,28 +691,55 @@ export default function VistaHorarioAgenda({
           "La clase se actualizó en Manager, pero no se pudo sincronizar el cambio con Google Calendar."
         );
       }
-    } catch (
-      error
-    ) {
+    } catch (error) {
       setMensajeAccion(
         "❌ " +
-          (
-            error instanceof Error
-              ? error.message
-              : "No se pudo actualizar la clase."
-          )
+          (error instanceof Error
+            ? error.message
+            : "No se pudo actualizar la clase.")
       );
     } finally {
-      setActualizando(
-        false
+      setActualizando(false);
+    }
+  }
+
+  async function cambiarCobroClub(cobrada: boolean) {
+    if (!claseSeleccionada || claseSeleccionada.tipo !== "club") {
+      return;
+    }
+
+    setActualizando(true);
+    setMensajeAccion("");
+
+    try {
+      const { error } = await supabase
+        .from("clases")
+        .update({ cobrada })
+        .eq("id", claseSeleccionada.id);
+
+      if (error) {
+        throw new Error("No se pudo actualizar el cobro de la clase.");
+      }
+
+      setClaseSeleccionada({ ...claseSeleccionada, cobrada });
+      await onClaseActualizada();
+    } catch (error) {
+      setMensajeAccion(
+        "❌ " +
+          (error instanceof Error
+            ? error.message
+            : "No se pudo actualizar el cobro de la clase.")
       );
+    } finally {
+      setActualizando(false);
     }
   }
 
   async function cambiarCobro(
     participante:
       Clase["clase_alumnos"][number],
-    pagado: boolean
+    pagado: boolean,
+    metodoCobro?: string
   ) {
     if (
       !claseSeleccionada ||
@@ -661,146 +748,128 @@ export default function VistaHorarioAgenda({
       return;
     }
 
-    setActualizando(
-      true
-    );
-
-    setMensajeAccion(
-      ""
-    );
+    setActualizando(true);
+    setMensajeAccion("");
 
     try {
-      const {
-        error:
-          errorParticipante,
-      } =
-        await supabase
-          .from(
-            "clase_alumnos"
-          )
-          .update({
-            pagado,
-          })
-          .eq(
-            "id",
-            participante.id
-          );
+      let claseTrabajo = claseSeleccionada;
+      let cambioARealizada = false;
 
       if (
-        errorParticipante
+        pagado &&
+        claseTrabajo.estado === "programada"
       ) {
-        throw new Error(
-          "No se pudo actualizar el cobro."
-        );
+        const consumiaBonoAntes =
+          claseTrabajo.estado === "realizada" ||
+          (claseTrabajo.estado === "cancelada" &&
+            claseTrabajo.facturable);
+
+        if (!consumiaBonoAntes) {
+          for (const item of claseTrabajo.clase_alumnos) {
+            if (item.usa_bono && item.bono_id) {
+              await ajustarBono(item.bono_id, -1);
+            }
+          }
+        }
+
+        const { error: errorClase } = await supabase
+          .from("clases")
+          .update({
+            estado: "realizada",
+            facturable: true,
+          })
+          .eq("id", claseTrabajo.id);
+
+        if (errorClase) {
+          throw new Error(
+            "No se pudo marcar la clase como realizada."
+          );
+        }
+
+        claseTrabajo = {
+          ...claseTrabajo,
+          estado: "realizada",
+          facturable: true,
+        };
+        cambioARealizada = true;
       }
 
-      if (
-        claseSeleccionada.estado ===
-          "realizada" &&
-        claseSeleccionada.tipo !==
-          "club"
-      ) {
-        const {
-          data:
-            pagoExistente,
-        } =
-          await supabase
-            .from("pagos")
-            .select(
-              "id,metodo"
-            )
-            .eq(
-              "clase_id",
-              claseSeleccionada.id
-            )
-            .eq(
-              "alumno_id",
-              participante.alumno_id
-            )
-            .maybeSingle();
+      const { error: errorParticipante } = await supabase
+        .from("clase_alumnos")
+        .update({ pagado })
+        .eq("id", participante.id);
 
-        const datosPago = {
-          alumno_id:
-            participante.alumno_id,
-          clase_id:
-            claseSeleccionada.id,
-          importe:
-            Number(
-              participante.importe ||
-                0
-            ),
-          metodo:
-            pagoExistente?.metodo ||
-            "efectivo",
-          estado:
-            pagado
-              ? "pagado"
-              : "pendiente",
-          fecha_pago:
-            claseSeleccionada.fecha,
-          notas:
-            "Actualizado desde Agenda",
-        };
+      if (errorParticipante) {
+        throw new Error("No se pudo actualizar el cobro.");
+      }
 
-        if (
-          pagoExistente
-        ) {
-          await supabase
-            .from("pagos")
-            .update(
-              datosPago
-            )
-            .eq(
-              "id",
-              pagoExistente.id
-            );
-        } else {
-          await supabase
-            .from("pagos")
-            .insert(
-              datosPago
-            );
+      const participantesActualizados =
+        claseTrabajo.clase_alumnos.map((item) =>
+          item.id === participante.id
+            ? { ...item, pagado }
+            : item
+        );
+
+      claseTrabajo = {
+        ...claseTrabajo,
+        clase_alumnos: participantesActualizados,
+      };
+
+      await sincronizarPagosRapidos(
+        claseTrabajo,
+        claseTrabajo.estado,
+        claseTrabajo.facturable
+      );
+
+      if (metodoCobro) {
+        const { error: errorMetodo } = await supabase
+          .from("pagos")
+          .update({
+            metodo: metodoCobro,
+            estado: pagado ? "pagado" : "pendiente",
+          })
+          .eq("clase_id", claseTrabajo.id)
+          .eq("alumno_id", participante.alumno_id);
+
+        if (errorMetodo) {
+          throw new Error(
+            "El cobro se guardó, pero no se pudo guardar la forma de pago."
+          );
         }
       }
 
-      const claseActualizada = {
-        ...claseSeleccionada,
+      let falloGoogle = false;
 
-        clase_alumnos:
-          claseSeleccionada
-            .clase_alumnos
-            .map(
-              (item) =>
-                item.id ===
-                participante.id
-                  ? {
-                      ...item,
-                      pagado,
-                    }
-                  : item
-            ),
-      };
+      if (cambioARealizada) {
+        try {
+          await sincronizarClaseConGoogleCalendar(
+            datosGoogleClase(claseTrabajo, {
+              estado: "realizada",
+            })
+          );
+        } catch {
+          falloGoogle = true;
+        }
+      }
 
-      setClaseSeleccionada(
-        claseActualizada
-      );
-
+      setClaseSeleccionada(claseTrabajo);
+      setParticipanteCobroId(null);
       await onClaseActualizada();
-    } catch (
-      error
-    ) {
+
+      if (falloGoogle) {
+        window.alert(
+          "La clase se actualizó en Manager, pero no se pudo sincronizar el cambio con Google Calendar."
+        );
+      }
+    } catch (error) {
       setMensajeAccion(
         "❌ " +
-          (
-            error instanceof Error
-              ? error.message
-              : "No se pudo actualizar el cobro."
-          )
+          (error instanceof Error
+            ? error.message
+            : "No se pudo actualizar el cobro.")
       );
     } finally {
-      setActualizando(
-        false
-      );
+      setActualizando(false);
     }
   }
 
@@ -1426,7 +1495,8 @@ export default function VistaHorarioAgenda({
                             : "Abrir acciones rápidas"
                         }
                       >
-                        <div className="font-bold">
+                        <IndicadoresClase clase={clase} />
+                        <div className="pr-9 font-bold">
                           {clase.hora_inicio.slice(0,5)} · {clase.duracion_minutos} min
                         </div>
                         <div className="mt-1 font-semibold">{alumnos || "Sin alumnos"}</div>
@@ -1500,7 +1570,7 @@ export default function VistaHorarioAgenda({
                       return (
                         <div
                           key={participante.id}
-                          className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3"
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-3 py-3"
                         >
 
                           <div className="min-w-0">
@@ -1547,29 +1617,69 @@ export default function VistaHorarioAgenda({
                               <span className="rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-700">
                                 Bono
                               </span>
-                            ) : (
+                            ) : participante.pagado ? (
                               <button
                                 type="button"
                                 disabled={actualizando}
                                 onClick={() =>
                                   cambiarCobro(
                                     participante,
-                                    !participante.pagado
+                                    false
                                   )
                                 }
-                                className={
-                                  participante.pagado
-                                    ? "rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-700"
-                                    : "rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700"
-                                }
+                                className="rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-700"
                               >
-                                {participante.pagado
-                                  ? "Cobrado ✓"
-                                  : "Pendiente"}
+                                Cobrado
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={actualizando}
+                                onClick={() =>
+                                  setParticipanteCobroId(
+                                    participanteCobroId === participante.id
+                                      ? null
+                                      : participante.id
+                                  )
+                                }
+                                className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700"
+                              >
+                                Cobrar…
                               </button>
                             )}
 
                           </div>
+
+                          {!participante.usa_bono &&
+                            !participante.pagado &&
+                            (claseSeleccionada.estado !== "cancelada" ||
+                              claseSeleccionada.facturable) &&
+                            participanteCobroId === participante.id && (
+                              <div className="mt-3 grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
+                                {[
+                                  ["efectivo", "Efectivo"],
+                                  ["bizum", "Bizum"],
+                                  ["transferencia", "Transferencia"],
+                                  ["tarjeta", "Tarjeta"],
+                                ].map(([valor, texto]) => (
+                                  <button
+                                    key={valor}
+                                    type="button"
+                                    disabled={actualizando}
+                                    onClick={() =>
+                                      cambiarCobro(
+                                        participante,
+                                        true,
+                                        valor
+                                      )
+                                    }
+                                    className="rounded-lg border border-green-300 bg-green-50 px-2 py-2 text-[11px] font-bold text-green-800 transition hover:bg-green-100 disabled:opacity-50"
+                                  >
+                                    {texto}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
 
                         </div>
                       );
@@ -1579,7 +1689,7 @@ export default function VistaHorarioAgenda({
                 </div>
 
                 <p className="mt-3 text-[11px] leading-5 text-slate-500">
-                  Los bonos se descuentan al marcar la clase como realizada y se devuelven si vuelve a programada o se cancela.
+                  Los bonos se descuentan cuando la clase se realiza o cuando una cancelación es facturable. Se devuelven si vuelve a programada o pasa a no facturable.
                 </p>
 
               </div>
@@ -1591,36 +1701,123 @@ export default function VistaHorarioAgenda({
                 type="button"
                 disabled={actualizando}
                 onClick={() =>
-                  cambiarEstadoClase(
-                    "realizada"
-                  )
+                  cambiarEstadoClase("realizada", {
+                    facturable: true,
+                  })
                 }
-                className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+                className="rounded-xl bg-green-600 px-4 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
               >
-                ✓ Marcar como realizada
+                ✓ Realizada
               </button>
 
-              <button
-                type="button"
-                disabled={actualizando}
-                onClick={() =>
-                  cambiarEstadoClase(
-                    "cancelada"
-                  )
-                }
-                className="rounded-xl bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-              >
-                ✕ Marcar como cancelada
-              </button>
+              {claseSeleccionada.tipo !== "club" &&
+                claseSeleccionada.clase_alumnos.filter(
+                  (participante) => !participante.usa_bono
+                ).length === 1 && (
+                  <div className="rounded-2xl border border-green-200 bg-green-50 p-3">
+                    <p className="text-center text-xs font-bold uppercase tracking-wide text-green-800">
+                      Realizada y cobrada · forma de cobro
+                    </p>
+
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {[
+                        ["efectivo", "Efectivo"],
+                        ["bizum", "Bizum"],
+                        ["transferencia", "Transferencia"],
+                        ["tarjeta", "Tarjeta"],
+                      ].map(([valor, texto]) => (
+                        <button
+                          key={valor}
+                          type="button"
+                          disabled={actualizando}
+                          onClick={() =>
+                            cambiarEstadoClase("realizada", {
+                              facturable: true,
+                              cobrar: true,
+                              metodoCobro: valor,
+                            })
+                          }
+                          className="flex min-w-0 items-center justify-center rounded-lg bg-emerald-700 px-1.5 py-2 text-[11px] font-bold leading-none text-white transition hover:bg-emerald-800 disabled:opacity-50"
+                        >
+                          {texto}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {claseSeleccionada.tipo !== "club" &&
+                claseSeleccionada.clase_alumnos.filter(
+                  (participante) => !participante.usa_bono
+                ).length > 1 && (
+                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+                    Si cobran varios alumnos, utiliza “Cobrar…” junto a cada alumno para indicar su forma de pago individual.
+                  </p>
+                )}
+
+              <div className="rounded-2xl bg-red-50/60 p-3">
+                <p className="mb-2 text-center text-xs font-bold uppercase tracking-wide text-red-600">
+                  Cancelar clase
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={actualizando}
+                    onClick={() =>
+                      cambiarEstadoClase("cancelada", {
+                        facturable: true,
+                      })
+                    }
+                    className="flex min-w-0 items-center justify-center rounded-lg bg-red-600 px-2 py-2 text-xs font-bold leading-none text-white transition hover:bg-red-700 disabled:opacity-50"
+                  >
+                    Se cobra
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={actualizando}
+                    onClick={() =>
+                      cambiarEstadoClase("cancelada", {
+                        facturable: false,
+                      })
+                    }
+                    className="flex min-w-0 items-center justify-center rounded-lg border border-red-300 bg-white px-2 py-2 text-xs font-bold leading-none text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                  >
+                    No se cobra
+                  </button>
+                </div>
+              </div>
+
+              {claseSeleccionada.tipo === "club" &&
+                claseSeleccionada.facturable &&
+                claseSeleccionada.estado !== "programada" && (
+                  <button
+                    type="button"
+                    disabled={actualizando}
+                    onClick={() =>
+                      cambiarCobroClub(!claseSeleccionada.cobrada)
+                    }
+                    className={
+                      claseSeleccionada.cobrada
+                        ? "rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
+                        : "rounded-xl border border-green-300 bg-green-50 px-5 py-3 font-semibold text-green-800 transition hover:bg-green-100 disabled:opacity-50"
+                    }
+                  >
+                    {claseSeleccionada.cobrada
+                      ? "€ Marcar cobro como pendiente"
+                      : "€ Marcar como cobrada"}
+                  </button>
+                )}
 
               {claseSeleccionada.estado !== "programada" && (
                 <button
                   type="button"
                   disabled={actualizando}
                   onClick={() =>
-                    cambiarEstadoClase(
-                      "programada"
-                    )
+                    cambiarEstadoClase("programada", {
+                      facturable: true,
+                    })
                   }
                   className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                 >
