@@ -4870,7 +4870,24 @@ export default function ClasesPage() {
                                 }
                               </p>
 
-                              <div className="flex rounded-lg bg-slate-100 p-1">
+                              <div className="flex flex-wrap items-center gap-2">
+
+                                {alumnosElegidos.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      cambiarAlumno(
+                                        alumno
+                                      )
+                                    }
+                                    className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 transition hover:border-red-300 hover:bg-red-100"
+                                    title="Quitar este alumno de la clase"
+                                  >
+                                    Quitar alumno
+                                  </button>
+                                )}
+
+                                <div className="flex rounded-lg bg-slate-100 p-1">
 
                                 <button
                                   type="button"
@@ -4948,6 +4965,8 @@ export default function ClasesPage() {
                                 >
                                   Bono
                                 </button>
+
+                                </div>
 
                               </div>
 
