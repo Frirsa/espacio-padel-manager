@@ -32,6 +32,7 @@ type Clase = {
       id: string;
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -52,6 +53,40 @@ type Props = {
     fecha: string
   ) => void;
 };
+
+
+function nombreAlumnoAgenda(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined,
+  unico: boolean
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  if (unico) {
+    return `${alumno.nombre || ""} ${
+      alumno.apellidos || ""
+    }`.trim();
+  }
+
+  return (
+    alumno.nombre || ""
+  ).trim();
+}
 
 function fechaLocalISO(fecha: Date) {
   const y = fecha.getFullYear();
@@ -188,7 +223,7 @@ function IconoEstadoClase({ estado }: { estado: string }) {
 
   if (estado === "cancelada") {
     return (
-      <svg viewBox="0 0 20 20" className="h-[11px] w-[11px]" fill="none" aria-hidden="true">
+      <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
         <path d="M5.2 5.2 14.8 14.8M14.8 5.2 5.2 14.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
       </svg>
     );
@@ -220,13 +255,24 @@ function IndicadoresClase({ clase }: { clase: Clase }) {
         : { titulo: "Pendiente de cobro", clase: "border-red-600 bg-red-600 text-white", tachado: false };
 
   return (
-    <span className="pointer-events-none absolute right-1.5 top-1.5 flex items-center gap-1">
+    <span
+      className={
+        clase.estado === "cancelada"
+          ? "pointer-events-none absolute right-1.5 top-2 flex items-center gap-1"
+          : "pointer-events-none absolute right-1.5 top-1.5 flex items-center gap-1"
+      }
+    >
       <span
         title={estadoVisual.titulo}
-        className={`inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`}
+        className={
+          clase.estado === "cancelada"
+            ? `inline-flex h-5 w-5 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
+            : `inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
+        }
       >
         <IconoEstadoClase estado={clase.estado} />
       </span>
+
       <span
         title={economicoVisual.titulo}
         className={`inline-flex h-4 w-4 items-center justify-center rounded-full border text-[9px] font-bold leading-none shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${economicoVisual.clase} ${economicoVisual.tachado ? "line-through" : ""}`}
@@ -1787,19 +1833,15 @@ export default function VistaHorarioAgenda({
                     .filter(Boolean);
 
                 const alumnos =
-                  alumnosDatos.length ===
-                  1
-                    ? `${alumnosDatos[0]?.nombre || ""} ${alumnosDatos[0]?.apellidos || ""}`.trim()
-                    : alumnosDatos
-                        .map(
-                          (alumno) =>
-                            (
-                              alumno?.nombre ||
-                              ""
-                            ).trim()
-                        )
-                        .filter(Boolean)
-                        .join(" · ");
+                  alumnosDatos
+                    .map((alumno) =>
+                      nombreAlumnoAgenda(
+                        alumno,
+                        alumnosDatos.length === 1
+                      )
+                    )
+                    .filter(Boolean)
+                    .join(" · ");
 
                 return (
                   <button
@@ -2010,12 +2052,15 @@ export default function VistaHorarioAgenda({
                       .filter(Boolean);
 
                     const alumnos=
-                      alumnosDatos.length === 1
-                        ? `${alumnosDatos[0]?.nombre || ""} ${alumnosDatos[0]?.apellidos || ""}`.trim()
-                        : alumnosDatos
-                            .map(a=>(a?.nombre||"").trim())
-                            .filter(Boolean)
-                            .join(" · ");
+                      alumnosDatos
+                        .map((alumno) =>
+                          nombreAlumnoAgenda(
+                            alumno,
+                            alumnosDatos.length === 1
+                          )
+                        )
+                        .filter(Boolean)
+                        .join(" · ");
                     return (
                       <button
                         key={clase.id}
@@ -2090,9 +2135,19 @@ export default function VistaHorarioAgenda({
                             : "Abrir acciones rápidas"
                         }
                       >
+                        {clase.estado === "cancelada" && (
+                          <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                        )}
+
                         <IndicadoresClase clase={clase} />
 
-                        <div className="pr-10 font-bold tracking-tight">
+                        <div
+                          className={
+                            clase.estado === "cancelada"
+                              ? "pr-12 pt-1 font-bold tracking-tight"
+                              : "pr-10 font-bold tracking-tight"
+                          }
+                        >
                           {clase.hora_inicio.slice(0,5)} – {horaFinVisual}
                           <span className="font-medium opacity-65">
                             {" "}· {clase.duracion_minutos} min

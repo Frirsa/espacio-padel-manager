@@ -22,6 +22,7 @@ type Clase = {
     alumnos: {
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -56,6 +57,40 @@ type Props = {
     tipo: string
   ) => string;
 };
+
+
+function nombreAlumnoAgenda(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined,
+  unico: boolean
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  if (unico) {
+    return `${alumno.nombre || ""} ${
+      alumno.apellidos || ""
+    }`.trim();
+  }
+
+  return (
+    alumno.nombre || ""
+  ).trim();
+}
 
 function IconoAlumno() {
   return (
@@ -460,24 +495,24 @@ export default function ListadoAgenda({
                         clase
                       );
 
-                    const nombresAlumnos =
+                    const alumnosDatos =
                       clase.clase_alumnos
                         .map(
                           (item) =>
                             item.alumnos
                         )
-                        .filter(Boolean)
-                        .map(
-                          (alumno) =>
-                            `${
-                              alumno?.nombre ||
-                              ""
-                            } ${
-                              alumno?.apellidos ||
-                              ""
-                            }`.trim()
+                        .filter(Boolean);
+
+                    const nombresAlumnos =
+                      alumnosDatos
+                        .map((alumno) =>
+                          nombreAlumnoAgenda(
+                            alumno,
+                            alumnosDatos.length === 1
+                          )
                         )
-                        .join(", ");
+                        .filter(Boolean)
+                        .join(" · ");
 
                     const esGrupo =
                       Boolean(
@@ -497,10 +532,14 @@ export default function ListadoAgenda({
                               volver
                             )}`;
                         }}
-                        className={`block w-full border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
+                        className={`relative block w-full border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
                           clase.tipo
                         )}`}
                       >
+                        {clase.estado === "cancelada" && (
+                          <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                        )}
+
                         <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
                           <div className="min-w-0">
                             <p className="whitespace-nowrap text-sm font-extrabold tracking-tight text-[#17324D]">

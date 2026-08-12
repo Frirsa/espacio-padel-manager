@@ -26,6 +26,10 @@ type Alumno = {
   club_origen: string | null;
   ubicacion_habitual_id: string | null;
   tipo_clase_habitual: string | null;
+  apodo: string | null;
+  fecha_nacimiento: string | null;
+  localidad: string | null;
+  pais: string | null;
 };
 
 type Ubicacion = {
@@ -39,6 +43,11 @@ type BonoResumen = {
   numero_clases: number;
   clases_restantes: number;
   activo: boolean;
+};
+
+type RelacionBonoAlumno = {
+  bono_id: string;
+  alumno_id: string;
 };
 
 type PagoResumen = {
@@ -82,6 +91,11 @@ export default function AlumnosPage() {
   const [bonos, setBonos] =
     useState<BonoResumen[]>([]);
 
+  const [
+    relacionesBonoAlumno,
+    setRelacionesBonoAlumno,
+  ] = useState<RelacionBonoAlumno[]>([]);
+
   const [pagos, setPagos] =
     useState<PagoResumen[]>([]);
 
@@ -94,6 +108,20 @@ export default function AlumnosPage() {
     useState("");
 
   const [apellidos, setApellidos] =
+    useState("");
+
+  const [apodo, setApodo] =
+    useState("");
+
+  const [
+    fechaNacimiento,
+    setFechaNacimiento,
+  ] = useState("");
+
+  const [localidad, setLocalidad] =
+    useState("");
+
+  const [pais, setPais] =
     useState("");
 
   const [telefono, setTelefono] =
@@ -159,6 +187,16 @@ export default function AlumnosPage() {
     setHistorialesAbiertos,
   ] = useState<string[]>([]);
 
+  const [
+    alumnoSeleccionadoId,
+    setAlumnoSeleccionadoId,
+  ] = useState<string | null>(null);
+
+  const [
+    formularioAbierto,
+    setFormularioAbierto,
+  ] = useState(false);
+
   useEffect(() => {
     cargarAlumnos();
   }, []);
@@ -202,6 +240,25 @@ export default function AlumnosPage() {
       `);
 
     const {
+      data: relacionesBonoData,
+      error: errorRelacionesBono,
+    } = await supabase
+      .from("bono_alumnos")
+      .select(`
+        bono_id,
+        alumno_id
+      `);
+
+    if (errorRelacionesBono) {
+      setMensaje(
+        "❌ Error al cargar bonos compartidos: " +
+          errorRelacionesBono.message
+      );
+
+      return;
+    }
+
+    const {
       data: pagosData,
     } = await supabase
       .from("pagos")
@@ -236,8 +293,23 @@ export default function AlumnosPage() {
         )
       `);
 
+    const alumnosCargados =
+      (data || []) as Alumno[];
+
     setAlumnos(
-      (data || []) as Alumno[]
+      alumnosCargados
+    );
+
+    setAlumnoSeleccionadoId(
+      (actual) =>
+        actual &&
+        alumnosCargados.some(
+          (alumno) =>
+            alumno.id === actual
+        )
+          ? actual
+          : alumnosCargados[0]?.id ||
+            null
     );
 
     setUbicaciones(
@@ -247,6 +319,11 @@ export default function AlumnosPage() {
     setBonos(
       (bonosData ||
         []) as BonoResumen[]
+    );
+
+    setRelacionesBonoAlumno(
+      (relacionesBonoData ||
+        []) as RelacionBonoAlumno[]
     );
 
     setPagos(
@@ -263,6 +340,10 @@ export default function AlumnosPage() {
   function limpiarFormulario() {
     setNombre("");
     setApellidos("");
+    setApodo("");
+    setFechaNacimiento("");
+    setLocalidad("");
+    setPais("");
     setTelefono("");
     setEmail("");
     setPrecio("");
@@ -413,6 +494,14 @@ export default function AlumnosPage() {
       nombre,
       apellidos:
         apellidos || null,
+      apodo:
+        apodo.trim() || null,
+      fecha_nacimiento:
+        fechaNacimiento || null,
+      localidad:
+        localidad.trim() || null,
+      pais:
+        pais.trim() || null,
       telefono:
         telefono || null,
       email:
@@ -480,6 +569,7 @@ export default function AlumnosPage() {
     );
 
     limpiarFormulario();
+    setFormularioAbierto(false);
 
     await cargarAlumnos();
 
@@ -505,6 +595,10 @@ export default function AlumnosPage() {
   function editarAlumno(
     alumno: Alumno
   ) {
+    setAlumnoSeleccionadoId(
+      alumno.id
+    );
+
     setAlumnoEditandoId(
       alumno.id
     );
@@ -516,6 +610,22 @@ export default function AlumnosPage() {
     setApellidos(
       alumno.apellidos ||
         ""
+    );
+
+    setApodo(
+      alumno.apodo || ""
+    );
+
+    setFechaNacimiento(
+      alumno.fecha_nacimiento || ""
+    );
+
+    setLocalidad(
+      alumno.localidad || ""
+    );
+
+    setPais(
+      alumno.pais || ""
     );
 
     setTelefono(
@@ -565,6 +675,7 @@ export default function AlumnosPage() {
     );
 
     setMensaje("");
+    setFormularioAbierto(true);
 
     window.scrollTo({
       top: 0,
@@ -782,18 +893,41 @@ export default function AlumnosPage() {
   function obtenerResumenAlumno(
     alumnoId: string
   ) {
-    const bonosAlumno =
+    const bonosActivosAlumno =
       bonos.filter(
-        (bono) =>
-          bono.alumno_id ===
-            alumnoId &&
-          bono.activo &&
-          bono.clases_restantes >
-            0
+        (bono) => {
+          if (
+            !bono.activo ||
+            Number(
+              bono.clases_restantes ||
+                0
+            ) <= 0
+          ) {
+            return false;
+          }
+
+          const esTitular =
+            bono.alumno_id ===
+            alumnoId;
+
+          const estaAutorizado =
+            relacionesBonoAlumno.some(
+              (relacion) =>
+                relacion.bono_id ===
+                  bono.id &&
+                relacion.alumno_id ===
+                  alumnoId
+            );
+
+          return (
+            esTitular ||
+            estaAutorizado
+          );
+        }
       );
 
     const clasesRestantes =
-      bonosAlumno.reduce(
+      bonosActivosAlumno.reduce(
         (
           total,
           bono
@@ -805,6 +939,91 @@ export default function AlumnosPage() {
           ),
         0
       );
+
+    const bonosCompartidos =
+      bonosActivosAlumno.filter(
+        (bono) => {
+          const miembros =
+            relacionesBonoAlumno.filter(
+              (relacion) =>
+                relacion.bono_id ===
+                bono.id
+            );
+
+          return (
+            miembros.length > 1
+          );
+        }
+      );
+
+    const bonoCompartido =
+      bonosCompartidos.length > 0;
+
+    const idsOtrosMiembros =
+      Array.from(
+        new Set(
+          bonosCompartidos.flatMap(
+            (bono) =>
+              relacionesBonoAlumno
+                .filter(
+                  (relacion) =>
+                    relacion.bono_id ===
+                      bono.id &&
+                    relacion.alumno_id !==
+                      bono.alumno_id
+                )
+                .map(
+                  (relacion) =>
+                    relacion.alumno_id
+                )
+          )
+        )
+      );
+
+    const nombresOtrosMiembros =
+      idsOtrosMiembros
+        .map((id) => {
+          const alumno =
+            alumnos.find(
+              (item) =>
+                item.id === id
+            );
+
+          if (!alumno) {
+            return "";
+          }
+
+          return `${alumno.nombre} ${
+            alumno.apellidos || ""
+          }`.trim();
+        })
+        .filter(Boolean);
+
+    const titularesCompartidos =
+      Array.from(
+        new Set(
+          bonosCompartidos.map(
+            (bono) =>
+              bono.alumno_id
+          )
+        )
+      )
+        .map((id) => {
+          const alumno =
+            alumnos.find(
+              (item) =>
+                item.id === id
+            );
+
+          if (!alumno) {
+            return "";
+          }
+
+          return `${alumno.nombre} ${
+            alumno.apellidos || ""
+          }`.trim();
+        })
+        .filter(Boolean);
 
     const pendienteCobro =
       pagos
@@ -1004,6 +1223,13 @@ export default function AlumnosPage() {
 
     return {
       clasesRestantes,
+      tieneBonoActivo:
+        bonosActivosAlumno.length > 0,
+      bonoCompartido,
+      bonoCompartidoCon:
+        nombresOtrosMiembros.join(", "),
+      bonoTitularNombre:
+        titularesCompartidos.join(", "),
       pendienteCobro,
       totalClasesRealizadas:
         clasesRealizadas.length,
@@ -1095,6 +1321,15 @@ export default function AlumnosPage() {
           } ${
             alumno.club_origen ||
             ""
+          } ${
+            alumno.apodo ||
+            ""
+          } ${
+            alumno.localidad ||
+            ""
+          } ${
+            alumno.pais ||
+            ""
           }`.toLowerCase();
 
         const coincideBusqueda =
@@ -1127,6 +1362,15 @@ export default function AlumnosPage() {
       }
     );
 
+  const alumnoSeleccionado =
+    alumnosFiltrados.find(
+      (alumno) =>
+        alumno.id ===
+        alumnoSeleccionadoId
+    ) ||
+    alumnosFiltrados[0] ||
+    null;
+
   const alumnosActivos =
     alumnos.filter(
       (alumno) =>
@@ -1140,142 +1384,67 @@ export default function AlumnosPage() {
     ).length;
 
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
+    <main className="min-h-screen bg-[#F6F8FA] px-3 py-4 sm:px-5 sm:py-5 lg:px-8 lg:py-7">
+      <div className="mx-auto w-full max-w-[1540px]">
 
-      <div className="mx-auto max-w-7xl">
+        {/* CABECERA */}
+        <header className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-[#17324D] sm:text-4xl">
+              Alumnos
+            </h1>
 
-        <div>
-
-          <h1 className="text-4xl font-bold text-slate-900">
-            Alumnos
-          </h1>
-
-          <p className="mt-2 text-slate-600">
-            Gestión y seguimiento de alumnos
-          </p>
-
-        </div>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-
-          <div className="rounded-2xl bg-white p-5 shadow">
-
-            <p className="text-sm text-slate-500">
-              Alumnos activos
+            <p className="mt-1.5 text-sm text-slate-500">
+              Directorio, seguimiento y ficha de cada alumno
             </p>
-
-            <p className="mt-2 text-3xl font-bold text-green-600">
-              {alumnosActivos}
-            </p>
-
           </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow">
-
-            <p className="text-sm text-slate-500">
-              Alumnos inactivos
-            </p>
-
-            <p className="mt-2 text-3xl font-bold text-slate-500">
-              {alumnosInactivos}
-            </p>
-
-          </div>
-
-        </div>
-
-        <div className="mt-8 grid gap-8 xl:grid-cols-[330px_1fr]">
-
-          <FormularioAlumno
-            nombre={nombre}
-            apellidos={apellidos}
-            telefono={telefono}
-            email={email}
-            precio={precio}
-            procedencia={procedencia}
-            clubOrigen={clubOrigen}
-            ubicaciones={ubicaciones}
-            ubicacionHabitualId={ubicacionHabitualId}
-            tipoClaseHabitual={tipoClaseHabitual}
-            activo={activo}
-            fotoUrl={fotoUrl}
-            alumnoEditandoId={
-              alumnoEditandoId
-            }
-            mensaje={mensaje}
-            setNombre={setNombre}
-            setApellidos={
-              setApellidos
-            }
-            setTelefono={
-              setTelefono
-            }
-            setEmail={setEmail}
-            setPrecio={setPrecio}
-            setProcedencia={setProcedencia}
-            setClubOrigen={setClubOrigen}
-            setUbicacionHabitualId={setUbicacionHabitualId}
-            setTipoClaseHabitual={setTipoClaseHabitual}
-            setActivo={setActivo}
-            onFotoSeleccionada={
-              seleccionarFoto
-            }
-            onGuardar={
-              guardarAlumno
-            }
-            onCancelar={() => {
-              const alumnoQueSeEstabaEditando =
-                alumnoEditandoId;
-
+          <button
+            type="button"
+            onClick={() => {
               limpiarFormulario();
               setMensaje("");
-
-              if (
-                alumnoQueSeEstabaEditando
-              ) {
-                setTimeout(
-                  () => {
-                    document
-                      .getElementById(
-                        `alumno-${alumnoQueSeEstabaEditando}`
-                      )
-                      ?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                  },
-                  100
-                );
-              }
+              setFormularioAbierto(true);
             }}
-          />
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#00A79C] px-5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.14)] transition hover:bg-[#008F86] sm:w-auto"
+          >
+            + Nuevo alumno
+          </button>
+        </header>
 
-          <div>
+        {/* DIRECTORIO + FICHA */}
+        <section className="mt-4 grid min-h-0 grid-cols-1 gap-4 lg:mt-5 lg:min-h-[690px] lg:grid-cols-[350px_minmax(0,1fr)] lg:gap-0 lg:overflow-hidden lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:shadow-[0_10px_30px_rgba(15,23,42,0.045)]">
 
-            <div className="rounded-2xl bg-white p-6 shadow">
-
-              <h2 className="text-xl font-bold text-slate-900">
-                Alumnos registrados
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                {alumnosFiltrados.length} alumno(s) mostrado(s)
-              </p>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-[1fr_160px_180px_160px]">
+          {/* DIRECTORIO */}
+          <aside className="flex max-h-[410px] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-[#FBFCFD] shadow-[0_8px_24px_rgba(15,23,42,0.035)] lg:max-h-none lg:rounded-none lg:border-0 lg:border-r lg:border-slate-200 lg:shadow-none">
+            <div className="border-b border-slate-200 p-4">
+              <div className="relative">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
 
                 <input
                   type="text"
-                  placeholder="Buscar nombre, teléfono o email..."
+                  placeholder="Buscar alumno..."
                   value={busqueda}
                   onChange={(e) =>
                     setBusqueda(
                       e.target.value
                     )
                   }
-                  className="rounded-xl border border-slate-300 px-4 py-3"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-[#17324D] outline-none transition placeholder:text-slate-400 focus:border-[#00A79C]/50 focus:ring-2 focus:ring-[#00A79C]/10"
                 />
+              </div>
 
+              <div className="mt-2 grid grid-cols-2 gap-2">
                 <select
                   value={filtroEstado}
                   onChange={(e) =>
@@ -1283,184 +1452,440 @@ export default function AlumnosPage() {
                       e.target.value
                     )
                   }
-                  className="rounded-xl border border-slate-300 px-4 py-3"
+                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-[#17324D] outline-none focus:border-[#00A79C]/50"
                 >
                   <option value="todos">
                     Todos
                   </option>
-
                   <option value="activos">
                     Activos
                   </option>
-
                   <option value="inactivos">
                     Inactivos
                   </option>
                 </select>
 
                 <select
-                  value={filtroProcedencia}
+                  value={
+                    filtroProcedencia
+                  }
                   onChange={(e) =>
                     setFiltroProcedencia(
                       e.target.value
                     )
                   }
-                  className="rounded-xl border border-slate-300 px-4 py-3"
+                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-[#17324D] outline-none focus:border-[#00A79C]/50"
                 >
                   <option value="todos">
-                    Todas las procedencias
+                    Vinculación
                   </option>
-
                   <option value="propio">
-                    Alumnos propios
+                    Propios
                   </option>
-
                   <option value="iql">
                     IQL
                   </option>
-
                   <option value="otro_club">
                     Otros clubs
                   </option>
                 </select>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBusqueda("");
-                    setFiltroEstado(
-                      "todos"
-                    );
-                    setFiltroProcedencia(
-                      "todos"
-                    );
-                  }}
-                  className="rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-800"
-                >
-                  Limpiar filtros
-                </button>
-
               </div>
 
+              <div className="mt-3 flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-slate-400">
+                  {alumnosFiltrados.length} de {alumnos.length} alumnos
+                </p>
+
+                {(busqueda ||
+                  filtroEstado !==
+                    "todos" ||
+                  filtroProcedencia !==
+                    "todos") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusqueda("");
+                      setFiltroEstado(
+                        "todos"
+                      );
+                      setFiltroProcedencia(
+                        "todos"
+                      );
+                    }}
+                    className="text-[11px] font-bold text-[#00A79C] hover:underline"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="mt-5 space-y-4">
-
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
               {alumnosFiltrados.length ===
                 0 && (
-
-                <div className="rounded-2xl bg-white p-6 shadow">
-
-                  <p className="text-slate-500">
+                <div className="m-2 rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center">
+                  <p className="text-xs font-medium text-slate-400">
                     No hay alumnos que coincidan con los filtros.
                   </p>
-
                 </div>
-
               )}
 
-              {alumnosFiltrados.map(
-                (alumno) => {
-                  const resumen =
-                    obtenerResumenAlumno(
-                      alumno.id
-                    );
+              <div className="space-y-1">
+                {alumnosFiltrados.map(
+                  (alumno) => {
+                    const resumen =
+                      obtenerResumenAlumno(
+                        alumno.id
+                      );
 
-                  const clasesAlumno =
-                    obtenerClasesAlumno(
-                      alumno.id
-                    );
+                    const seleccionado =
+                      alumnoSeleccionado?.id ===
+                      alumno.id;
 
-                  const pagosAlumno =
-                    obtenerPagosAlumno(
-                      alumno.id
-                    );
+                    return (
+                      <button
+                        key={alumno.id}
+                        type="button"
+                        onClick={() => {
+                          setAlumnoSeleccionadoId(
+                            alumno.id
+                          );
+                          setHistorialesAbiertos(
+                            []
+                          );
 
-                  const historialAbierto =
-                    historialesAbiertos.includes(
-                      alumno.id
-                    );
-
-                  return (
-                    <div
-                      key={alumno.id}
-                      id={`alumno-${alumno.id}`}
-                    >
-                    <FichaAlumno
-                      alumno={alumno}
-                      ubicacionHabitualNombre={
-                        ubicaciones.find(
-                          (ubicacion) =>
-                            ubicacion.id ===
-                            alumno.ubicacion_habitual_id
-                        )?.nombre || null
-                      }
-                      tipoClaseHabitual={alumno.tipo_clase_habitual}
-                      resumen={resumen}
-                      historialAbierto={
-                        historialAbierto
-                      }
-                      onRegistrarPago={() =>
-                        router.push(
-                          `/pagos?alumno=${alumno.id}`
-                        )
-                      }
-                      onGestionarBono={() =>
-                        router.push(
-                          `/bonos?alumno=${alumno.id}`
-                        )
-                      }
-                      onVerHistorial={() =>
-                        cambiarHistorial(
-                          alumno.id
-                        )
-                      }
-                      onEditar={() =>
-                        editarAlumno(
-                          alumno
-                        )
-                      }
-                      onCambiarEstado={() =>
-                        cambiarEstadoAlumno(
-                          alumno
-                        )
-                      }
-                      onBorrar={() =>
-                        borrarAlumno(
-                          alumno.id
-                        )
-                      }
-                    >
-
-                      <HistorialAlumno
-                        clasesAlumno={
-                          clasesAlumno
+                          if (
+                            window.innerWidth <
+                            1024
+                          ) {
+                            setTimeout(
+                              () => {
+                                document
+                                  .getElementById(
+                                    "ficha-alumno-movil"
+                                  )
+                                  ?.scrollIntoView({
+                                    behavior:
+                                      "smooth",
+                                    block:
+                                      "start",
+                                  });
+                              },
+                              80
+                            );
+                          }
+                        }}
+                        className={
+                          seleccionado
+                            ? "w-full rounded-xl border border-[#00A79C]/25 bg-[#00A79C]/10 p-3 text-left transition"
+                            : "w-full rounded-xl border border-transparent p-3 text-left transition hover:border-slate-200 hover:bg-white"
                         }
-                        pagosAlumno={
-                          pagosAlumno
-                        }
-                        formatearFecha={
-                          formatearFecha
-                        }
-                        calcularHorario={
-                          calcularHorario
-                        }
-                      />
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
+                            <img
+                              src={
+                                alumno.foto_url ||
+                                "/logo-espacio-padel.png"
+                              }
+                              alt={`${alumno.nombre} ${alumno.apellidos || ""}`}
+                              className={
+                                alumno.foto_url
+                                  ? "h-full w-full object-cover"
+                                  : "h-[86%] w-[86%] object-contain"
+                              }
+                            />
+                          </div>
 
-                    </FichaAlumno>
-                    </div>
-                  );
-                }
-              )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <p className="truncate text-sm font-bold text-[#17324D]">
+                                {alumno.nombre}{" "}
+                                {alumno.apellidos ||
+                                  ""}
+                              </p>
 
+                              <span
+                                className={
+                                  alumno.activo
+                                    ? "h-2 w-2 shrink-0 rounded-full bg-emerald-500"
+                                    : "h-2 w-2 shrink-0 rounded-full bg-red-500"
+                                }
+                                title={
+                                  alumno.activo
+                                    ? "Activo"
+                                    : "Inactivo"
+                                }
+                              />
+                            </div>
+
+                            <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
+                              {alumno.telefono ||
+                                alumno.email ||
+                                "Sin contacto"}
+                            </p>
+
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {resumen.pendienteCobro >
+                                0 && (
+                                <span className="rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-bold text-red-600">
+                                  {resumen.pendienteCobro.toFixed(
+                                    0
+                                  )}{" "}
+                                  € pendiente
+                                </span>
+                              )}
+
+                              {resumen.tieneBonoActivo && (
+                                <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-700">
+                                  {resumen.bonoCompartido
+                                    ? "Bono compartido · "
+                                    : "Bono · "}
+                                  {resumen.clasesRestantes}
+                                </span>
+                              )}
+
+                            </div>
+                          </div>
+
+                          <svg
+                            viewBox="0 0 24 24"
+                            className={
+                              seleccionado
+                                ? "h-4 w-4 shrink-0 text-[#00A79C]"
+                                : "h-4 w-4 shrink-0 text-slate-300"
+                            }
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        </div>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
             </div>
 
-          </div>
+            <div className="border-t border-slate-200 px-4 py-3">
+              <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400">
+                <span>
+                  {alumnosActivos} activos
+                </span>
+                <span>
+                  {alumnosInactivos} inactivos
+                </span>
+              </div>
+            </div>
+          </aside>
 
-        </div>
+          {/* FICHA SELECCIONADA */}
+          <div id="ficha-alumno-movil" className="min-w-0 bg-transparent p-0 lg:bg-white lg:p-6">
+            {!alumnoSeleccionado ? (
+              <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 lg:h-full lg:min-h-[600px] lg:rounded-none lg:border-0 lg:p-0">
+                <div className="max-w-sm text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="8" r="3.25" />
+                      <path d="M5 20c.55-4 2.9-6 7-6s6.45 2 7 6" />
+                    </svg>
+                  </div>
+
+                  <p className="mt-4 text-sm font-bold text-[#17324D]">
+                    Selecciona un alumno
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    La ficha completa aparecerá aquí.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              (() => {
+                const resumen =
+                  obtenerResumenAlumno(
+                    alumnoSeleccionado.id
+                  );
+
+                const clasesAlumno =
+                  obtenerClasesAlumno(
+                    alumnoSeleccionado.id
+                  );
+
+                const pagosAlumno =
+                  obtenerPagosAlumno(
+                    alumnoSeleccionado.id
+                  );
+
+                const historialAbierto =
+                  historialesAbiertos.includes(
+                    alumnoSeleccionado.id
+                  );
+
+                return (
+                  <FichaAlumno
+                    alumno={
+                      alumnoSeleccionado
+                    }
+                    ubicacionHabitualNombre={
+                      ubicaciones.find(
+                        (ubicacion) =>
+                          ubicacion.id ===
+                          alumnoSeleccionado.ubicacion_habitual_id
+                      )?.nombre || null
+                    }
+                    tipoClaseHabitual={
+                      alumnoSeleccionado.tipo_clase_habitual
+                    }
+                    resumen={resumen}
+                    historialAbierto={
+                      historialAbierto
+                    }
+                    onRegistrarPago={() =>
+                      router.push(
+                        `/pagos?alumno=${alumnoSeleccionado.id}`
+                      )
+                    }
+                    onGestionarBono={() =>
+                      router.push(
+                        `/bonos?alumno=${alumnoSeleccionado.id}`
+                      )
+                    }
+                    onVerHistorial={() =>
+                      cambiarHistorial(
+                        alumnoSeleccionado.id
+                      )
+                    }
+                    onEditar={() =>
+                      editarAlumno(
+                        alumnoSeleccionado
+                      )
+                    }
+                    onCambiarEstado={() =>
+                      cambiarEstadoAlumno(
+                        alumnoSeleccionado
+                      )
+                    }
+                    onBorrar={() =>
+                      borrarAlumno(
+                        alumnoSeleccionado.id
+                      )
+                    }
+                  >
+                    <HistorialAlumno
+                      clasesAlumno={
+                        clasesAlumno
+                      }
+                      pagosAlumno={
+                        pagosAlumno
+                      }
+                      formatearFecha={
+                        formatearFecha
+                      }
+                      calcularHorario={
+                        calcularHorario
+                      }
+                    />
+                  </FichaAlumno>
+                );
+              })()
+            )}
+          </div>
+        </section>
+
+        {/* MODAL DE ALTA / EDICIÓN
+            De momento conserva el formulario funcional actual.
+            Su rediseño se hará después de aprobar esta pantalla principal. */}
+        {formularioAbierto && (
+          <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-[#0F172A]/45 p-3 backdrop-blur-[2px] sm:p-6">
+            <div className="my-3 w-full max-w-xl sm:my-8">
+              <FormularioAlumno
+                nombre={nombre}
+                apellidos={apellidos}
+                apodo={apodo}
+                fechaNacimiento={
+                  fechaNacimiento
+                }
+                localidad={localidad}
+                pais={pais}
+                telefono={telefono}
+                email={email}
+                precio={precio}
+                procedencia={procedencia}
+                clubOrigen={clubOrigen}
+                ubicaciones={ubicaciones}
+                ubicacionHabitualId={
+                  ubicacionHabitualId
+                }
+                tipoClaseHabitual={
+                  tipoClaseHabitual
+                }
+                activo={activo}
+                fotoUrl={fotoUrl}
+                alumnoEditandoId={
+                  alumnoEditandoId
+                }
+                mensaje={mensaje}
+                setNombre={setNombre}
+                setApellidos={
+                  setApellidos
+                }
+                setApodo={setApodo}
+                setFechaNacimiento={
+                  setFechaNacimiento
+                }
+                setLocalidad={
+                  setLocalidad
+                }
+                setPais={setPais}
+                setTelefono={
+                  setTelefono
+                }
+                setEmail={setEmail}
+                setPrecio={setPrecio}
+                setProcedencia={
+                  setProcedencia
+                }
+                setClubOrigen={
+                  setClubOrigen
+                }
+                setUbicacionHabitualId={
+                  setUbicacionHabitualId
+                }
+                setTipoClaseHabitual={
+                  setTipoClaseHabitual
+                }
+                setActivo={setActivo}
+                onFotoSeleccionada={
+                  seleccionarFoto
+                }
+                onGuardar={
+                  guardarAlumno
+                }
+                onCancelar={() => {
+                  limpiarFormulario();
+                  setMensaje("");
+                  setFormularioAbierto(false);
+                }}
+              />
+            </div>
+          </div>
+        )}
 
       </div>
-
     </main>
   );
 }

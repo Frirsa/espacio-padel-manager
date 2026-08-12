@@ -287,6 +287,11 @@ export default function Home() {
   const [bonosAviso, setBonosAviso] =
     useState<any[]>([]);
 
+  const [
+    cumpleanosHoy,
+    setCumpleanosHoy,
+  ] = useState<any[]>([]);
+
   const [clasesPasadasProgramadas, setClasesPasadasProgramadas] =
     useState<any[]>([]);
 
@@ -1093,6 +1098,84 @@ export default function Home() {
     setBonosAviso(
       bonosAvisoData || []
     );
+
+    const {
+      data: alumnosCumpleanosData,
+    } = await supabase
+      .from("alumnos")
+      .select(`
+        id,
+        nombre,
+        apellidos,
+        apodo,
+        fecha_nacimiento
+      `)
+      .eq("activo", true)
+      .not(
+        "fecha_nacimiento",
+        "is",
+        null
+      );
+
+    const mesDiaHoy =
+      hoy.slice(5);
+
+    const cumpleanos =
+      (
+        alumnosCumpleanosData ||
+        []
+      )
+        .filter(
+          (alumno: any) =>
+            alumno.fecha_nacimiento &&
+            String(
+              alumno.fecha_nacimiento
+            ).slice(5) ===
+              mesDiaHoy
+        )
+        .map((alumno: any) => {
+          const anioNacimiento =
+            Number(
+              String(
+                alumno.fecha_nacimiento
+              ).slice(0, 4)
+            );
+
+          return {
+            ...alumno,
+            edad:
+              ahora.getFullYear() -
+              anioNacimiento,
+          };
+        })
+        .sort(
+          (a: any, b: any) =>
+            `${a.nombre || ""} ${
+              a.apellidos || ""
+            }`.localeCompare(
+              `${b.nombre || ""} ${
+                b.apellidos || ""
+              }`,
+              "es"
+            )
+        );
+
+    setCumpleanosHoy(
+      cumpleanos
+    );
+  }
+
+  function nombreCumpleanos(
+    alumno: any
+  ) {
+    const nombreCompleto =
+      `${alumno?.nombre || ""} ${
+        alumno?.apellidos || ""
+      }`.trim();
+
+    return alumno?.apodo
+      ? `${nombreCompleto} (${alumno.apodo})`
+      : nombreCompleto;
   }
 
   function nombresClase(clase: any) {
@@ -1420,7 +1503,8 @@ export default function Home() {
 
           {clasesPasadasProgramadas.length === 0 &&
           numeroPagosPendientes === 0 &&
-          bonosAviso.length === 0 ? (
+          bonosAviso.length === 0 &&
+          cumpleanosHoy.length === 0 ? (
             <div className="m-4 flex items-start gap-3 rounded-xl border border-[#00A79C]/20 bg-[#E8F7F5] px-4 py-4 sm:m-5">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#00A79C] shadow-sm">
                 <IconoResultado />
@@ -1434,6 +1518,75 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid gap-3 p-4 sm:p-5 lg:grid-cols-3">
+              {cumpleanosHoy.length > 0 && (
+                <a
+                  href="/alumnos"
+                  className="rounded-xl border border-[#00A79C]/25 bg-[#E8F7F5] p-4 transition hover:border-[#00A79C]/40 hover:bg-[#DDF3F0]"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#00A79C] shadow-sm">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M5 10h14v10H5Z" />
+                        <path d="M4 10h16M12 10v10" />
+                        <path d="M7.5 6.5C7.5 4.6 9 4 10 5.2L12 8l2-2.8c1-1.2 2.5-.6 2.5 1.3 0 1.5-1.2 2.5-3 2.5h-3c-1.8 0-3-1-3-2.5Z" />
+                      </svg>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#008C83]">
+                        Cumpleaños hoy
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold text-[#17324D]">
+                        {cumpleanosHoy.length}
+                      </p>
+
+                      <div className="mt-1 space-y-1 text-xs text-slate-700">
+                        {cumpleanosHoy.map(
+                          (alumno: any) => (
+                            <p
+                              key={alumno.id}
+                              className="leading-relaxed"
+                            >
+                              <span className="font-bold text-[#17324D]">
+                                {nombreCumpleanos(
+                                  alumno
+                                )}
+                              </span>
+                              {Number.isFinite(
+                                alumno.edad
+                              ) &&
+                                alumno.edad >=
+                                  0 && (
+                                  <>
+                                    {" "}
+                                    · cumple{" "}
+                                    {alumno.edad}{" "}
+                                    años
+                                  </>
+                                )}
+                            </p>
+                          )
+                        )}
+                      </div>
+
+                      <p className="mt-2 text-xs font-bold text-[#008C83]">
+                        Ver alumnos →
+                      </p>
+                    </div>
+                  </div>
+                </a>
+              )}
+
               {numeroPagosPendientes > 0 && (
                 <a
                   href={
@@ -1661,7 +1814,7 @@ export default function Home() {
 
         {/* DETALLE DIARIO */}
         <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
-          <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#00A79C]">
                 Detalle diario
@@ -1669,80 +1822,95 @@ export default function Home() {
               <h2 className="mt-1 text-xl font-bold text-[#17324D]">
                 {etiquetaDetalle}
               </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Fotografía rápida de la actividad y el resultado del día
+            </div>
+            <p className="text-sm font-semibold text-slate-500">
+              {formatearFecha(detalleDia.fecha)}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4 lg:hidden">
+            <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Realizadas</p>
+              <p className="mt-1 text-lg font-bold text-[#17324D]">{detalleDia.clases}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Canceladas</p>
+              <p className="mt-1 text-lg font-bold text-red-600">{detalleDia.canceladas}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Ingresos</p>
+              <p className="mt-1 text-lg font-bold text-[#17324D]">{detalleDia.ingresos.toFixed(2)} €</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Resultado</p>
+              <p className={detalleDia.resultado >= 0 ? "mt-1 text-lg font-bold text-[#00A79C]" : "mt-1 text-lg font-bold text-red-600"}>
+                {detalleDia.resultado.toFixed(2)} €
               </p>
             </div>
-
-            <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-[#17324D]">
-              <IconoCalendario />
-              <span>{formatearFecha(detalleDia.fecha)}</span>
+            <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Horas</p>
+              <p className="mt-1 font-bold text-[#17324D]">{detalleDia.horas.toFixed(1)}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Club generado</p>
+              <p className="mt-1 font-bold text-[#17324D]">{detalleDia.clubGenerado.toFixed(2)} €</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Pistas</p>
+              <p className="mt-1 font-bold text-red-600">{detalleDia.pistasPagadasClub.toFixed(2)} €</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-400">Saldo club</p>
+              <p className={detalleDia.saldoClub >= 0 ? "mt-1 font-bold text-[#00A79C]" : "mt-1 font-bold text-red-600"}>
+                {detalleDia.saldoClub.toFixed(2)} €
+              </p>
             </div>
           </div>
 
-          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4 2xl:grid-cols-7">
-            <TarjetaMetrica
-              icono={<IconoCalendario />}
-              etiqueta="Clases"
-              valor={String(detalleDia.clases)}
-              detalle={
-                detalleDia.canceladas > 0
-                  ? `${detalleDia.canceladas} cancelada${detalleDia.canceladas === 1 ? "" : "s"}`
-                  : "Realizadas"
-              }
-              tono="azul"
-            />
-
-            <TarjetaMetrica
-              icono={<IconoReloj />}
-              etiqueta="Horas"
-              valor={detalleDia.horas.toFixed(1)}
-              detalle="Impartidas"
-              tono="azul"
-            />
-
-            <TarjetaMetrica
-              icono={<IconoEuro />}
-              etiqueta="Ingresos"
-              valor={`${detalleDia.ingresos.toFixed(2)} €`}
-              detalle={
-                detalleDia.ingresoExtra > 0
-                  ? `Incluye ${detalleDia.ingresoExtra.toFixed(2)} € extra`
-                  : "Generados"
-              }
-            />
-
-            <TarjetaMetrica
-              icono={<IconoGasto />}
-              etiqueta="Gastos pista"
-              valor={`${detalleDia.gastos.toFixed(2)} €`}
-              detalle="Coste del día"
-              tono="rojo"
-            />
-
-            <TarjetaMetrica
-              icono={<IconoResultado />}
-              etiqueta="Resultado"
-              valor={`${detalleDia.resultado.toFixed(2)} €`}
-              detalle="Ingresos − gastos"
-              tono={detalleDia.resultado >= 0 ? "marca" : "rojo"}
-            />
-
-            <TarjetaMetrica
-              icono={<IconoClub />}
-              etiqueta="Club generado"
-              valor={`${detalleDia.clubGenerado.toFixed(2)} €`}
-              detalle="Actividad club"
-              tono="azul"
-            />
-
-            <TarjetaMetrica
-              icono={<IconoResultado />}
-              etiqueta="Saldo club"
-              valor={`${detalleDia.saldoClub.toFixed(2)} €`}
-              detalle="Generado − pistas"
-              tono={detalleDia.saldoClub >= 0 ? "marca" : "rojo"}
-            />
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full min-w-[1180px] table-fixed text-center">
+              <thead className="bg-slate-50">
+                <tr className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  <th className="px-2 py-3 text-center">Día</th>
+                  <th className="px-2 py-3 text-center">Realizadas</th>
+                  <th className="px-2 py-3 text-center">Canceladas</th>
+                  <th className="px-2 py-3 text-center">Horas</th>
+                  <th className="px-2 py-3 text-center">Ingresos</th>
+                  <th className="px-2 py-3 text-center">Club generado</th>
+                  <th className="px-2 py-3 text-center">Pistas pagadas</th>
+                  <th className="px-2 py-3 text-center">Saldo club</th>
+                  <th className="px-2 py-3 text-center">Club cobrado</th>
+                  <th className="px-2 py-3 text-center">Ingreso extra</th>
+                  <th className="px-2 py-3 text-center">Gastos</th>
+                  <th className="px-2 py-3 text-center">Resultado</th>
+                  <th className="px-2 py-3 text-center">Acumulado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-slate-100 text-xs text-slate-700">
+                  <td className="px-2 py-4 text-center font-semibold text-[#17324D]">{formatearFecha(detalleDia.fecha)}</td>
+                  <td className="px-2 py-4 text-center">{detalleDia.clases}</td>
+                  <td className="px-2 py-4 text-center">
+                    <div className="font-semibold text-red-600">{detalleDia.canceladas}</div>
+                    {detalleDia.canceladas > 0 && (
+                      <div className="mt-0.5 text-[10px] text-slate-400">
+                        {detalleDia.canceladasFacturables} facturable{detalleDia.canceladasFacturables === 1 ? "" : "s"}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-2 py-4 text-center">{detalleDia.horas.toFixed(1)}</td>
+                  <td className="px-2 py-4 text-center font-semibold text-[#17324D]">{detalleDia.ingresos.toFixed(2)} €</td>
+                  <td className="px-2 py-4 text-center font-semibold text-[#17324D]">{detalleDia.clubGenerado.toFixed(2)} €</td>
+                  <td className="px-2 py-4 text-center font-semibold text-red-600">{detalleDia.pistasPagadasClub.toFixed(2)} €</td>
+                  <td className={detalleDia.saldoClub >= 0 ? "px-2 py-4 text-center font-bold text-[#00A79C]" : "px-2 py-4 text-center font-bold text-red-600"}>{detalleDia.saldoClub.toFixed(2)} €</td>
+                  <td className="px-2 py-4 text-center font-semibold text-[#00A79C]">{detalleDia.clubCobrado.toFixed(2)} €</td>
+                  <td className="px-2 py-4 text-center font-semibold text-[#17324D]">{detalleDia.ingresoExtra.toFixed(2)} €</td>
+                  <td className="px-2 py-4 text-center font-semibold text-red-600">{detalleDia.gastos.toFixed(2)} €</td>
+                  <td className={detalleDia.resultado >= 0 ? "px-2 py-4 text-center font-bold text-[#00A79C]" : "px-2 py-4 text-center font-bold text-red-600"}>{detalleDia.resultado.toFixed(2)} €</td>
+                  <td className={detalleDia.acumulado >= 0 ? "px-2 py-4 text-center font-bold text-[#17324D]" : "px-2 py-4 text-center font-bold text-red-600"}>{detalleDia.acumulado.toFixed(2)} €</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 

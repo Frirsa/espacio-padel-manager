@@ -77,6 +77,7 @@ type Clase = {
       id: string;
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -367,7 +368,8 @@ export default function AgendaPage() {
           alumnos (
             id,
             nombre,
-            apellidos
+            apellidos,
+            apodo
           )
         )
       `)
@@ -423,6 +425,9 @@ export default function AgendaPage() {
                     ""
                   } ${
                     alumno?.apellidos ||
+                    ""
+                  } ${
+                    alumno?.apodo ||
                     ""
                   }`.trim()
               )

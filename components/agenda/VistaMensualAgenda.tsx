@@ -23,6 +23,7 @@ type Clase = {
     alumnos: {
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -56,6 +57,40 @@ function crearFecha(
     mes - 1,
     dia
   );
+}
+
+
+function nombreAlumnoAgenda(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined,
+  unico: boolean
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  if (unico) {
+    return `${alumno.nombre || ""} ${
+      alumno.apellidos || ""
+    }`.trim();
+  }
+
+  return (
+    alumno.nombre || ""
+  ).trim();
 }
 
 function fechaISO(
@@ -773,19 +808,15 @@ export default function VistaMensualAgenda({
                     .filter(Boolean);
 
                 const alumnos =
-                  alumnosDatos.length ===
-                  1
-                    ? `${alumnosDatos[0]?.nombre || ""} ${alumnosDatos[0]?.apellidos || ""}`.trim()
-                    : alumnosDatos
-                        .map(
-                          (alumno) =>
-                            (
-                              alumno?.nombre ||
-                              ""
-                            ).trim()
-                        )
-                        .filter(Boolean)
-                        .join(" · ");
+                  alumnosDatos
+                    .map((alumno) =>
+                      nombreAlumnoAgenda(
+                        alumno,
+                        alumnosDatos.length === 1
+                      )
+                    )
+                    .filter(Boolean)
+                    .join(" · ");
 
                 const horaFin =
                   calcularHoraFin(
@@ -809,7 +840,13 @@ export default function VistaMensualAgenda({
                     )}`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <p className="min-w-0 text-sm font-extrabold tracking-tight text-[#17324D]">
+                      <p
+                        className={
+                          clase.estado === "cancelada"
+                            ? "min-w-0 text-sm font-extrabold tracking-tight text-red-700"
+                            : "min-w-0 text-sm font-extrabold tracking-tight text-[#17324D]"
+                        }
+                      >
                         {clase.hora_inicio.slice(
                           0,
                           5
@@ -837,7 +874,11 @@ export default function VistaMensualAgenda({
                     </div>
 
                     <p
-                      className="mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-[#17324D]"
+                      className={
+                        clase.estado === "cancelada"
+                          ? "mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-red-700"
+                          : "mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-[#17324D]"
+                      }
                       title={
                         alumnos ||
                         "Sin alumnos"
@@ -1056,18 +1097,15 @@ export default function VistaMensualAgenda({
                             .filter(Boolean);
 
                         const nombres =
-                          alumnosDatos.length === 1
-                            ? `${alumnosDatos[0]?.nombre || ""} ${alumnosDatos[0]?.apellidos || ""}`.trim()
-                            : alumnosDatos
-                                .map(
-                                  (alumno) =>
-                                    (
-                                      alumno?.nombre ||
-                                      ""
-                                    ).trim()
-                                )
-                                .filter(Boolean)
-                                .join(" · ");
+                          alumnosDatos
+                            .map((alumno) =>
+                              nombreAlumnoAgenda(
+                                alumno,
+                                alumnosDatos.length === 1
+                              )
+                            )
+                            .filter(Boolean)
+                            .join(" · ");
 
                         return (
                           <button
@@ -1094,14 +1132,26 @@ export default function VistaMensualAgenda({
 
                             <div className="flex min-w-0 items-center gap-1.5">
 
-                              <span className="shrink-0 font-bold">
+                              <span
+                                className={
+                                  clase.estado === "cancelada"
+                                    ? "shrink-0 font-bold text-red-700"
+                                    : "shrink-0 font-bold"
+                                }
+                              >
                                 {clase.hora_inicio.slice(
                                   0,
                                   5
                                 )}
                               </span>
 
-                              <span className="min-w-0 truncate font-medium">
+                              <span
+                                className={
+                                  clase.estado === "cancelada"
+                                    ? "min-w-0 truncate font-medium text-red-700"
+                                    : "min-w-0 truncate font-medium"
+                                }
+                              >
                                 {nombres ||
                                   "Sin alumnos"}
                               </span>

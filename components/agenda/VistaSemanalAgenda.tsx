@@ -23,6 +23,7 @@ type Clase = {
     alumnos: {
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -42,6 +43,40 @@ type Props = {
     fecha: string
   ) => void;
 };
+
+
+function nombreAlumnoAgenda(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined,
+  unico: boolean
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  if (unico) {
+    return `${alumno.nombre || ""} ${
+      alumno.apellidos || ""
+    }`.trim();
+  }
+
+  return (
+    alumno.nombre || ""
+  ).trim();
+}
 
 function fechaISO(
   fecha: Date
@@ -247,7 +282,7 @@ function IconoEstadoClase({
     return (
       <svg
         viewBox="0 0 20 20"
-        className="h-[11px] w-[11px]"
+        className="h-3.5 w-3.5"
         fill="none"
         aria-hidden="true"
       >
@@ -344,7 +379,11 @@ function IndicadoresClase({
         title={
           estadoVisual.titulo
         }
-        className={`inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`}
+        className={
+          clase.estado === "cancelada"
+            ? `inline-flex h-5 w-5 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
+            : `inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
+        }
       >
         <IconoEstadoClase
           estado={clase.estado}
@@ -693,19 +732,15 @@ export default function VistaSemanalAgenda({
                     .filter(Boolean);
 
                 const alumnos =
-                  alumnosDatos.length ===
-                  1
-                    ? `${alumnosDatos[0]?.nombre || ""} ${alumnosDatos[0]?.apellidos || ""}`.trim()
-                    : alumnosDatos
-                        .map(
-                          (alumno) =>
-                            (
-                              alumno?.nombre ||
-                              ""
-                            ).trim()
-                        )
-                        .filter(Boolean)
-                        .join(" · ");
+                  alumnosDatos
+                    .map((alumno) =>
+                      nombreAlumnoAgenda(
+                        alumno,
+                        alumnosDatos.length === 1
+                      )
+                    )
+                    .filter(Boolean)
+                    .join(" · ");
 
                 const horaFin =
                   calcularHoraFin(
@@ -724,10 +759,14 @@ export default function VistaSemanalAgenda({
                         clase.id
                       )
                     }
-                    className={`block w-full rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(
+                    className={`relative block w-full overflow-hidden rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(
                       clase.tipo
                     )}`}
                   >
+                    {clase.estado === "cancelada" && (
+                      <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                    )}
+
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-extrabold tracking-tight text-[#17324D]">
@@ -963,18 +1002,15 @@ export default function VistaSemanalAgenda({
                               .filter(Boolean);
 
                           const alumnos =
-                            alumnosDatos.length === 1
-                              ? `${alumnosDatos[0]?.nombre || ""} ${alumnosDatos[0]?.apellidos || ""}`.trim()
-                              : alumnosDatos
-                                  .map(
-                                    (alumno) =>
-                                      (
-                                        alumno?.nombre ||
-                                        ""
-                                      ).trim()
-                                  )
-                                  .filter(Boolean)
-                                  .join(" · ");
+                            alumnosDatos
+                              .map((alumno) =>
+                                nombreAlumnoAgenda(
+                                  alumno,
+                                  alumnosDatos.length === 1
+                                )
+                              )
+                              .filter(Boolean)
+                              .join(" · ");
 
                           const horaFin =
                             calcularHoraFin(
@@ -994,10 +1030,13 @@ export default function VistaSemanalAgenda({
                                 )
                               }
                               title="Abrir esta clase para editar"
-                              className={`block w-full cursor-pointer rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(
+                              className={`relative block w-full cursor-pointer overflow-hidden rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(
                                 clase.tipo
                               )}`}
                             >
+                              {clase.estado === "cancelada" && (
+                                <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                              )}
 
                               <div className="flex items-start justify-between gap-2">
 

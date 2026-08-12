@@ -7,6 +7,7 @@ type Alumno = {
   id: string;
   nombre: string;
   apellidos: string | null;
+  apodo: string | null;
 };
 
 type Grupo = {
@@ -18,6 +19,7 @@ type Grupo = {
     alumnos: {
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -33,6 +35,32 @@ type ClaseGrupo = {
     nombre: string;
   } | null;
 };
+
+function nombreAlumnoGrupo(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  return `${alumno.nombre || ""} ${
+    alumno.apellidos || ""
+  }`.trim();
+}
 
 export default function GruposPage() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
@@ -61,7 +89,7 @@ export default function GruposPage() {
   async function cargarDatos() {
     const { data: alumnosData } = await supabase
       .from("alumnos")
-      .select("id,nombre,apellidos")
+      .select("id,nombre,apellidos,apodo")
       .eq("activo", true)
       .order("nombre");
 
@@ -75,7 +103,8 @@ export default function GruposPage() {
           alumno_id,
           alumnos (
             nombre,
-            apellidos
+            apellidos,
+            apodo
           )
         )
       `)
@@ -441,6 +470,8 @@ export default function GruposPage() {
       const nombreCompleto =
         `${alumno.nombre} ${
           alumno.apellidos || ""
+        } ${
+          alumno.apodo || ""
         }`.toLowerCase();
 
       return nombreCompleto.includes(
@@ -458,6 +489,8 @@ export default function GruposPage() {
             (alumno) =>
               `${alumno?.nombre || ""} ${
                 alumno?.apellidos || ""
+              } ${
+                alumno?.apodo || ""
               }`.trim()
           )
           .join(" ")
@@ -606,9 +639,9 @@ export default function GruposPage() {
                         />
 
                         <span>
-                          {alumno.nombre}{" "}
-                          {alumno.apellidos ||
-                            ""}
+                          {nombreAlumnoGrupo(
+                            alumno
+                          )}
                         </span>
                       </label>
                     )
@@ -753,12 +786,12 @@ export default function GruposPage() {
                       .filter(Boolean)
                       .map(
                         (alumno) =>
-                          `${alumno?.nombre || ""} ${
-                            alumno?.apellidos ||
-                            ""
-                          }`.trim()
+                          nombreAlumnoGrupo(
+                            alumno
+                          )
                       )
-                      .join(", ");
+                      .filter(Boolean)
+                      .join(" · ");
 
                   const resumen =
                     obtenerResumenGrupo(
