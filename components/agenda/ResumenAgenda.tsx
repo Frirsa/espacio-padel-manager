@@ -7,7 +7,7 @@ function IconoHoy() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-7 w-7"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -23,7 +23,7 @@ function IconoProximas() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-7 w-7"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -39,45 +39,45 @@ export default function ResumenAgenda({
   proximasClases,
 }: Props) {
   return (
-    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+    <div className="mt-4 grid gap-3 sm:grid-cols-2">
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className="flex min-h-[88px] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_5px_18px_rgba(15,23,42,0.025)]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E8F7F5] text-[#00A79C]">
+          <IconoHoy />
+        </div>
 
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
-            <IconoHoy />
-          </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">
+            Clases de hoy
+          </p>
 
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-              Clases de hoy
-            </p>
+          <p className="mt-1 text-2xl font-bold leading-none text-[#17324D]">
+            {clasesHoy}
+          </p>
 
-            <p className="mt-1 text-3xl font-bold text-slate-900">
-              {clasesHoy}
-            </p>
-          </div>
-
+          <p className="mt-1 text-[11px] font-medium text-slate-400">
+            Programadas, realizadas o canceladas
+          </p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className="flex min-h-[88px] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_5px_18px_rgba(15,23,42,0.025)]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF3F8] text-[#17324D]">
+          <IconoProximas />
+        </div>
 
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-            <IconoProximas />
-          </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">
+            Próximas clases
+          </p>
 
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-              Próximas clases
-            </p>
+          <p className="mt-1 text-2xl font-bold leading-none text-[#17324D]">
+            {proximasClases}
+          </p>
 
-            <p className="mt-1 text-3xl font-bold text-[#09a9a3]">
-              {proximasClases}
-            </p>
-          </div>
-
+          <p className="mt-1 text-[11px] font-medium text-slate-400">
+            Desde hoy en adelante
+          </p>
         </div>
       </div>
 
