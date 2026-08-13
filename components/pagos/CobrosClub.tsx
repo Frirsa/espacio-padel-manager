@@ -154,7 +154,7 @@ function SelectorClubCobros({
           {etiqueta}
         </span>
         <span className="text-white/45">
-          âŒ„
+          ⌄
         </span>
       </button>
 
@@ -259,7 +259,7 @@ function SelectorMesCobros({
             valor
           )}
         </span>
-        <span className="text-white/45">âŒ„</span>
+        <span className="text-white/45">⌄</span>
       </button>
 
       {abierto && (
@@ -284,7 +284,7 @@ function SelectorMesCobros({
                 }
                 className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-[#17324D] hover:bg-slate-50"
               >
-                â€¹
+                ‹
               </button>
 
               <p className="text-sm font-bold text-[#17324D]">
@@ -300,7 +300,7 @@ function SelectorMesCobros({
                 }
                 className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-[#17324D] hover:bg-slate-50"
               >
-                â€º
+                ›
               </button>
             </div>
 
@@ -385,7 +385,7 @@ function CampoFechaCobroClub({
               valor
             )}
           </span>
-          <span className="text-xs text-[#00A79C]">âŒ„</span>
+          <span className="text-xs text-[#00A79C]">⌄</span>
         </button>
 
         <input
@@ -441,7 +441,7 @@ export default function CobrosClub() {
       .order("nombre");
 
     if (error) {
-      setMensaje("âŒ No se pudieron cargar los clubs: " + error.message);
+      setMensaje("❌ No se pudieron cargar los clubs: " + error.message);
       setCargando(false);
       return;
     }
@@ -489,7 +489,7 @@ export default function CobrosClub() {
       .order("hora_inicio", { ascending: true });
 
     if (error) {
-      setMensaje("âŒ No se pudieron cargar las clases del mes: " + error.message);
+      setMensaje("❌ No se pudieron cargar las clases del mes: " + error.message);
       setClases([]);
       setCargando(false);
       return;
@@ -533,7 +533,7 @@ export default function CobrosClub() {
     if (pendientes.length === 0 || !clubId || !mes) return;
 
     const confirmar = window.confirm(
-      `Se marcarÃ¡n como cobradas ${pendientes.length} clase(s) por un total de ${totalPendiente.toFixed(2)} â‚¬. Â¿Continuar?`
+      `Se marcarán como cobradas ${pendientes.length} clase(s) por un total de ${totalPendiente.toFixed(2)} €. ¿Continuar?`
     );
 
     if (!confirmar) return;
@@ -553,7 +553,7 @@ export default function CobrosClub() {
       .in("id", ids);
 
     if (errorClases) {
-      setMensaje("âŒ No se pudo registrar el cobro: " + errorClases.message);
+      setMensaje("❌ No se pudo registrar el cobro: " + errorClases.message);
       setGuardando(false);
       return;
     }
@@ -577,7 +577,7 @@ export default function CobrosClub() {
 
     if (errorLiquidacion) {
       setMensaje(
-        "âš ï¸ Las clases se han marcado como cobradas, pero no se pudo guardar el resumen mensual: " +
+        "⚠️ Las clases se han marcado como cobradas, pero no se pudo guardar el resumen mensual: " +
           errorLiquidacion.message
       );
       setGuardando(false);
@@ -586,7 +586,7 @@ export default function CobrosClub() {
     }
 
     setMensaje(
-      `âœ… Cobro de ${clubSeleccionado?.nombre || "club"} registrado: ${totalPendiente.toFixed(2)} â‚¬`
+      `✅ Cobro de ${clubSeleccionado?.nombre || "club"} registrado: ${totalPendiente.toFixed(2)} €`
     );
 
     setGuardando(false);
@@ -595,7 +595,7 @@ export default function CobrosClub() {
 
   return (
     <section className="min-w-0">
-      {/* CABECERA / FILTROS Â· MISMO LENGUAJE QUE EL RESTO DE V2 */}
+      {/* CABECERA / FILTROS · MISMO LENGUAJE QUE EL RESTO DE V2 */}
       <div className="rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
@@ -617,7 +617,7 @@ export default function CobrosClub() {
 
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
-                LiquidaciÃ³n mensual
+                Liquidación mensual
               </p>
 
               <h2 className="mt-0.5 text-xl font-bold text-white">
@@ -625,7 +625,7 @@ export default function CobrosClub() {
               </h2>
 
               <p className="mt-1 text-sm text-white/55">
-                Revisa las clases facturables del mes y registra la liquidaciÃ³n completa.
+                Revisa las clases facturables del mes y registra la liquidación completa.
               </p>
             </div>
           </div>
@@ -661,7 +661,7 @@ export default function CobrosClub() {
             <p className="mt-1 whitespace-nowrap text-xl font-bold text-[#85E6DF]">
               {totalMes.toFixed(
                 2
-              )} â‚¬
+              )} €
             </p>
           </div>
 
@@ -672,7 +672,7 @@ export default function CobrosClub() {
             <p className="mt-1 whitespace-nowrap text-xl font-bold text-white">
               {totalCobrado.toFixed(
                 2
-              )} â‚¬
+              )} €
             </p>
           </div>
 
@@ -683,7 +683,7 @@ export default function CobrosClub() {
             <p className="mt-1 whitespace-nowrap text-xl font-bold text-white">
               {totalPendiente.toFixed(
                 2
-              )} â‚¬
+              )} €
             </p>
           </div>
         </div>
@@ -735,7 +735,7 @@ export default function CobrosClub() {
                 <h3 className="mt-0.5 text-base font-bold text-[#17324D]">
                   {clubSeleccionado?.nombre ||
                     "Club"}{" "}
-                  Â· {mes}
+                  · {mes}
                 </h3>
               </div>
 
@@ -748,7 +748,7 @@ export default function CobrosClub() {
               </span>
             </div>
 
-            {/* MÃ“VIL Â· FICHAS EN LUGAR DE TABLA */}
+            {/* MÓVIL · FICHAS EN LUGAR DE TABLA */}
             <div className="space-y-2.5 p-3 md:hidden">
               {clasesFacturables.map(
                 (clase) => (
@@ -762,7 +762,7 @@ export default function CobrosClub() {
                           {formatearFecha(
                             clase.fecha
                           )}{" "}
-                          Â·{" "}
+                          ·{" "}
                           {clase.hora_inicio.slice(
                             0,
                             5
@@ -783,7 +783,7 @@ export default function CobrosClub() {
                             0
                         ).toFixed(
                           2
-                        )} â‚¬
+                        )} €
                       </p>
                     </div>
 
@@ -810,7 +810,7 @@ export default function CobrosClub() {
                         >
                           {clase.estado ===
                           "cancelada"
-                            ? "Cancelada Â· facturable"
+                            ? "Cancelada · facturable"
                             : "Realizada"}
                         </span>
 
@@ -832,7 +832,7 @@ export default function CobrosClub() {
               )}
             </div>
 
-            {/* TABLET / PC Â· TABLA ORIGINAL SIN CAMBIOS */}
+            {/* TABLET / PC · TABLA ORIGINAL SIN CAMBIOS */}
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[820px] border-collapse">
                 <thead className="bg-[#0F2742] text-white">
@@ -878,7 +878,7 @@ export default function CobrosClub() {
                             0,
                             5
                           )}{" "}
-                          Â·{" "}
+                          ·{" "}
                           {
                             clase.duracion_minutos
                           }{" "}
@@ -902,7 +902,7 @@ export default function CobrosClub() {
                           >
                             {clase.estado ===
                             "cancelada"
-                              ? "Cancelada Â· facturable"
+                              ? "Cancelada · facturable"
                               : "Realizada"}
                           </span>
                         </td>
@@ -913,7 +913,7 @@ export default function CobrosClub() {
                               0
                           ).toFixed(
                             2
-                          )} â‚¬
+                          )} €
                         </td>
 
                         <td className="px-4 py-3 text-center">
@@ -945,7 +945,7 @@ export default function CobrosClub() {
 
                 <div>
                   <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
-                    MÃ©todo
+                    Método
                   </span>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -992,14 +992,14 @@ export default function CobrosClub() {
                     ? "Mes cobrado"
                     : `Marcar ${totalPendiente.toFixed(
                         2
-                      )} â‚¬ como cobrado`}
+                      )} € como cobrado`}
                 </button>
               </div>
 
               {pendientes.length >
                 0 && (
                 <p className="mt-3 text-xs text-slate-500">
-                  Se marcarÃ¡n Ãºnicamente las{" "}
+                  Se marcarán únicamente las{" "}
                   {pendientes.length}{" "}
                   {pendientes.length ===
                   1
@@ -1016,11 +1016,11 @@ export default function CobrosClub() {
           <div
             className={
               mensaje.startsWith(
-                "âœ…"
+                "✅"
               )
                 ? "mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
                 : mensaje.startsWith(
-                    "âš ï¸"
+                    "⚠️"
                   )
                 ? "mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800"
                 : "mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"

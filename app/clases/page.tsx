@@ -356,7 +356,7 @@ function CampoFechaAgenda({
           </span>
 
           <span className="shrink-0 text-xs text-slate-400">
-            âŒ„
+            ⌄
           </span>
         </div>
 
@@ -644,7 +644,7 @@ function CampoMesAgenda({
           {formatearMesControl(valor)}
         </span>
         <span className="text-xs text-white/45">
-          âŒ„
+          ⌄
         </span>
       </button>
 
@@ -667,9 +667,9 @@ function CampoMesAgenda({
                   )
                 }
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-lg font-bold text-[#17324D] transition hover:bg-slate-50"
-                aria-label="AÃ±o anterior"
+                aria-label="Año anterior"
               >
-                â€¹
+                ‹
               </button>
 
               <p className="text-sm font-bold text-[#17324D]">
@@ -684,9 +684,9 @@ function CampoMesAgenda({
                   )
                 }
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-lg font-bold text-[#17324D] transition hover:bg-slate-50"
-                aria-label="AÃ±o siguiente"
+                aria-label="Año siguiente"
               >
-                â€º
+                ›
               </button>
             </div>
 
@@ -804,7 +804,7 @@ function CampoEstadoClases({
         </span>
 
         <span className="shrink-0 text-[10px] text-white/45">
-          âŒ„
+          ⌄
         </span>
       </button>
 
@@ -2047,7 +2047,7 @@ export default function ClasesPage() {
       alumnoId;
 
     if (esPropio) {
-      return `Bono propio Â· ${bono.numero_clases} clases Â· ${bono.clases_restantes} restantes`;
+      return `Bono propio · ${bono.numero_clases} clases · ${bono.clases_restantes} restantes`;
     }
 
     const titular =
@@ -2065,7 +2065,7 @@ export default function ClasesPage() {
           }`.trim()
         : "otro alumno";
 
-    return `Bono de ${nombreTitular} Â· ${bono.numero_clases} clases Â· ${bono.clases_restantes} restantes`;
+    return `Bono de ${nombreTitular} · ${bono.numero_clases} clases · ${bono.clases_restantes} restantes`;
   }
   function cambiarAlumno(
     alumno: Alumno
@@ -2634,8 +2634,8 @@ export default function ClasesPage() {
 
         notas:
           estadoClase === "cancelada"
-            ? "Clase cancelada facturable Â· generado desde Clases"
-            : "Generado automÃ¡ticamente desde Clases",
+            ? "Clase cancelada facturable · generado desde Clases"
+            : "Generado automáticamente desde Clases",
       };
 
       if (
@@ -3055,7 +3055,7 @@ export default function ClasesPage() {
       !fechaFinSerie
     ) {
       setMensaje(
-        "âŒ Indica la fecha de inicio y la fecha final de la serie."
+        "❌ Indica la fecha de inicio y la fecha final de la serie."
       );
       return;
     }
@@ -3064,7 +3064,7 @@ export default function ClasesPage() {
       diasSerie.length === 0
     ) {
       setMensaje(
-        "âŒ Selecciona al menos un dÃ­a de la semana."
+        "❌ Selecciona al menos un día de la semana."
       );
       return;
     }
@@ -3076,7 +3076,7 @@ export default function ClasesPage() {
       fechas.length === 0
     ) {
       setMensaje(
-        "âŒ No hay fechas que coincidan con los dÃ­as seleccionados."
+        "❌ No hay fechas que coincidan con los días seleccionados."
       );
       return;
     }
@@ -3089,7 +3089,7 @@ export default function ClasesPage() {
 
       if (bloqueo) {
         setMensaje(
-          `âŒ No puedes crear la serie. El ${fechaSerie} estÃ¡ marcado como no disponible${
+          `❌ No puedes crear la serie. El ${fechaSerie} está marcado como no disponible${
             bloqueo.motivo
               ? `: ${bloqueo.motivo}`
               : "."
@@ -3204,10 +3204,10 @@ export default function ClasesPage() {
           (item) =>
             item.id === ubicacionId
         )?.nombre ||
-        "esta ubicaciÃ³n";
+        "esta ubicación";
 
       setMensaje(
-        `âŒ No hay una tarifa de club configurada para ${nombreUbicacion}, ${duracion} minutos y ${alumnosSeleccionados.length} alumno${
+        `❌ No hay una tarifa de club configurada para ${nombreUbicacion}, ${duracion} minutos y ${alumnosSeleccionados.length} alumno${
           alumnosSeleccionados.length ===
           1
             ? ""
@@ -3263,7 +3263,7 @@ export default function ClasesPage() {
       !serieCreada
     ) {
       setMensaje(
-        "âŒ No se pudo crear la serie: " +
+        "❌ No se pudo crear la serie: " +
           (
             errorSerie?.message ||
             ""
@@ -3336,7 +3336,7 @@ export default function ClasesPage() {
         );
 
       setMensaje(
-        "âŒ No se pudieron crear las clases de la serie: " +
+        "❌ No se pudieron crear las clases de la serie: " +
           (
             errorClases?.message ||
             ""
@@ -3376,7 +3376,7 @@ export default function ClasesPage() {
         errorParticipantes
       ) {
         setMensaje(
-          "âš ï¸ La serie se creÃ³, pero hubo un problema al aÃ±adir los alumnos."
+          "⚠️ La serie se creó, pero hubo un problema al añadir los alumnos."
         );
 
         await cargarDatos();
@@ -3405,9 +3405,9 @@ export default function ClasesPage() {
     }
 
     setMensaje(
-      `âœ… Serie creada correctamente: ${fechas.length} clase(s) programada(s)${
+      `✅ Serie creada correctamente: ${fechas.length} clase(s) programada(s)${
         falloGoogleSerie
-          ? " Â· âš ï¸ Alguna clase no pudo sincronizarse con Google Calendar."
+          ? " · ⚠️ Alguna clase no pudo sincronizarse con Google Calendar."
           : ""
       }`
     );
@@ -3620,16 +3620,16 @@ export default function ClasesPage() {
 
       const mensajeBorrado =
         alcance === "una"
-          ? "âœ… Clase borrada correctamente"
+          ? "✅ Clase borrada correctamente"
           : alcance ===
             "siguientes"
-          ? "âœ… Esta clase y las siguientes se han borrado correctamente"
-          : "âœ… Serie completa borrada correctamente";
+          ? "✅ Esta clase y las siguientes se han borrado correctamente"
+          : "✅ Serie completa borrada correctamente";
 
       setMensaje(
         mensajeBorrado +
           (falloGoogle
-            ? " Â· âš ï¸ AlgÃºn evento no pudo borrarse de Google Calendar."
+            ? " · ⚠️ Algún evento no pudo borrarse de Google Calendar."
             : "")
       );
 
@@ -3643,7 +3643,7 @@ export default function ClasesPage() {
           : "Error desconocido";
 
       setMensaje(
-        "âŒ " + texto
+        "❌ " + texto
       );
     } finally {
       setBorrandoSerie(
@@ -3666,7 +3666,7 @@ export default function ClasesPage() {
 
     const confirmar =
       window.confirm(
-        "Â¿Seguro que quieres borrar esta clase?"
+        "¿Seguro que quieres borrar esta clase?"
       );
 
     if (
@@ -3785,7 +3785,7 @@ export default function ClasesPage() {
 
       if (bloqueo) {
         setMensaje(
-          `âŒ No puedes crear una clase ese dÃ­a. EstÃ¡ marcado como no disponible${
+          `❌ No puedes crear una clase ese día. Está marcado como no disponible${
             bloqueo.motivo
               ? `: ${bloqueo.motivo}`
               : "."
@@ -3822,7 +3822,7 @@ export default function ClasesPage() {
           ]
         ) {
           setMensaje(
-            "âŒ Hay un alumno marcado con bono pero no tiene bono seleccionado."
+            "❌ Hay un alumno marcado con bono pero no tiene bono seleccionado."
           );
 
           return;
@@ -3835,7 +3835,7 @@ export default function ClasesPage() {
       facturableCancelacion === null
     ) {
       setMensaje(
-        "âŒ Elige si la clase cancelada se cobra o no se cobra."
+        "❌ Elige si la clase cancelada se cobra o no se cobra."
       );
       return;
     }
@@ -4003,10 +4003,10 @@ export default function ClasesPage() {
           (item) =>
             item.id === ubicacionId
         )?.nombre ||
-        "esta ubicaciÃ³n";
+        "esta ubicación";
 
       setMensaje(
-        `âŒ No hay una tarifa de club configurada para ${nombreUbicacion}, ${duracion} minutos y ${alumnosSeleccionados.length} alumno${
+        `❌ No hay una tarifa de club configurada para ${nombreUbicacion}, ${duracion} minutos y ${alumnosSeleccionados.length} alumno${
           alumnosSeleccionados.length ===
           1
             ? ""
@@ -4272,8 +4272,8 @@ export default function ClasesPage() {
         setMensaje(
           alcanceEdicionSerie ===
             "siguientes"
-            ? "âœ… Esta clase y las siguientes se han actualizado correctamente"
-            : "âœ… Toda la serie se ha actualizado correctamente"
+            ? "✅ Esta clase y las siguientes se han actualizado correctamente"
+            : "✅ Toda la serie se ha actualizado correctamente"
         );
 
         if (
@@ -4303,7 +4303,7 @@ export default function ClasesPage() {
             : "Error desconocido";
 
         setMensaje(
-          "âŒ No se pudo actualizar la serie: " +
+          "❌ No se pudo actualizar la serie: " +
             texto
         );
 
@@ -4361,7 +4361,7 @@ export default function ClasesPage() {
       !claseGuardada
     ) {
       setMensaje(
-        "âŒ Error al guardar la clase: " +
+        "❌ Error al guardar la clase: " +
           (
             errorClase?.message ||
             ""
@@ -4389,7 +4389,7 @@ export default function ClasesPage() {
 
       if (error) {
         setMensaje(
-          "âŒ Error al actualizar los alumnos: " +
+          "❌ Error al actualizar los alumnos: " +
             error.message
         );
 
@@ -4426,7 +4426,7 @@ export default function ClasesPage() {
 
       if (error) {
         setMensaje(
-          "âš ï¸ Clase guardada, pero hubo un error al aÃ±adir alumnos: " +
+          "⚠️ Clase guardada, pero hubo un error al añadir alumnos: " +
             error.message
         );
 
@@ -4449,7 +4449,7 @@ export default function ClasesPage() {
       );
     } catch {
       setMensaje(
-        "âš ï¸ La clase se guardÃ³, pero hubo un problema actualizando bonos o pagos."
+        "⚠️ La clase se guardó, pero hubo un problema actualizando bonos o pagos."
       );
 
       cargarDatos();
@@ -4478,9 +4478,9 @@ export default function ClasesPage() {
       null;
 
     setMensaje(
-      "âœ… Clase guardada correctamente" +
+      "✅ Clase guardada correctamente" +
         (falloGoogle
-          ? " Â· âš ï¸ No se pudo sincronizar con Google Calendar."
+          ? " · ⚠️ No se pudo sincronizar con Google Calendar."
           : "")
     );
 
@@ -4782,7 +4782,7 @@ export default function ClasesPage() {
           <div className="grid gap-6 xl:grid-cols-[minmax(360px,1fr)_minmax(560px,1.25fr)] xl:items-center">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
-                GestiÃ³n
+                Gestión
               </p>
 
               <h1 className="mt-1 text-[28px] font-bold tracking-tight text-white sm:text-4xl">
@@ -4790,7 +4790,7 @@ export default function ClasesPage() {
               </h1>
 
               <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-white/60 sm:mt-2 sm:text-sm">
-                Programa, edita y controla alumnos, cobros y series desde un Ãºnico espacio.
+                Programa, edita y controla alumnos, cobros y series desde un único espacio.
               </p>
             </div>
 
@@ -4839,7 +4839,7 @@ export default function ClasesPage() {
                   {clasesCanceladas}
                 </p>
                 <p className="mt-0.5 text-[10px] text-white/45">
-                  HistÃ³rico
+                  Histórico
                 </p>
               </div>
             </div>
@@ -4917,8 +4917,8 @@ export default function ClasesPage() {
                     ? "Modifica los datos de la clase"
                     : modoCreacion ===
                       "serie"
-                    ? "Programa automÃ¡ticamente clases recurrentes"
-                    : "Datos y gestiÃ³n de la clase"}
+                    ? "Programa automáticamente clases recurrentes"
+                    : "Datos y gestión de la clase"}
                 </p>
 
               </div>
@@ -4944,7 +4944,7 @@ export default function ClasesPage() {
                 }}
                 className="mt-3 rounded-xl border border-white/15 bg-white/10 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/15 sm:mt-0"
               >
-                Cancelar ediciÃ³n
+                Cancelar edición
               </button>
 
             )}
@@ -5094,7 +5094,7 @@ export default function ClasesPage() {
                 2. Datos de la clase
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Fecha, horario, duraciÃ³n, ubicaciÃ³n y tipo.
+                Fecha, horario, duración, ubicación y tipo.
               </p>
             </div>
 
@@ -5148,7 +5148,7 @@ export default function ClasesPage() {
             <div>
 
               <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                DuraciÃ³n
+                Duración
               </label>
 
               <select
@@ -5210,7 +5210,7 @@ export default function ClasesPage() {
             <div>
 
               <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                UbicaciÃ³n
+                Ubicación
               </label>
 
               <select
@@ -5233,7 +5233,7 @@ export default function ClasesPage() {
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               >
                 <option value="">
-                  Seleccionar ubicaciÃ³n
+                  Seleccionar ubicación
                 </option>
 
                 {ubicaciones.map(
@@ -5557,11 +5557,11 @@ export default function ClasesPage() {
             <div className="mt-4 rounded-2xl border border-[#00A79C]/20 bg-[#E8F7F5] p-5">
 
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#008C83]">
-                DÃ­as de repeticiÃ³n
+                Días de repetición
               </p>
 
               <p className="mt-1 text-sm text-slate-600">
-                Selecciona uno o varios dÃ­as de la semana.
+                Selecciona uno o varios días de la semana.
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -5569,10 +5569,10 @@ export default function ClasesPage() {
                 {[
                   [1, "Lunes"],
                   [2, "Martes"],
-                  [3, "MiÃ©rcoles"],
+                  [3, "Miércoles"],
                   [4, "Jueves"],
                   [5, "Viernes"],
-                  [6, "SÃ¡bado"],
+                  [6, "Sábado"],
                   [0, "Domingo"],
                 ].map(
                   ([
@@ -5624,7 +5624,7 @@ export default function ClasesPage() {
                   0 && (
 
                 <p className="mt-4 text-sm font-semibold text-[#008C83]">
-                  Se crearÃ¡n{" "}
+                  Se crearán{" "}
                   {
                     fechasDeSerie()
                       .length
@@ -6083,7 +6083,7 @@ export default function ClasesPage() {
                                 <div>
 
                                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                                    MÃ©todo
+                                    Método
                                   </label>
 
                                   <select
@@ -6147,7 +6147,7 @@ export default function ClasesPage() {
           <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
             <div className="border-b border-slate-100 bg-[#0F2742]/[0.035] px-4 py-3.5">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#17324D]">
-                3. EconomÃ­a y estado
+                3. Economía y estado
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 Importes, coste de pista, ingresos adicionales y estado operativo.
@@ -6184,13 +6184,13 @@ export default function ClasesPage() {
                   />
 
                   <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                    â‚¬
+                    €
                   </span>
 
                 </div>
 
                 <p className="mt-2 text-xs text-slate-500">
-                  Se busca automÃ¡ticamente en Tarifas segÃºn ubicaciÃ³n, duraciÃ³n y nÃºmero de alumnos. Puedes cambiarlo manualmente para esta clase.
+                  Se busca automáticamente en Tarifas según ubicación, duración y número de alumnos. Puedes cambiarlo manualmente para esta clase.
                 </p>
 
               </div>
@@ -6225,13 +6225,13 @@ export default function ClasesPage() {
                   />
 
                   <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                    â‚¬
+                    €
                   </span>
 
                 </div>
 
                 <p className="mt-2 text-xs text-slate-500">
-                  Se busca primero en Tarifas segÃºn ubicaciÃ³n, duraciÃ³n y nÃºmero de alumnos. Si no existe, usa el coste habitual de la ubicaciÃ³n. Puedes cambiarlo manualmente para esta clase.
+                  Se busca primero en Tarifas según ubicación, duración y número de alumnos. Si no existe, usa el coste habitual de la ubicación. Puedes cambiarlo manualmente para esta clase.
                 </p>
 
               </div>
@@ -6280,7 +6280,7 @@ export default function ClasesPage() {
                 />
 
                 <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                  â‚¬
+                  €
                 </span>
 
               </div>
@@ -6362,14 +6362,14 @@ export default function ClasesPage() {
               }
             >
               {estado === "cancelada"
-                ? "Motivo de cancelaciÃ³n / anotaciÃ³n"
-                : "AnotaciÃ³n"}
+                ? "Motivo de cancelación / anotación"
+                : "Anotación"}
             </label>
 
             {estado === "cancelada" && (
               <div className="mb-4">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-700">
-                  Â¿Esta cancelaciÃ³n se cobra?
+                  ¿Esta cancelación se cobra?
                 </p>
 
                 <div className="grid max-w-md grid-cols-2 gap-2">
@@ -6420,8 +6420,8 @@ export default function ClasesPage() {
               rows={2}
               placeholder={
                 estado === "cancelada"
-                  ? "Indica el motivo de la cancelaciÃ³n o cualquier anotaciÃ³n..."
-                  : "AÃ±ade una anotaciÃ³n sobre esta clase..."
+                  ? "Indica el motivo de la cancelación o cualquier anotación..."
+                  : "Añade una anotación sobre esta clase..."
               }
               className={
                 estado === "cancelada"
@@ -6431,7 +6431,7 @@ export default function ClasesPage() {
             />
 
             <p className="mt-2 text-xs text-slate-500">
-              Opcional. La anotaciÃ³n quedarÃ¡ visible en la clase registrada.
+              Opcional. La anotación quedará visible en la clase registrada.
             </p>
 
           </div>
@@ -6444,11 +6444,11 @@ export default function ClasesPage() {
                 <p
                   className={
                     mensaje.startsWith(
-                      "âŒ"
+                      "❌"
                     )
                       ? "text-sm font-semibold text-red-600"
                       : mensaje.startsWith(
-                          "âš ï¸"
+                          "⚠️"
                         )
                       ? "text-sm font-semibold text-amber-600"
                       : mensaje ===
@@ -6515,19 +6515,19 @@ export default function ClasesPage() {
 
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
-                  GestiÃ³n
+                  Gestión
                 </p>
 
                 <h2 className="mt-0.5 text-xl font-bold text-white">
                   {claseEditandoId
-                    ? "Clase que estÃ¡s editando"
+                    ? "Clase que estás editando"
                     : "Clases registradas"}
                 </h2>
 
                 <p className="mt-1 text-sm text-white/55">
                   {claseEditandoId
                     ? "Solo se muestra la clase seleccionada"
-                    : "Consulta, filtra y gestiona las clases por orden cronolÃ³gico"}
+                    : "Consulta, filtra y gestiona las clases por orden cronológico"}
                 </p>
               </div>
 
@@ -6560,7 +6560,7 @@ export default function ClasesPage() {
 
                     <input
                       type="text"
-                      placeholder="Alumno o ubicaciÃ³n..."
+                      placeholder="Alumno o ubicación..."
                       value={busquedaClases}
                       onChange={(e) =>
                         setBusquedaClases(
@@ -6809,7 +6809,7 @@ export default function ClasesPage() {
                               {dia}/{mes}/{anio}
                             </p>
                             <span className="text-slate-300">
-                              â€¢
+                              •
                             </span>
                             <p className="text-sm font-bold text-[#17324D]">
                               {horaInicio} h a {horaFin} h
@@ -6823,7 +6823,7 @@ export default function ClasesPage() {
                             <IconoUbicacion />
                             <span className="truncate">
                               {clase.ubicaciones?.nombre ||
-                                "Sin ubicaciÃ³n"}
+                                "Sin ubicación"}
                             </span>
                           </div>
                         </div>
@@ -6859,8 +6859,8 @@ export default function ClasesPage() {
                             }
                             title={
                               clase.facturable === false
-                                ? "Esta cancelaciÃ³n no se cobra"
-                                : "Esta cancelaciÃ³n se cobra"
+                                ? "Esta cancelación no se cobra"
+                                : "Esta cancelación se cobra"
                             }
                           >
                             {clase.facturable === false
@@ -6880,7 +6880,7 @@ export default function ClasesPage() {
                           title={`Cobro: ${textoEstadoEconomico}`}
                         >
                           <span className="mr-1 text-[11px] font-black">
-                            â‚¬
+                            €
                           </span>
                           {textoEstadoEconomico}
                         </span>
@@ -6888,7 +6888,7 @@ export default function ClasesPage() {
                       </div>
                     </div>
 
-                    {/* CONTENIDO: misma jerarquÃ­a visual que las fichas de Alumnos */}
+                    {/* CONTENIDO: misma jerarquía visual que las fichas de Alumnos */}
                     <div className="grid xl:grid-cols-[1.4fr_0.9fr_1.05fr]">
                       {/* ALUMNOS */}
                       <section className="p-3.5 sm:p-4 xl:border-r xl:border-slate-100">
@@ -6901,7 +6901,7 @@ export default function ClasesPage() {
                               Alumnos
                             </h3>
                             <p className="mt-0.5 text-[10px] text-slate-400">
-                              Participantes y situaciÃ³n de cobro
+                              Participantes y situación de cobro
                             </p>
                           </div>
                         </div>
@@ -6948,22 +6948,22 @@ export default function ClasesPage() {
                                         {Number(
                                           participante.importe ||
                                             0
-                                        ).toFixed(2)} â‚¬
+                                        ).toFixed(2)} €
                                       </span>
                                     ) : pago?.estado ===
                                       "pagado" ? (
                                       <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
-                                        Pagado Â· {Number(
+                                        Pagado · {Number(
                                           participante.importe ||
                                             0
-                                        ).toFixed(2)} â‚¬
+                                        ).toFixed(2)} €
                                       </span>
                                     ) : (
                                       <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700">
-                                        Pendiente Â· {Number(
+                                        Pendiente · {Number(
                                           participante.importe ||
                                             0
-                                        ).toFixed(2)} â‚¬
+                                        ).toFixed(2)} €
                                       </span>
                                     )}
                                   </div>
@@ -6989,7 +6989,7 @@ export default function ClasesPage() {
                               Detalles
                             </h3>
                             <p className="mt-0.5 text-[10px] text-slate-400">
-                              ConfiguraciÃ³n de la clase
+                              Configuración de la clase
                             </p>
                           </div>
                         </div>
@@ -7017,7 +7017,7 @@ export default function ClasesPage() {
                             </span>
                             <div>
                               <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
-                                DuraciÃ³n
+                                Duración
                               </p>
                               <p className="mt-0.5 text-xs font-semibold text-[#17324D]">
                                 {clase.duracion_minutos} minutos
@@ -7031,7 +7031,7 @@ export default function ClasesPage() {
                             </span>
                             <div>
                               <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
-                                ProgramaciÃ³n
+                                Programación
                               </p>
                               <p className="mt-0.5 text-xs font-semibold text-[#17324D]">
                                 {clase.serie_id
@@ -7043,7 +7043,7 @@ export default function ClasesPage() {
                         </div>
                       </section>
 
-                      {/* ECONOMÃA */}
+                      {/* ECONOMÍA */}
                       <section className="p-3.5 sm:p-4">
                         <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
                           <span className="text-[#00A79C]">
@@ -7051,7 +7051,7 @@ export default function ClasesPage() {
                           </span>
                           <div>
                             <h3 className="text-sm font-bold text-[#17324D]">
-                              EconomÃ­a
+                              Economía
                             </h3>
                             <p className="mt-0.5 text-[10px] text-slate-400">
                               Ingresos, costes y resultado
@@ -7070,7 +7070,7 @@ export default function ClasesPage() {
                             <span className="text-sm font-bold text-[#17324D]">
                               {importeBase.toFixed(
                                 2
-                              )} â‚¬
+                              )} €
                               {clase.tipo === "club" &&
                                 importeBase === 0 && (
                                   <span className="ml-2 text-[9px] font-bold text-amber-600">
@@ -7095,7 +7095,7 @@ export default function ClasesPage() {
                               {costePistaClase > 0
                                 ? `-${costePistaClase.toFixed(
                                     2
-                                  )} â‚¬`
+                                  )} €`
                                 : "Sin coste"}
                             </span>
                           </div>
@@ -7109,7 +7109,7 @@ export default function ClasesPage() {
                               <span className="text-sm font-bold text-violet-700">
                                 +{ingresoExtraClase.toFixed(
                                   2
-                                )} â‚¬
+                                )} €
                               </span>
                             </div>
                           )}
@@ -7137,7 +7137,7 @@ export default function ClasesPage() {
                             >
                               {resultadoClase.toFixed(
                                 2
-                              )} â‚¬
+                              )} €
                             </span>
                           </div>
                         </div>
@@ -7163,8 +7163,8 @@ export default function ClasesPage() {
                         >
                           {clase.estado ===
                           "cancelada"
-                            ? "Motivo de cancelaciÃ³n / anotaciÃ³n"
-                            : "AnotaciÃ³n"}
+                            ? "Motivo de cancelación / anotación"
+                            : "Anotación"}
                         </p>
                         <p
                           className={
@@ -7236,7 +7236,7 @@ export default function ClasesPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Esta clase pertenece a una serie recurrente. Elige a quÃ© clases quieres aplicar los cambios.
+              Esta clase pertenece a una serie recurrente. Elige a qué clases quieres aplicar los cambios.
             </p>
 
             <div className="mt-6 grid gap-3">
@@ -7311,7 +7311,7 @@ export default function ClasesPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Esta clase pertenece a una serie recurrente. Elige quÃ© quieres borrar.
+              Esta clase pertenece a una serie recurrente. Elige qué quieres borrar.
             </p>
 
             <div className="mt-6 grid gap-3">
