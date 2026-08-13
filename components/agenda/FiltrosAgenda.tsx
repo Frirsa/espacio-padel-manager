@@ -94,6 +94,11 @@ export default function FiltrosAgenda({
   ] = useState(false);
 
   const [
+    selectorEstadoAbierto,
+    setSelectorEstadoAbierto,
+  ] = useState(false);
+
+  const [
     anioSelector,
     setAnioSelector,
   ] = useState(
@@ -154,7 +159,7 @@ export default function FiltrosAgenda({
     <section
       className={
         integrado
-          ? "bg-white"
+          ? "bg-transparent"
           : "mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.03)] sm:p-4"
       }
     >
@@ -182,7 +187,7 @@ export default function FiltrosAgenda({
         <div className="flex-1">
           {integrado && (
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-[11px] font-medium text-slate-400">
+              <p className={integrado ? "text-[11px] font-medium text-white/45" : "text-[11px] font-medium text-slate-400"}>
                 {totalClases} {totalClases === 1 ? "clase" : "clases"} mostradas
               </p>
             </div>
@@ -191,7 +196,7 @@ export default function FiltrosAgenda({
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(260px,1.5fr)_minmax(170px,0.7fr)_minmax(210px,0.85fr)_auto]">
 
           <div className="relative">
-            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+            <span className={integrado ? "pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4DD4CA]" : "pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"}>
               <IconoBuscar />
             </span>
 
@@ -204,42 +209,97 @@ export default function FiltrosAgenda({
                   e.target.value
                 )
               }
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-3 text-sm text-[#17324D] outline-none transition placeholder:text-slate-400 focus:border-[#00A79C] focus:ring-2 focus:ring-[#00A79C]/10"
+              className={
+                integrado
+                  ? "h-11 w-full rounded-xl border border-white/15 bg-white/10 py-2 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-white/35 hover:bg-white/15 focus:border-[#4DD4CA]/45 focus:ring-2 focus:ring-[#00A79C]/15"
+                  : "h-11 w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-3 text-sm text-[#17324D] outline-none transition placeholder:text-slate-400 focus:border-[#00A79C] focus:ring-2 focus:ring-[#00A79C]/10"
+              }
             />
           </div>
 
-          <select
-            value={filtroEstado}
-            onChange={(e) =>
-              setFiltroEstado(
-                e.target.value
-              )
-            }
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-[#17324D] outline-none transition focus:border-[#00A79C] focus:ring-2 focus:ring-[#00A79C]/10"
-          >
-            <option value="todas">
-              Todos los estados
-            </option>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() =>
+                setSelectorEstadoAbierto(
+                  (abierto) => !abierto
+                )
+              }
+              className={
+                integrado
+                  ? selectorEstadoAbierto
+                    ? "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-[#4DD4CA]/40 bg-white/15 px-3 text-sm font-semibold text-white"
+                    : "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-sm font-semibold text-white transition hover:bg-white/15"
+                  : selectorEstadoAbierto
+                  ? "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-3 text-sm font-semibold text-[#008C83]"
+                  : "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-[#17324D] transition hover:bg-slate-50"
+              }
+              aria-label="Filtrar por estado"
+              aria-expanded={selectorEstadoAbierto}
+            >
+              <span>
+                {filtroEstado === "programada"
+                  ? "Programadas"
+                  : filtroEstado === "realizada"
+                  ? "Realizadas"
+                  : filtroEstado === "cancelada"
+                  ? "Canceladas"
+                  : "Todos los estados"}
+              </span>
+              <span className={integrado ? "text-xs text-white/45" : "text-xs text-slate-400"}>
+                ⌄
+              </span>
+            </button>
 
-            <option value="programada">
-              Programadas
-            </option>
+            {selectorEstadoAbierto && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectorEstadoAbierto(false)
+                  }
+                  className="fixed inset-0 z-40 cursor-default"
+                  aria-label="Cerrar selector de estado"
+                />
 
-            <option value="realizada">
-              Realizadas
-            </option>
-
-            <option value="cancelada">
-              Canceladas
-            </option>
-          </select>
+                <div className="absolute left-0 top-12 z-50 w-full min-w-[180px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.16)]">
+                  {[
+                    ["todas", "Todos los estados"],
+                    ["programada", "Programadas"],
+                    ["realizada", "Realizadas"],
+                    ["cancelada", "Canceladas"],
+                  ].map(([valor, etiqueta]) => (
+                    <button
+                      key={valor}
+                      type="button"
+                      onClick={() => {
+                        setFiltroEstado(valor);
+                        setSelectorEstadoAbierto(false);
+                      }}
+                      className={
+                        filtroEstado === valor
+                          ? "flex h-9 w-full items-center rounded-lg bg-[#17324D] px-3 text-left text-xs font-bold text-white"
+                          : "flex h-9 w-full items-center rounded-lg px-3 text-left text-xs font-semibold text-[#17324D] transition hover:bg-[#17324D] hover:text-white"
+                      }
+                    >
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           <div className="relative">
             <button
               type="button"
               onClick={abrirSelectorMes}
               className={
-                selectorMesAbierto
+                integrado
+                  ? selectorMesAbierto
+                    ? "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-[#4DD4CA]/40 bg-white/15 px-3 text-sm font-bold text-white"
+                    : "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-sm font-bold text-white transition hover:bg-white/15"
+                  : selectorMesAbierto
                   ? "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-3 text-sm font-bold text-[#008C83]"
                   : "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#17324D] transition hover:bg-slate-50"
               }
@@ -419,7 +479,11 @@ export default function FiltrosAgenda({
             onClick={onLimpiar}
             disabled={!hayFiltros}
             className={
-              hayFiltros
+              integrado
+                ? hayFiltros
+                  ? "h-11 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-bold text-white transition hover:bg-white/15"
+                  : "h-11 cursor-default rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-bold text-white/25"
+                : hayFiltros
                 ? "h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-[#17324D] transition hover:bg-slate-100"
                 : "h-11 cursor-default rounded-xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-300"
             }

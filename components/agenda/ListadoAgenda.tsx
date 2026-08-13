@@ -411,7 +411,7 @@ export default function ListadoAgenda({
                 className={
                   esHoy
                     ? "flex min-h-12 items-center justify-between gap-3 border-b border-[#00A79C]/20 bg-[#E8F7F5] px-4 py-2.5"
-                    : "flex min-h-12 items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-2.5"
+                    : "flex min-h-12 items-center justify-between gap-3 border-b border-slate-200 bg-[#FBFCFD] px-4 py-2.5"
                 }
               >
                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -543,8 +543,8 @@ export default function ListadoAgenda({
                         <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
                           <div className="min-w-0">
                             <p className="whitespace-nowrap text-sm font-extrabold tracking-tight text-[#17324D]">
-                              {horaInicio} –{" "}
-                              {horaFin}
+                              {horaInicio} h a{" "}
+                              {horaFin} h
                             </p>
 
                             <p className="mt-0.5 text-[11px] font-medium text-slate-400">

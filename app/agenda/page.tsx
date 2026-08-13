@@ -1124,23 +1124,28 @@ export default function AgendaPage() {
 
       <div className="mx-auto w-full max-w-[1540px]">
 
-        {/* CABECERA */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#17324D] sm:text-4xl">
-            Agenda
-          </h1>
+        {/* CABECERA + CONTROLES PRINCIPALES */}
+        <section className="overflow-visible rounded-2xl bg-[#0F2742] p-5 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+              Gestión
+            </p>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Organiza y gestiona tus clases
-          </p>
-        </div>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Agenda
+            </h1>
 
-        {/* BARRA PRINCIPAL DE AGENDA */}
-        <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:p-4">
+            <p className="mt-2 text-sm text-white/55">
+              Organiza y gestiona tus clases desde una vista clara y rápida.
+            </p>
+          </div>
+
+          {/* BARRA PRINCIPAL DE AGENDA */}
+          <section className="mt-5 border-t border-white/10 pt-4">
 
           <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center">
 
-            <div className="grid grid-cols-4 rounded-xl bg-slate-100 p-1 2xl:flex">
+            <div className="grid grid-cols-4 rounded-xl border border-white/10 bg-white/10 p-1 2xl:flex">
               {[
                 ["lista", "Lista"],
                 ["semana", "Semana"],
@@ -1166,8 +1171,8 @@ export default function AgendaPage() {
                     className={
                       vistaAgenda ===
                       valor
-                        ? "rounded-lg bg-[#17324D] px-3 py-2 text-xs font-bold text-white shadow-sm sm:text-sm"
-                        : "rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-[#17324D] sm:text-sm"
+                        ? "rounded-lg bg-[#00A79C] px-3 py-2 text-xs font-bold text-white shadow-sm sm:text-sm"
+                        : "rounded-lg px-3 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/10 hover:text-white sm:text-sm"
                     }
                   >
                     {etiqueta}
@@ -1185,7 +1190,7 @@ export default function AgendaPage() {
                   onClick={
                     irAnterior
                   }
-                  className="order-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#17324D] transition hover:bg-slate-50"
+                  className="order-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white transition hover:bg-white/15"
                   aria-label="Anterior"
                   title="Anterior"
                 >
@@ -1197,7 +1202,7 @@ export default function AgendaPage() {
                   onClick={
                     irSiguiente
                   }
-                  className="order-3 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#17324D] transition hover:bg-slate-50 sm:order-2"
+                  className="order-3 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white transition hover:bg-white/15 sm:order-2"
                   aria-label="Siguiente"
                   title="Siguiente"
                 >
@@ -1213,7 +1218,7 @@ export default function AgendaPage() {
                     fechaSeleccionada ===
                     hoy
                       ? "order-3 hidden h-10 shrink-0 rounded-xl bg-[#00A79C] px-4 text-sm font-bold text-white sm:block"
-                      : "order-3 hidden h-10 shrink-0 rounded-xl border border-[#00A79C]/20 bg-[#E8F7F5] px-4 text-sm font-bold text-[#008C83] transition hover:bg-[#DDF3F1] sm:block"
+                      : "order-3 hidden h-10 shrink-0 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-bold text-white transition hover:bg-white/15 sm:block"
                   }
                 >
                   Hoy
@@ -1228,8 +1233,8 @@ export default function AgendaPage() {
                     }
                     className={
                       selectorFechaAbierto
-                        ? "flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-2 text-center text-sm font-bold capitalize text-[#008C83] sm:min-w-[245px] sm:px-3"
-                        : "flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-center text-sm font-bold capitalize text-[#17324D] transition hover:bg-slate-50 sm:min-w-[245px] sm:px-3"
+                        ? "flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-[#4DD4CA]/40 bg-white/15 px-2 text-center text-sm font-bold capitalize text-white sm:min-w-[245px] sm:px-3"
+                        : "flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 text-center text-sm font-bold capitalize text-white transition hover:bg-white/15 sm:min-w-[245px] sm:px-3"
                     }
                     aria-label="Elegir fecha"
                     aria-expanded={
@@ -1401,7 +1406,7 @@ export default function AgendaPage() {
                     fechaSeleccionada ===
                     hoy
                       ? "inline-flex h-10 min-w-0 items-center justify-center rounded-xl bg-[#00A79C] px-2 text-xs font-bold text-white sm:hidden"
-                      : "inline-flex h-10 min-w-0 items-center justify-center rounded-xl border border-[#00A79C]/20 bg-[#E8F7F5] px-2 text-xs font-bold text-[#008C83] sm:hidden"
+                      : "inline-flex h-10 min-w-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 px-2 text-xs font-bold text-white sm:hidden"
                   }
                 >
                   Hoy
@@ -1423,8 +1428,8 @@ export default function AgendaPage() {
                       "todas" ||
                     filtroMes.length >
                       0
-                      ? "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[#00A79C]/25 bg-[#E8F7F5] px-2 text-xs font-bold text-[#008C83] transition hover:bg-[#DDF3F1] sm:px-4 sm:text-sm"
-                      : "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-[#17324D] transition hover:bg-slate-50 sm:px-4 sm:text-sm"
+                      ? "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[#00A79C] bg-[#00A79C] px-2 text-xs font-bold text-white transition hover:bg-[#008F86] sm:px-4 sm:text-sm"
+                      : "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 text-xs font-bold text-white transition hover:bg-white/15 sm:px-4 sm:text-sm"
                   }
                 >
                   <span>
@@ -1437,7 +1442,7 @@ export default function AgendaPage() {
                       "todas" ||
                     filtroMes.length >
                       0) && (
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#00A79C] px-1.5 text-[10px] font-bold text-white">
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-[10px] font-bold text-white">
                       {
                         [
                           busqueda.trim().length >
@@ -1472,7 +1477,7 @@ export default function AgendaPage() {
           </div>
 
           {filtrosAbiertos && (
-            <div className="mt-3 border-t border-slate-100 pt-3">
+            <div className="mt-4 border-t border-white/10 pt-4">
               <FiltrosAgenda
                 busqueda={
                   busqueda
@@ -1507,6 +1512,7 @@ export default function AgendaPage() {
             </div>
           )}
 
+          </section>
         </section>
 
         {filtroDashboard === "sin-cerrar" && (

@@ -1,3 +1,5 @@
+import { supabase } from "../../lib/supabase";
+
 type UsoBonoImagen = {
   bono_id: string | null;
   usa_bono: boolean;
@@ -248,18 +250,83 @@ function dibujarTextoContador(
   });
 }
 
+
+async function obtenerIntegrantesBono(bono: BonoImagen) {
+  const { data, error } = await supabase
+    .from("bono_alumnos")
+    .select(`
+      alumno_id,
+      alumnos (
+        nombre,
+        apellidos
+      )
+    `)
+    .eq("bono_id", bono.id);
+
+  if (!error && data && data.length > 0) {
+    const nombres = data
+      .map((fila: any) => {
+        const alumno = Array.isArray(fila.alumnos)
+          ? fila.alumnos[0]
+          : fila.alumnos;
+
+        if (!alumno) return "";
+
+        return `${alumno.nombre || ""} ${alumno.apellidos || ""}`
+          .replace(/\s+/g, " ")
+          .trim();
+      })
+      .filter(Boolean);
+
+    return Array.from(new Set(nombres));
+  }
+
+  const titular = bono.alumnos
+    ? `${bono.alumnos.nombre} ${bono.alumnos.apellidos || ""}`
+        .replace(/\s+/g, " ")
+        .trim()
+    : "Alumno";
+
+  return [titular];
+}
+
+function partirTextoCabecera(
+  ctx: CanvasRenderingContext2D,
+  texto: string,
+  anchoMaximo: number
+) {
+  const palabras = texto.split(/\s+/).filter(Boolean);
+  const lineas: string[] = [];
+  let actual = "";
+
+  palabras.forEach((palabra) => {
+    const prueba = actual ? `${actual} ${palabra}` : palabra;
+
+    if (ctx.measureText(prueba).width <= anchoMaximo) {
+      actual = prueba;
+    } else {
+      if (actual) lineas.push(actual);
+      actual = palabra;
+    }
+  });
+
+  if (actual) lineas.push(actual);
+  return lineas;
+}
+
 export async function generarImagenBono(bono: BonoImagen) {
   const ANCHO = 1200;
   const MARGEN = 34;
 
   const TURQUESA = "#10aea8";
   const TURQUESA_OSCURO = "#068b91";
-  const CABECERA = "#a99a95";
   const TEXTO = "#111111";
 
   const nombre = bono.alumnos
     ? `${bono.alumnos.nombre} ${bono.alumnos.apellidos || ""}`.trim()
     : "Alumno";
+
+  const integrantes = await obtenerIntegrantesBono(bono);
 
   const usos = (bono.clase_alumnos || [])
     .filter(
@@ -288,24 +355,24 @@ export async function generarImagenBono(bono: BonoImagen) {
   const filas = Math.ceil(total / columnas);
 
   const altoFilaBolas = 270;
-  const yInicioBolas = 305;
+  const yInicioBolas = 368;
   const yContador = yInicioBolas + filas * altoFilaBolas + 10;
   const altoContador = 58;
   const yBloqueInferior = yContador + altoContador + 24;
   const anchoUtil = ANCHO - MARGEN * 2;
 
-  const [logo, bolaVerde, bolaGris, bloqueInferior] = await Promise.all([
-    cargarImagen("/logo-espacio-padel.png"),
+  const [cabecera, bolaVerde, bolaGris, bloqueInferior] = await Promise.all([
+    cargarImagen("/cabecera-bono.png"),
     cargarImagen("/bola-verde.png"),
     cargarImagen("/bola-gris.png"),
     cargarImagen("/bloque-inferior-bono.png"),
   ]);
 
   const altoBloqueInferior = Math.round(
-    (bloqueInferior.naturalHeight / bloqueInferior.naturalWidth) * anchoUtil
+    (bloqueInferior.naturalHeight / bloqueInferior.naturalWidth) * ANCHO
   );
 
-  const ALTO = yBloqueInferior + altoBloqueInferior + MARGEN;
+  const ALTO = yBloqueInferior + altoBloqueInferior;
 
   const canvas = document.createElement("canvas");
   canvas.width = ANCHO;
@@ -319,58 +386,59 @@ export async function generarImagenBono(bono: BonoImagen) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, ANCHO, ALTO);
 
-  // LOGO
-  const logoCajaX = 18;
-  const logoCajaY = 16;
-  const logoCajaW = 350;
-  const logoCajaH = 250;
-
-  const escalaLogo = Math.min(
-    logoCajaW / logo.naturalWidth,
-    logoCajaH / logo.naturalHeight
-  );
-
-  const logoW = logo.naturalWidth * escalaLogo;
-  const logoH = logo.naturalHeight * escalaLogo;
-
-  ctx.drawImage(
-    logo,
-    logoCajaX + (logoCajaW - logoW) / 2,
-    logoCajaY + (logoCajaH - logoH) / 2,
-    logoW,
-    logoH
-  );
-
   // CABECERA
-  const cabX = 423;
-  const cabY = 28;
-  const cabW = 700;
-  const cabH = 142;
-  const centroCabecera = cabX + cabW / 2;
+  // Se sustituye únicamente la cabecera. Desde // BOLAS hacia abajo
+  // se conserva exactamente el diseño de la versión v9 aprobada.
+  const cabeceraAlto = 300;
+  ctx.drawImage(cabecera, 0, 0, ANCHO, cabeceraAlto);
 
-  ctx.fillStyle = CABECERA;
-  ctx.fillRect(cabX, cabY, cabW, cabH);
-
-  const titulo = `BONO ${total}: ${nombre}`;
-  const tamTitulo = ajustarTexto(ctx, titulo, cabW - 70, 33, 22, 700);
+  const textoX = 410;
+  const textoW = ANCHO - textoX - 55;
+  const textoIntegrantes = integrantes.join(" · ");
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = `700 ${tamTitulo}px Arial`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(titulo, centroCabecera, cabY + cabH / 2 + 1);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
 
-  // DÍAS / DAYS
-  dibujarTextoBicolorCentrado(
+  const titulo = `BONO ${total}`;
+  const tamTitulo = 52;
+  const tamEtiqueta = 21;
+  const tamNombres = 20;
+  const altoLineaNombres = 27;
+
+  ctx.font = `700 ${tamNombres}px Arial`;
+  const lineasNombres = partirTextoCabecera(
     ctx,
-    [
-      { texto: "Días ", color: TEXTO, peso: 700 },
-      { texto: "/ Days", color: TURQUESA_OSCURO, peso: 700 },
-    ],
-    centroCabecera,
-    229,
-    48
+    textoIntegrantes,
+    textoW
   );
+
+  const altoBloque =
+    tamTitulo +
+    18 +
+    tamEtiqueta +
+    12 +
+    Math.max(1, lineasNombres.length) * altoLineaNombres;
+
+  const yInicio = Math.round((cabeceraAlto - altoBloque) / 2);
+
+  ctx.font = `700 ${tamTitulo}px Arial`;
+  ctx.fillText(titulo, textoX, yInicio + tamTitulo);
+
+  ctx.font = `700 ${tamEtiqueta}px Arial`;
+  const yEtiqueta = yInicio + tamTitulo + 18 + tamEtiqueta;
+  ctx.fillText("INTEGRANTES DEL BONO", textoX, yEtiqueta);
+
+  ctx.font = `700 ${tamNombres}px Arial`;
+  const yNombres = yEtiqueta + 12 + tamNombres;
+
+  lineasNombres.forEach((linea, indice) => {
+    ctx.fillText(
+      linea,
+      textoX,
+      yNombres + indice * altoLineaNombres
+    );
+  });
 
   // BOLAS
   const anchoCelda = anchoUtil / columnas;
@@ -455,9 +523,9 @@ export async function generarImagenBono(bono: BonoImagen) {
   // BLOQUE INFERIOR COMO IMAGEN EXACTA
   ctx.drawImage(
     bloqueInferior,
-    MARGEN,
+    0,
     yBloqueInferior,
-    anchoUtil,
+    ANCHO,
     altoBloqueInferior
   );
 

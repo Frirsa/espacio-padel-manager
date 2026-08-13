@@ -161,8 +161,8 @@ function TarjetaMetrica({
       : "bg-[#E8F7F5] text-[#00A79C]";
 
   return (
-    <div className="flex min-h-[92px] items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-3 shadow-[0_5px_18px_rgba(15,23,42,0.025)]">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${claseIcono}`}>
+    <div className="flex min-h-[104px] flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-[0_5px_18px_rgba(15,23,42,0.025)] sm:min-h-[92px] sm:flex-row sm:items-center sm:gap-2.5 sm:rounded-2xl sm:px-3.5 sm:py-3">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 sm:rounded-xl ${claseIcono}`}>
         {icono}
       </div>
 
@@ -173,8 +173,8 @@ function TarjetaMetrica({
         <p
           className={
             tono === "rojo"
-              ? "mt-1 whitespace-nowrap text-lg font-bold leading-tight text-red-600 xl:text-xl"
-              : "mt-1 whitespace-nowrap text-lg font-bold leading-tight text-[#17324D] xl:text-xl"
+              ? "mt-1 whitespace-nowrap text-[17px] font-bold leading-tight text-red-600 sm:text-lg xl:text-xl"
+              : "mt-1 whitespace-nowrap text-[17px] font-bold leading-tight text-[#17324D] sm:text-lg xl:text-xl"
           }
         >
           {valor}
@@ -266,6 +266,12 @@ export default function Home() {
   const [pendienteClub, setPendienteClub] =
     useState(0);
 
+  const [pendienteBonos, setPendienteBonos] =
+    useState(0);
+
+  const [bonosPendientesCobro, setBonosPendientesCobro] =
+    useState<any[]>([]);
+
   const [gastosPistaMes, setGastosPistaMes] =
     useState(0);
 
@@ -286,11 +292,6 @@ export default function Home() {
 
   const [bonosAviso, setBonosAviso] =
     useState<any[]>([]);
-
-  const [
-    cumpleanosHoy,
-    setCumpleanosHoy,
-  ] = useState<any[]>([]);
 
   const [clasesPasadasProgramadas, setClasesPasadasProgramadas] =
     useState<any[]>([]);
@@ -895,6 +896,55 @@ export default function Home() {
           ]
         );
 
+    const {
+      data: bonosPendientesCobroData,
+    } =
+      await supabase
+        .from("bonos")
+        .select(`
+          id,
+          importe_pagado,
+          grupo_id,
+          fecha_compra,
+          alumnos (
+            nombre,
+            apellidos
+          ),
+          grupos (
+            nombre
+          )
+        `)
+        .eq(
+          "estado_cobro",
+          "pendiente"
+        )
+        .order(
+          "fecha_compra",
+          { ascending: true }
+        );
+
+    const bonosPendientesActuales =
+      bonosPendientesCobroData || [];
+
+    setBonosPendientesCobro(
+      bonosPendientesActuales
+    );
+
+    const totalPendienteBonos =
+      bonosPendientesActuales.reduce(
+        (total, bono) =>
+          total +
+          Number(
+            bono.importe_pagado ||
+              0
+          ),
+        0
+      );
+
+    setPendienteBonos(
+      totalPendienteBonos
+    );
+
     const numeroPendientesNormales =
       (pagosPendientesData || []).length;
 
@@ -1084,10 +1134,14 @@ export default function Home() {
       .from("bonos")
       .select(`
         id,
+        grupo_id,
         clases_restantes,
         alumnos (
           nombre,
           apellidos
+        ),
+        grupos (
+          nombre
         )
       `)
       .eq("activo", true)
@@ -1098,84 +1152,6 @@ export default function Home() {
     setBonosAviso(
       bonosAvisoData || []
     );
-
-    const {
-      data: alumnosCumpleanosData,
-    } = await supabase
-      .from("alumnos")
-      .select(`
-        id,
-        nombre,
-        apellidos,
-        apodo,
-        fecha_nacimiento
-      `)
-      .eq("activo", true)
-      .not(
-        "fecha_nacimiento",
-        "is",
-        null
-      );
-
-    const mesDiaHoy =
-      hoy.slice(5);
-
-    const cumpleanos =
-      (
-        alumnosCumpleanosData ||
-        []
-      )
-        .filter(
-          (alumno: any) =>
-            alumno.fecha_nacimiento &&
-            String(
-              alumno.fecha_nacimiento
-            ).slice(5) ===
-              mesDiaHoy
-        )
-        .map((alumno: any) => {
-          const anioNacimiento =
-            Number(
-              String(
-                alumno.fecha_nacimiento
-              ).slice(0, 4)
-            );
-
-          return {
-            ...alumno,
-            edad:
-              ahora.getFullYear() -
-              anioNacimiento,
-          };
-        })
-        .sort(
-          (a: any, b: any) =>
-            `${a.nombre || ""} ${
-              a.apellidos || ""
-            }`.localeCompare(
-              `${b.nombre || ""} ${
-                b.apellidos || ""
-              }`,
-              "es"
-            )
-        );
-
-    setCumpleanosHoy(
-      cumpleanos
-    );
-  }
-
-  function nombreCumpleanos(
-    alumno: any
-  ) {
-    const nombreCompleto =
-      `${alumno?.nombre || ""} ${
-        alumno?.apellidos || ""
-      }`.trim();
-
-    return alumno?.apodo
-      ? `${nombreCompleto} (${alumno.apodo})`
-      : nombreCompleto;
   }
 
   function nombresClase(clase: any) {
@@ -1201,6 +1177,13 @@ export default function Home() {
   }
 
   function nombreTitularBono(bono: any) {
+    if (
+      bono?.grupo_id &&
+      bono?.grupos?.nombre
+    ) {
+      return bono.grupos.nombre;
+    }
+
     if (!bono?.alumnos) {
       return "Bono";
     }
@@ -1281,39 +1264,43 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-[#F6F8FA] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
+    <main className="min-h-screen bg-[#F6F8FA] px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
       <div className="mx-auto w-full max-w-[1540px]">
 
         {/* CABECERA DASHBOARD */}
-        <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#17324D] sm:text-4xl">
-              Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Resumen de tu actividad
-            </p>
-          </div>
+        <section className="mb-4 overflow-visible rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:mb-5 sm:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+                Gestión
+              </p>
+              <h1 className="mt-1 text-[28px] font-bold tracking-tight text-white sm:text-4xl">
+                Dashboard
+              </h1>
+              <p className="mt-1.5 text-xs leading-relaxed text-white/55 sm:mt-2 sm:text-sm">
+                Resumen de tu actividad, ingresos y situación del mes.
+              </p>
+            </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <div className="grid w-full grid-cols-[40px_minmax(0,1fr)_40px] items-center rounded-xl border border-white/15 bg-white/10 p-1 sm:flex sm:w-auto">
               <button
                 type="button"
                 onClick={() => cambiarMes(-1)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#17324D] transition hover:bg-slate-50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/10"
                 aria-label="Mes anterior"
               >
                 ‹
               </button>
 
-              <div className="relative">
+              <div className="relative min-w-0">
                 <button
                   type="button"
                   onClick={abrirSelectorMes}
                   className={
                     selectorMesAbierto
-                      ? "flex h-10 min-w-[190px] items-center justify-center gap-2 rounded-lg bg-[#E8F7F5] px-3 text-sm font-bold text-[#008C83] transition"
-                      : "flex h-10 min-w-[190px] items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold text-[#17324D] transition hover:bg-slate-50"
+                      ? "flex h-10 w-full min-w-0 items-center justify-center gap-1.5 rounded-lg bg-white/15 px-2 text-xs font-bold text-white transition sm:min-w-[190px] sm:gap-2 sm:px-3 sm:text-sm"
+                      : "flex h-10 w-full min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold text-white transition hover:bg-white/10 sm:min-w-[190px] sm:gap-2 sm:px-3 sm:text-sm"
                   }
                   aria-label="Elegir mes y año"
                   aria-expanded={selectorMesAbierto}
@@ -1336,7 +1323,7 @@ export default function Home() {
                       aria-label="Cerrar selector de mes"
                     />
 
-                    <div className="absolute right-0 top-12 z-50 w-[330px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
+                    <div className="absolute left-1/2 top-12 z-50 w-[318px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-[0_18px_50px_rgba(15,23,42,0.18)] sm:left-auto sm:right-0 sm:w-[330px] sm:translate-x-0 sm:p-4">
                       <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
                         <button
                           type="button"
@@ -1474,7 +1461,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => cambiarMes(1)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#17324D] transition hover:bg-slate-50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/10"
                 aria-label="Mes siguiente"
               >
                 ›
@@ -1483,110 +1470,45 @@ export default function Home() {
 
             <a
               href="/clases"
-              className="inline-flex h-12 items-center justify-center rounded-xl bg-[#00A79C] px-5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.16)] transition hover:bg-[#008F86]"
+              className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#00A79C] px-5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.16)] transition hover:bg-[#008F86] sm:h-12 sm:w-auto"
             >
               + Nueva clase
             </a>
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* AVISOS IMPORTANTES */}
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
-          <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
-            <h2 className="text-lg font-bold text-[#17324D]">
+          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-6 sm:py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+              Prioridad
+            </p>
+            <h2 className="mt-0.5 text-lg font-bold text-white">
               Avisos importantes
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-xs leading-relaxed text-white/50 sm:text-sm">
               Primero, lo que necesita tu atención
             </p>
           </div>
 
           {clasesPasadasProgramadas.length === 0 &&
           numeroPagosPendientes === 0 &&
-          bonosAviso.length === 0 &&
-          cumpleanosHoy.length === 0 ? (
-            <div className="m-4 flex items-start gap-3 rounded-xl border border-[#00A79C]/20 bg-[#E8F7F5] px-4 py-4 sm:m-5">
+          bonosPendientesCobro.length === 0 &&
+          bonosAviso.length === 0 ? (
+            <div className="m-3 flex items-start gap-3 rounded-xl border border-[#00A79C]/20 bg-[#E8F7F5] px-3.5 py-3.5 sm:m-5 sm:px-4 sm:py-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#00A79C] shadow-sm">
                 <IconoResultado />
               </div>
               <div>
                 <p className="font-bold text-[#17324D]">Todo al día</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  No hay cobros pendientes, clases pasadas sin cerrar ni bonos próximos a agotarse.
+                  No hay cobros pendientes, bonos pendientes de cobro, clases pasadas sin cerrar ni bonos próximos a agotarse.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="grid gap-3 p-4 sm:p-5 lg:grid-cols-3">
-              {cumpleanosHoy.length > 0 && (
-                <a
-                  href="/alumnos"
-                  className="rounded-xl border border-[#00A79C]/25 bg-[#E8F7F5] p-4 transition hover:border-[#00A79C]/40 hover:bg-[#DDF3F0]"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#00A79C] shadow-sm">
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.9"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M5 10h14v10H5Z" />
-                        <path d="M4 10h16M12 10v10" />
-                        <path d="M7.5 6.5C7.5 4.6 9 4 10 5.2L12 8l2-2.8c1-1.2 2.5-.6 2.5 1.3 0 1.5-1.2 2.5-3 2.5h-3c-1.8 0-3-1-3-2.5Z" />
-                      </svg>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#008C83]">
-                        Cumpleaños hoy
-                      </p>
-
-                      <p className="mt-1 text-2xl font-bold text-[#17324D]">
-                        {cumpleanosHoy.length}
-                      </p>
-
-                      <div className="mt-1 space-y-1 text-xs text-slate-700">
-                        {cumpleanosHoy.map(
-                          (alumno: any) => (
-                            <p
-                              key={alumno.id}
-                              className="leading-relaxed"
-                            >
-                              <span className="font-bold text-[#17324D]">
-                                {nombreCumpleanos(
-                                  alumno
-                                )}
-                              </span>
-                              {Number.isFinite(
-                                alumno.edad
-                              ) &&
-                                alumno.edad >=
-                                  0 && (
-                                  <>
-                                    {" "}
-                                    · cumple{" "}
-                                    {alumno.edad}{" "}
-                                    años
-                                  </>
-                                )}
-                            </p>
-                          )
-                        )}
-                      </div>
-
-                      <p className="mt-2 text-xs font-bold text-[#008C83]">
-                        Ver alumnos →
-                      </p>
-                    </div>
-                  </div>
-                </a>
-              )}
-
+            <div className="grid gap-2.5 p-3 sm:grid-cols-2 sm:gap-3 sm:p-5 xl:grid-cols-4">
               {numeroPagosPendientes > 0 && (
                 <a
                   href={
@@ -1595,7 +1517,7 @@ export default function Home() {
                       ? "/pagos?seccion=clubs"
                       : "/pagos?filtro=pendientes"
                   }
-                  className="rounded-xl border border-red-200 bg-red-50/70 p-4 transition hover:border-red-300 hover:bg-red-50"
+                  className="rounded-xl border border-red-200 bg-red-50/70 p-3.5 transition hover:border-red-300 hover:bg-red-50 sm:p-4"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
@@ -1628,10 +1550,66 @@ export default function Home() {
                 </a>
               )}
 
+              {bonosPendientesCobro.length > 0 && (
+                <a
+                  href="/bonos?filtro=pendientes-cobro"
+                  className="rounded-xl border border-red-200 bg-red-50/80 p-3.5 transition hover:border-red-300 hover:bg-red-50 sm:p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                      <IconoEuro />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-red-600">
+                        Bonos pendientes de cobro
+                      </p>
+                      <div className="mt-1 flex items-end gap-2">
+                        <p className="text-2xl font-bold text-red-600">
+                          {pendienteBonos.toFixed(2)} €
+                        </p>
+                        <p className="pb-1 text-[10px] font-semibold text-red-800/75">
+                          {bonosPendientesCobro.length === 1
+                            ? "1 bono"
+                            : `${bonosPendientesCobro.length} bonos`}
+                        </p>
+                      </div>
+
+                      <div className="mt-2 space-y-1">
+                        {bonosPendientesCobro
+                          .slice(0, 3)
+                          .map((bono: any) => (
+                            <div
+                              key={bono.id}
+                              className="flex items-center justify-between gap-3 text-[10px] font-semibold text-red-900/80"
+                            >
+                              <span className="min-w-0 truncate">
+                                {nombreTitularBono(bono)}
+                              </span>
+                              <span className="shrink-0 font-bold text-red-600">
+                                {Number(bono.importe_pagado || 0).toFixed(2)} €
+                              </span>
+                            </div>
+                          ))}
+
+                        {bonosPendientesCobro.length > 3 && (
+                          <p className="text-[10px] font-semibold text-red-700">
+                            + {bonosPendientesCobro.length - 3} más
+                          </p>
+                        )}
+                      </div>
+
+                      <p className="mt-2 text-xs font-bold text-red-600">
+                        Revisar bonos →
+                      </p>
+                    </div>
+                  </div>
+                </a>
+              )}
+
               {clasesPasadasProgramadas.length > 0 && (
                 <a
                   href="/agenda?filtro=sin-cerrar"
-                  className="rounded-xl border border-[#17324D]/15 bg-[#EEF3F8] p-4 transition hover:border-[#17324D]/25"
+                  className="rounded-xl border border-[#17324D]/15 bg-[#EEF3F8] p-3.5 transition hover:border-[#17324D]/25 sm:p-4"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#17324D] shadow-sm">
@@ -1660,24 +1638,71 @@ export default function Home() {
               {bonosAviso.length > 0 && (
                 <a
                   href="/bonos?filtro=por-terminar"
-                  className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 transition hover:border-amber-300 hover:bg-amber-50"
+                  className="rounded-xl border border-red-200 bg-red-50/80 p-3.5 transition hover:border-red-300 hover:bg-red-50 sm:p-4"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
                       <IconoPersonas />
                     </div>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-amber-700">
-                        Bonos por terminar
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-red-600">
+                        Atención · Bonos críticos
                       </p>
-                      <p className="mt-1 text-2xl font-bold text-amber-700">
-                        {bonosAviso.length}
-                      </p>
-                      <p className="mt-1 text-xs text-amber-900/80">
-                        Con 1 o 2 clases restantes
-                      </p>
-                      <p className="mt-2 text-xs font-bold text-amber-700">
-                        Revisar bonos →
+
+                      <div className="mt-1 flex items-end gap-2">
+                        <p className="text-2xl font-bold text-red-600">
+                          {bonosAviso.length}
+                        </p>
+                        <p className="pb-1 text-[10px] font-semibold text-red-800/75">
+                          con 1 o 2 clases restantes
+                        </p>
+                      </div>
+
+                      <div className="mt-2 space-y-1">
+                        {bonosAviso
+                          .slice(0, 3)
+                          .map(
+                            (
+                              bono: any
+                            ) => (
+                              <div
+                                key={
+                                  bono.id
+                                }
+                                className="flex items-center justify-between gap-3 text-[10px] font-semibold text-red-900/80"
+                              >
+                                <span className="min-w-0 truncate">
+                                  {nombreTitularBono(
+                                    bono
+                                  )}
+                                </span>
+                                <span className="shrink-0 font-bold text-red-600">
+                                  {
+                                    bono.clases_restantes
+                                  }{" "}
+                                  {bono.clases_restantes ===
+                                  1
+                                    ? "clase"
+                                    : "clases"}
+                                </span>
+                              </div>
+                            )
+                          )}
+
+                        {bonosAviso.length >
+                          3 && (
+                          <p className="text-[10px] font-semibold text-red-700">
+                            +{" "}
+                            {bonosAviso.length -
+                              3}{" "}
+                            más
+                          </p>
+                        )}
+                      </div>
+
+                      <p className="mt-2 text-xs font-bold text-red-600">
+                        Revisar y renovar bonos →
                       </p>
                     </div>
                   </div>
@@ -1688,17 +1713,20 @@ export default function Home() {
         </section>
 
         {/* RESUMEN DEL PERIODO */}
-        <section className="mt-5">
-          <div className="mb-3">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#00A79C]">
+        <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
+          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-6 sm:py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
               Resumen del periodo
             </p>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="mt-0.5 text-lg font-bold text-white">
               {mesSeleccionadoCapitalizado}
+            </h2>
+            <p className="mt-1 text-xs text-white/50">
+              Ingresos, gastos, resultado y volumen de trabajo
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2.5 p-3 sm:gap-3 sm:p-5 lg:grid-cols-3 2xl:grid-cols-6">
             <TarjetaMetrica
               icono={<IconoEuro />}
               etiqueta="Ingresos"
@@ -1744,18 +1772,21 @@ export default function Home() {
         </section>
 
         {/* ACTIVIDAD + CLUB */}
-        <div className="mt-5 grid gap-4 2xl:grid-cols-2">
-          <section>
-            <div className="mb-3">
-              <h2 className="text-lg font-bold text-[#17324D]">
+        <div className="mt-4 grid gap-4 sm:mt-5 2xl:grid-cols-2">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+            <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+                Actividad
+              </p>
+              <h2 className="mt-0.5 text-lg font-bold text-white">
                 Actividad del mes
               </h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-white/50">
                 Volumen real de trabajo
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 p-3 [&>*:last-child]:col-span-2 sm:grid-cols-3 sm:gap-3 sm:p-4 sm:[&>*:last-child]:col-span-1">
               <TarjetaMetrica
                 icono={<IconoPersonas />}
                 etiqueta="Alumnos distintos"
@@ -1777,17 +1808,20 @@ export default function Home() {
             </div>
           </section>
 
-          <section>
-            <div className="mb-3">
-              <h2 className="text-lg font-bold text-[#17324D]">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+            <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+                Club
+              </p>
+              <h2 className="mt-0.5 text-lg font-bold text-white">
                 Club / IQL
               </h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-white/50">
                 Generado, costes y liquidación
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 p-3 [&>*:last-child]:col-span-2 sm:grid-cols-3 sm:gap-3 sm:p-4 sm:[&>*:last-child]:col-span-1">
               <TarjetaMetrica
                 icono={<IconoClub />}
                 etiqueta="Club generado"
@@ -1813,53 +1847,53 @@ export default function Home() {
         </div>
 
         {/* DETALLE DIARIO */}
-        <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
-          <div className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+        <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
+          <div className="flex flex-row items-end justify-between gap-3 border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-6 sm:py-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#00A79C]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
                 Detalle diario
               </p>
-              <h2 className="mt-1 text-xl font-bold text-[#17324D]">
+              <h2 className="mt-0.5 text-xl font-bold text-white">
                 {etiquetaDetalle}
               </h2>
             </div>
-            <p className="text-sm font-semibold text-slate-500">
+            <p className="text-sm font-semibold text-white/60">
               {formatearFecha(detalleDia.fecha)}
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4 lg:hidden">
-            <div className="rounded-xl bg-slate-50 p-3 text-center">
+          <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-4 sm:p-4 lg:hidden">
+            <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Realizadas</p>
               <p className="mt-1 text-lg font-bold text-[#17324D]">{detalleDia.clases}</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Canceladas</p>
               <p className="mt-1 text-lg font-bold text-red-600">{detalleDia.canceladas}</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Ingresos</p>
               <p className="mt-1 text-lg font-bold text-[#17324D]">{detalleDia.ingresos.toFixed(2)} €</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Resultado</p>
               <p className={detalleDia.resultado >= 0 ? "mt-1 text-lg font-bold text-[#00A79C]" : "mt-1 text-lg font-bold text-red-600"}>
                 {detalleDia.resultado.toFixed(2)} €
               </p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Horas</p>
               <p className="mt-1 font-bold text-[#17324D]">{detalleDia.horas.toFixed(1)}</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Club generado</p>
               <p className="mt-1 font-bold text-[#17324D]">{detalleDia.clubGenerado.toFixed(2)} €</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Pistas</p>
               <p className="mt-1 font-bold text-red-600">{detalleDia.pistasPagadasClub.toFixed(2)} €</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Saldo club</p>
               <p className={detalleDia.saldoClub >= 0 ? "mt-1 font-bold text-[#00A79C]" : "mt-1 font-bold text-red-600"}>
                 {detalleDia.saldoClub.toFixed(2)} €
@@ -1916,14 +1950,14 @@ export default function Home() {
 
         {/* EVOLUCIÓN DEL MES */}
         <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
-          <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#00A79C]">
+          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-6 sm:py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
               Evolución del mes
             </p>
-            <h2 className="mt-1 text-xl font-bold text-[#17324D]">
+            <h2 className="mt-0.5 text-xl font-bold text-white">
               Acumulado diario
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-white/50">
               Resultado de cada día y acumulado progresivo en {mesSeleccionadoCapitalizado.toLowerCase()}
             </p>
           </div>
@@ -1934,9 +1968,9 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <div className="space-y-3 p-4 lg:hidden">
+              <div className="space-y-2.5 p-3 sm:space-y-3 sm:p-4 lg:hidden">
                 {acumuladoDiario.map((dia: any) => (
-                  <div key={dia.fecha} className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div key={dia.fecha} className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-bold text-[#17324D]">{formatearFecha(dia.fecha)}</p>
@@ -1949,7 +1983,7 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
+                    <div className="mt-3 grid grid-cols-2 gap-1.5 text-center text-xs sm:gap-2">
                       <div className="rounded-lg bg-slate-50 p-2">
                         <span className="text-slate-400">Ingresos</span>
                         <p className="mt-0.5 font-bold text-[#17324D]">{dia.ingresos.toFixed(2)} €</p>

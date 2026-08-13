@@ -250,13 +250,13 @@ export default function AppShell({
 
   return (
     <div className="min-h-screen bg-[#F6F8FA] text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[272px] flex-col bg-[#0F172A] px-5 py-6 text-white lg:flex print:hidden">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[272px] flex-col bg-[#0F2742] px-5 py-6 text-white lg:flex print:hidden">
         {contenidoMenu}
       </aside>
 
       <div className="lg:ml-[272px] print:ml-0">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0F172A] lg:hidden print:hidden">
-          <div className="flex h-[96px] items-center justify-between gap-3 px-4">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0F2742] lg:hidden print:hidden">
+          <div className="flex h-[84px] items-center justify-between gap-3 px-4">
             <button
               type="button"
               onClick={() => setMenuAbierto(true)}
@@ -269,7 +269,7 @@ export default function AppShell({
             <img
               src="/logo-espacio-padel-blanco.png"
               alt="Espacio Pádel Academy"
-              className="h-[84px] w-auto max-w-none object-contain"
+              className="h-[72px] w-auto max-w-none object-contain"
             />
 
             <Link
@@ -327,7 +327,7 @@ export default function AppShell({
             aria-label="Cerrar menú"
           />
 
-          <aside className="relative flex h-full w-[82%] max-w-[310px] flex-col bg-[#0F172A] px-5 pb-5 pt-6 text-white shadow-2xl">
+          <aside className="relative flex h-full w-[82%] max-w-[310px] flex-col bg-[#0F2742] px-5 pb-5 pt-6 text-white shadow-2xl">
             <button
               onClick={() => setMenuAbierto(false)}
               className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-slate-200 transition hover:bg-white/[0.13] hover:text-white"
