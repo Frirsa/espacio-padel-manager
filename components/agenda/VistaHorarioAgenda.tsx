@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import {
   borrarClaseDeGoogleCalendar,
@@ -32,6 +32,7 @@ type Clase = {
       id: string;
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -48,7 +49,44 @@ type Props = {
   fechaSeleccionada: string;
   noDisponibilidades: NoDisponibilidad[];
   onClaseActualizada: () => Promise<void>;
+  onFechaSeleccionadaChange?: (
+    fecha: string
+  ) => void;
 };
+
+
+function nombreAlumnoAgenda(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined,
+  unico: boolean
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  if (unico) {
+    return `${alumno.nombre || ""} ${
+      alumno.apellidos || ""
+    }`.trim();
+  }
+
+  return (
+    alumno.nombre || ""
+  ).trim();
+}
 
 function fechaLocalISO(fecha: Date) {
   const y = fecha.getFullYear();
@@ -67,6 +105,38 @@ function inicioSemana(fecha: string) {
   const dow = d.getDay();
   d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
   return d;
+}
+
+function calcularHoraFin(
+  horaInicio: string,
+  duracionMinutos: number
+) {
+  const [hora, minuto] =
+    horaInicio
+      .slice(0, 5)
+      .split(":")
+      .map(Number);
+
+  const fecha =
+    new Date();
+
+  fecha.setHours(
+    hora,
+    minuto,
+    0,
+    0
+  );
+
+  fecha.setMinutes(
+    fecha.getMinutes() +
+      duracionMinutos
+  );
+
+  return `${String(
+    fecha.getHours()
+  ).padStart(2, "0")}:${String(
+    fecha.getMinutes()
+  ).padStart(2, "0")}`;
 }
 
 function datosGoogleClase(
@@ -106,14 +176,14 @@ function datosGoogleClase(
 
 function colorClase(clase: Clase) {
   if (clase.tipo === "club") {
-    return "border-amber-300 bg-amber-50 text-amber-900";
+    return "border-amber-300 bg-amber-50/90 text-amber-950";
   }
 
   if (clase.tipo === "privada") {
-    return "border-violet-300 bg-violet-100 text-violet-800";
+    return "border-violet-300 bg-violet-50 text-violet-900";
   }
 
-  return "border-[#09a9a3]/60 bg-[#09a9a3]/10 text-[#078b86]";
+  return "border-[#00A79C]/40 bg-[#00A79C]/10 text-[#0B6F69]";
 }
 
 function estadoEconomicoClase(clase: Clase) {
@@ -145,7 +215,7 @@ function estadoEconomicoClase(clase: Clase) {
 function IconoEstadoClase({ estado }: { estado: string }) {
   if (estado === "realizada") {
     return (
-      <svg viewBox="0 0 20 20" className="h-[10px] w-[10px]" fill="none" aria-hidden="true">
+      <svg viewBox="0 0 20 20" className="h-[11px] w-[11px]" fill="none" aria-hidden="true">
         <path d="M4.5 10.2 8.1 13.8 15.6 6.3" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
@@ -153,14 +223,14 @@ function IconoEstadoClase({ estado }: { estado: string }) {
 
   if (estado === "cancelada") {
     return (
-      <svg viewBox="0 0 20 20" className="h-[10px] w-[10px]" fill="none" aria-hidden="true">
+      <svg viewBox="0 0 20 20" className="h-[11px] w-[11px]" fill="none" aria-hidden="true">
         <path d="M5.2 5.2 14.8 14.8M14.8 5.2 5.2 14.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
       </svg>
     );
   }
 
   return (
-    <svg viewBox="0 0 20 20" className="h-[10px] w-[10px]" fill="none" aria-hidden="true">
+    <svg viewBox="0 0 20 20" className="h-[11px] w-[11px]" fill="none" aria-hidden="true">
       <circle cx="10" cy="10" r="6.7" stroke="currentColor" strokeWidth="1.8" />
       <path d="M10 6.4v4l2.7 1.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -185,20 +255,88 @@ function IndicadoresClase({ clase }: { clase: Clase }) {
         : { titulo: "Pendiente de cobro", clase: "border-red-600 bg-red-600 text-white", tachado: false };
 
   return (
-    <span className="pointer-events-none absolute right-1 top-1 flex items-center gap-0.5">
+    <span className="pointer-events-none absolute right-1.5 top-1.5 flex items-center gap-1">
       <span
         title={estadoVisual.titulo}
-        className={`inline-flex h-[13px] w-[13px] items-center justify-center rounded-full border ${estadoVisual.clase}`}
+        className={
+          clase.estado === "cancelada"
+            ? `inline-flex h-5 w-5 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
+            : `inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
+        }
       >
         <IconoEstadoClase estado={clase.estado} />
       </span>
       <span
         title={economicoVisual.titulo}
-        className={`inline-flex h-[13px] w-[13px] items-center justify-center rounded-full border text-[8px] font-medium leading-none ${economicoVisual.clase} ${economicoVisual.tachado ? "line-through" : ""}`}
+        className={`inline-flex h-4 w-4 items-center justify-center rounded-full border text-[9px] font-bold leading-none shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${economicoVisual.clase} ${economicoVisual.tachado ? "line-through" : ""}`}
       >
         €
       </span>
     </span>
+  );
+}
+
+
+function IconoCerrar() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
+function IconoBono() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V7Z" />
+      <path d="M12 7v10" strokeDasharray="2 2" />
+    </svg>
+  );
+}
+
+function IconoEditar() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path d="M4 20h4l11-11a2.1 2.1 0 0 0-4-4L4 16v4Z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+function IconoPapelera() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
   );
 }
 
@@ -207,6 +345,7 @@ export default function VistaHorarioAgenda({
   fechaSeleccionada,
   noDisponibilidades,
   onClaseActualizada,
+  onFechaSeleccionadaChange,
 }: Props) {
   const [
     claseSeleccionada,
@@ -252,6 +391,16 @@ export default function VistaHorarioAgenda({
     desplazamientoArrastreY,
     setDesplazamientoArrastreY,
   ] = useState(0);
+
+  const [
+    fechaMovil,
+    setFechaMovil,
+  ] = useState(
+    fechaSeleccionada
+  );
+
+  const hoy = fechaLocalISO(new Date());
+
   const inicio = inicioSemana(fechaSeleccionada);
   const dias = Array.from({length:7},(_,i)=>{
     const d=new Date(inicio);
@@ -263,6 +412,22 @@ export default function VistaHorarioAgenda({
   const horaFin = 23;
   const altoHora = 72;
   const altoTotal = (horaFin-horaInicio)*altoHora;
+
+  useEffect(() => {
+    setFechaMovil(
+      fechaSeleccionada
+    );
+  }, [fechaSeleccionada]);
+
+  const fechaMovilDate =
+    crearFecha(fechaMovil);
+
+  const clasesDiaMovil =
+    clases.filter(
+      (clase) =>
+        clase.fecha ===
+        fechaMovil
+    );
 
   function noDisponible(fecha:string) {
     return noDisponibilidades.find(
@@ -1335,21 +1500,434 @@ export default function VistaHorarioAgenda({
   }
 
   return (
-    <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-6 py-5">
-        <h2 className="text-xl font-bold text-slate-900">Horario semanal</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Pulsa en un hueco para crear una clase. Pulsa una clase para abrir sus acciones rápidas. También puedes arrastrar una clase programada para moverla en tramos de 30 minutos.
-        </p>
+    <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:px-4 md:py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div>
+          <h2 className="text-lg font-bold text-[#17324D] md:text-base">
+            <span className="md:hidden">
+              Horario del día
+            </span>
+            <span className="hidden md:inline">
+              Horario semanal
+            </span>
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500 md:mt-0.5 md:text-xs">
+            <span className="md:hidden">
+              Clases organizadas por hora
+            </span>
+            <span className="hidden md:inline">
+              Pulsa un hueco para crear · arrastra una clase programada para moverla
+            </span>
+          </p>
+          <p className="mt-2 text-xs text-slate-400 md:hidden">
+            Toca un hueco para crear · toca una clase para abrir acciones.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00A79C]/10 px-2.5 py-1.5 text-[#0B6F69]">
+            <span className="h-2 w-2 rounded-full bg-[#00A79C]" />
+            Propia
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-amber-800">
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            Club
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1.5 text-violet-800">
+            <span className="h-2 w-2 rounded-full bg-violet-400" />
+            Privada
+          </span>
+        </div>
 
         {mensajeMovimiento && (
-          <p className="mt-3 text-sm font-semibold text-slate-700">
+          <p className="w-full rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
             {mensajeMovimiento}
           </p>
         )}
       </div>
 
-      <div className="overflow-x-auto">
+      {/* MÓVIL: un solo día, sin desplazamiento horizontal ni drag & drop. */}
+      <div className="md:hidden">
+        <div className="border-b border-slate-100 px-3 py-3">
+          <div className="grid grid-cols-7 gap-1">
+            {dias.map((dia) => {
+              const iso =
+                fechaLocalISO(dia);
+
+              const activo =
+                iso === fechaMovil;
+
+              const bloqueado =
+                Boolean(
+                  noDisponible(iso)
+                );
+
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  onClick={() => {
+                    setFechaMovil(
+                      iso
+                    );
+
+                    onFechaSeleccionadaChange?.(
+                      iso
+                    );
+                  }}
+                  className={
+                    activo
+                      ? "flex min-w-0 flex-col items-center rounded-xl bg-[#00A79C] px-1 py-2 text-white shadow-sm"
+                      : bloqueado
+                      ? "flex min-w-0 flex-col items-center rounded-xl bg-red-50 px-1 py-2 text-red-700"
+                      : "flex min-w-0 flex-col items-center rounded-xl px-1 py-2 text-slate-500 transition active:bg-slate-100"
+                  }
+                  aria-pressed={
+                    activo
+                  }
+                >
+                  <span className="text-[9px] font-extrabold uppercase tracking-wide">
+                    {dia
+                      .toLocaleDateString(
+                        "es-ES",
+                        {
+                          weekday:
+                            "short",
+                        }
+                      )
+                      .replace(
+                        ".",
+                        ""
+                      )}
+                  </span>
+
+                  <span className="mt-0.5 text-sm font-extrabold">
+                    {dia.getDate()}
+                  </span>
+
+                  {iso === hoy && (
+                    <span
+                      className={
+                        activo
+                          ? "mt-0.5 h-1 w-1 rounded-full bg-white"
+                          : "mt-0.5 h-1 w-1 rounded-full bg-[#00A79C]"
+                      }
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-extrabold capitalize text-[#17324D]">
+                {fechaMovilDate.toLocaleDateString(
+                  "es-ES",
+                  {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  }
+                )}
+              </p>
+
+              <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+                {clasesDiaMovil.length}{" "}
+                {clasesDiaMovil.length ===
+                1
+                  ? "clase"
+                  : "clases"}{" "}
+                · toca un hueco para crear
+              </p>
+            </div>
+
+          </div>
+
+          {noDisponible(
+            fechaMovil
+          ) && (
+            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              Día no disponible
+              {noDisponible(
+                fechaMovil
+              )?.motivo
+                ? ` · ${
+                    noDisponible(
+                      fechaMovil
+                    )?.motivo
+                  }`
+                : ""}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-[52px_minmax(0,1fr)]">
+          <div
+            className="relative border-r border-slate-200 bg-slate-50/80"
+            style={{
+              height: altoTotal,
+            }}
+          >
+            {Array.from(
+              {
+                length:
+                  horaFin -
+                  horaInicio +
+                  1,
+              },
+              (_, i) =>
+                horaInicio + i
+            ).map((hora) => (
+              <div
+                key={hora}
+                className="absolute right-2 -translate-y-1/2 text-[10px] font-semibold text-slate-400"
+                style={{
+                  top:
+                    (hora -
+                      horaInicio) *
+                    altoHora,
+                }}
+              >
+                {String(
+                  hora
+                ).padStart(
+                  2,
+                  "0"
+                )}
+                :00
+              </div>
+            ))}
+          </div>
+
+          <div
+            className={
+              noDisponible(
+                fechaMovil
+              )
+                ? "relative bg-red-50/35"
+                : fechaMovil ===
+                  hoy
+                ? "relative bg-[#00A79C]/[0.018]"
+                : "relative bg-white"
+            }
+            style={{
+              height: altoTotal,
+            }}
+          >
+            {Array.from(
+              {
+                length:
+                  horaFin -
+                  horaInicio,
+              },
+              (_, i) =>
+                horaInicio + i
+            ).map((hora) => (
+              <div key={hora}>
+                <button
+                  type="button"
+                  disabled={Boolean(
+                    noDisponible(
+                      fechaMovil
+                    )
+                  )}
+                  onClick={() =>
+                    crearClase(
+                      fechaMovil,
+                      hora
+                    )
+                  }
+                  className="absolute left-0 right-0 border-t border-slate-200 transition active:bg-[#00A79C]/[0.08] disabled:cursor-not-allowed"
+                  style={{
+                    top:
+                      (hora -
+                        horaInicio) *
+                      altoHora,
+                    height:
+                      altoHora / 2,
+                  }}
+                  aria-label={`Crear clase a las ${String(
+                    hora
+                  ).padStart(
+                    2,
+                    "0"
+                  )}:00`}
+                />
+
+                <button
+                  type="button"
+                  disabled={Boolean(
+                    noDisponible(
+                      fechaMovil
+                    )
+                  )}
+                  onClick={() =>
+                    crearClase(
+                      fechaMovil,
+                      hora,
+                      30
+                    )
+                  }
+                  className="absolute left-0 right-0 border-t border-dashed border-slate-100 transition active:bg-[#00A79C]/[0.08] disabled:cursor-not-allowed"
+                  style={{
+                    top:
+                      (hora -
+                        horaInicio) *
+                        altoHora +
+                      altoHora / 2,
+                    height:
+                      altoHora / 2,
+                  }}
+                  aria-label={`Crear clase a las ${String(
+                    hora
+                  ).padStart(
+                    2,
+                    "0"
+                  )}:30`}
+                />
+              </div>
+            ))}
+
+            {clasesDiaMovil.map(
+              (clase) => {
+                const [h, m] =
+                  clase.hora_inicio
+                    .split(":")
+                    .map(Number);
+
+                const top =
+                  (h -
+                    horaInicio +
+                    m / 60) *
+                  altoHora;
+
+                const height =
+                  Math.max(
+                    34,
+                    (clase.duracion_minutos /
+                      60) *
+                      altoHora
+                  );
+
+                const horaFinVisual =
+                  calcularHoraFin(
+                    clase.hora_inicio,
+                    clase.duracion_minutos
+                  );
+
+                const alumnosDatos =
+                  clase.clase_alumnos
+                    .map(
+                      (item) =>
+                        item.alumnos
+                    )
+                    .filter(Boolean);
+
+                const alumnos =
+                  alumnosDatos
+                    .map((alumno) =>
+                      nombreAlumnoAgenda(
+                        alumno,
+                        alumnosDatos.length === 1
+                      )
+                    )
+                    .filter(Boolean)
+                    .join(" · ");
+
+                return (
+                  <button
+                    key={
+                      clase.id
+                    }
+                    type="button"
+                    onClick={() => {
+                      setMensajeAccion(
+                        ""
+                      );
+
+                      setClaseSeleccionada(
+                        clase
+                      );
+                    }}
+                    className={`absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-xl border border-l-[4px] px-2.5 py-2 text-left text-[10px] leading-tight shadow-[0_3px_10px_rgba(15,23,42,0.08)] active:scale-[0.995] ${colorClase(
+                      clase
+                    )}`}
+                    style={{
+                      top,
+                      height,
+                    }}
+                    title="Abrir acciones rápidas"
+                  >
+                    {clase.estado === "cancelada" && (
+                      <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                    )}
+
+                    <IndicadoresClase
+                      clase={clase}
+                    />
+
+                    <div className="pr-11 font-extrabold tracking-tight">
+                      {clase.hora_inicio.slice(
+                        0,
+                        5
+                      )}{" "}
+                      –{" "}
+                      {
+                        horaFinVisual
+                      }
+                      <span className="font-medium opacity-60">
+                        {" "}
+                        ·{" "}
+                        {
+                          clase.duracion_minutos
+                        }{" "}
+                        min
+                      </span>
+                    </div>
+
+                    <div
+                      className="mt-1 line-clamp-2 pr-1 text-xs font-extrabold leading-[1.15]"
+                      title={
+                        alumnos ||
+                        "Sin alumnos"
+                      }
+                    >
+                      {alumnos ||
+                        "Sin alumnos"}
+                    </div>
+
+                    {clase.duracion_minutos >=
+                      60 &&
+                      clase
+                        .ubicaciones
+                        ?.nombre && (
+                        <div
+                          className="mt-1 truncate text-[10px] font-semibold opacity-65"
+                          title={
+                            clase
+                              .ubicaciones
+                              .nombre
+                          }
+                        >
+                          {
+                            clase
+                              .ubicaciones
+                              .nombre
+                          }
+                        </div>
+                      )}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ESCRITORIO/TABLET: conserva el horario semanal completo. */}
+      <div className="hidden overflow-x-auto md:block">
         <div className="min-w-[1100px]">
           <div className="grid grid-cols-[70px_repeat(7,minmax(140px,1fr))] border-b border-slate-200 bg-slate-50">
             <div />
@@ -1357,13 +1935,36 @@ export default function VistaHorarioAgenda({
               const iso=fechaLocalISO(d);
               const nd=noDisponible(iso);
               return (
-                <div key={iso} className="border-l border-slate-200 px-2 py-3 text-center">
-                  <div className="text-xs font-bold uppercase text-slate-500">
+                <div
+                  key={iso}
+                  className={
+                    iso === hoy
+                      ? "border-l border-slate-200 bg-[#E8F7F5] px-2 py-2.5 text-center"
+                      : "border-l border-slate-200 px-2 py-2.5 text-center"
+                  }
+                >
+                  <div
+                    className={
+                      iso === hoy
+                        ? "text-[10px] font-bold uppercase tracking-wide text-[#008C83]"
+                        : "text-[10px] font-bold uppercase tracking-wide text-slate-400"
+                    }
+                  >
                     {d.toLocaleDateString("es-ES",{weekday:"short"})}
                   </div>
-                  <div className="text-lg font-bold text-slate-900">{d.getDate()}</div>
+
+                  <div
+                    className={
+                      iso === hoy
+                        ? "mx-auto mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#00A79C] text-sm font-bold text-white"
+                        : "mx-auto mt-1 flex h-8 w-8 items-center justify-center text-sm font-bold text-[#17324D]"
+                    }
+                  >
+                    {d.getDate()}
+                  </div>
+
                   {nd && (
-                    <div className="mt-1 rounded-md bg-red-100 px-1 py-1 text-[10px] font-bold text-red-700">
+                    <div className="mt-1 rounded-md bg-red-100 px-1 py-1 text-[9px] font-bold text-red-700">
                       NO DISPONIBLE{nd.motivo ? ` · ${nd.motivo}` : ""}
                     </div>
                   )}
@@ -1405,7 +2006,13 @@ export default function VistaHorarioAgenda({
                       fecha
                     )
                   }
-                  className={nd ? "relative border-r border-slate-200 bg-red-50/40" : "relative border-r border-slate-200 bg-white"}
+                  className={
+                    nd
+                      ? "relative border-r border-slate-200 bg-red-50/40"
+                      : fecha === hoy
+                      ? "relative border-r border-slate-200 bg-[#00A79C]/[0.025]"
+                      : "relative border-r border-slate-200 bg-white"
+                  }
                   style={{height:altoTotal}}
                 >
                   {Array.from({length:horaFin-horaInicio},(_,i)=>horaInicio+i).map(h=>(
@@ -1414,7 +2021,7 @@ export default function VistaHorarioAgenda({
                         type="button"
                         disabled={!!nd}
                         onClick={()=>crearClase(fecha,h)}
-                        className="absolute left-0 right-0 border-t border-slate-200 hover:bg-teal-50/70 disabled:cursor-not-allowed"
+                        className="absolute left-0 right-0 border-t border-slate-200 transition hover:bg-[#00A79C]/[0.06] disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora,height:altoHora/2}}
                         title={nd ? "Día no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:00`}
                       />
@@ -1422,7 +2029,7 @@ export default function VistaHorarioAgenda({
                         type="button"
                         disabled={!!nd}
                         onClick={()=>crearClase(fecha,h,30)}
-                        className="absolute left-0 right-0 border-t border-dashed border-slate-100 hover:bg-teal-50/70 disabled:cursor-not-allowed"
+                        className="absolute left-0 right-0 border-t border-dashed border-slate-100 transition hover:bg-[#00A79C]/[0.06] disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora+altoHora/2,height:altoHora/2}}
                         title={nd ? "Día no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:30`}
                       />
@@ -1433,11 +2040,24 @@ export default function VistaHorarioAgenda({
                     const [h,m]=clase.hora_inicio.split(":").map(Number);
                     const top=((h-horaInicio)+(m/60))*altoHora;
                     const height=Math.max(30,(clase.duracion_minutos/60)*altoHora);
-                    const alumnos=clase.clase_alumnos
+                    const horaFinVisual=calcularHoraFin(
+                      clase.hora_inicio,
+                      clase.duracion_minutos
+                    );
+                    const alumnosDatos=clase.clase_alumnos
                       .map(x=>x.alumnos)
-                      .filter(Boolean)
-                      .map(a=>`${a?.nombre||""} ${a?.apellidos||""}`.trim())
-                      .join(", ");
+                      .filter(Boolean);
+
+                    const alumnos=
+                      alumnosDatos
+                        .map((alumno) =>
+                          nombreAlumnoAgenda(
+                            alumno,
+                            alumnosDatos.length === 1
+                          )
+                        )
+                        .filter(Boolean)
+                        .join(" · ");
                     return (
                       <button
                         key={clase.id}
@@ -1492,7 +2112,7 @@ export default function VistaHorarioAgenda({
                             clase
                           );
                         }}
-                        className={`absolute left-1 right-1 z-10 overflow-hidden rounded-lg border p-2 text-left text-[11px] leading-tight shadow-sm transition hover:z-20 hover:shadow-md ${
+                        className={`absolute left-1 right-1 z-10 overflow-hidden rounded-xl border border-l-[3px] px-2 py-1.5 text-left text-[10px] leading-tight shadow-[0_2px_6px_rgba(15,23,42,0.06)] transition hover:z-20 hover:-translate-y-[1px] hover:shadow-md ${
                           clase.estado === "programada"
                             ? "cursor-grab active:cursor-grabbing"
                             : "cursor-pointer"
@@ -1512,13 +2132,33 @@ export default function VistaHorarioAgenda({
                             : "Abrir acciones rápidas"
                         }
                       >
+                        {clase.estado === "cancelada" && (
+                          <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                        )}
+
                         <IndicadoresClase clase={clase} />
-                        <div className="pr-9 font-bold">
-                          {clase.hora_inicio.slice(0,5)} · {clase.duracion_minutos} min
+
+                        <div className="pr-10 font-bold tracking-tight">
+                          {clase.hora_inicio.slice(0,5)} – {horaFinVisual}
+                          <span className="font-medium opacity-65">
+                            {" "}· {clase.duracion_minutos} min
+                          </span>
                         </div>
-                        <div className="mt-1 font-semibold">{alumnos || "Sin alumnos"}</div>
+
+                        <div
+                          className="mt-1 line-clamp-2 text-[11px] font-bold leading-[1.2]"
+                          title={alumnos || "Sin alumnos"}
+                        >
+                          {alumnos || "Sin alumnos"}
+                        </div>
+
                         {clase.ubicaciones?.nombre && (
-                          <div className="mt-1 truncate opacity-80">{clase.ubicaciones.nombre}</div>
+                          <div
+                            className="mt-1 truncate text-[9px] font-medium opacity-70"
+                            title={clase.ubicaciones.nombre}
+                          >
+                            {clase.ubicaciones.nombre}
+                          </div>
                         )}
                       </button>
                     );
@@ -1531,18 +2171,18 @@ export default function VistaHorarioAgenda({
       </div>
 
       {claseSeleccionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/55 p-3 backdrop-blur-[2px] sm:p-4">
 
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+          <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.28)] sm:p-6">
 
             <div className="flex items-start justify-between gap-4">
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-[#09a9a3]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#00A79C]">
                   Acciones rápidas
                 </p>
 
-                <h3 className="mt-1 text-xl font-bold text-slate-900">
+                <h3 className="mt-1 text-2xl font-bold tracking-tight text-[#17324D]">
                   {claseSeleccionada.hora_inicio.slice(0, 5)} ·{" "}
                   {claseSeleccionada.duracion_minutos} min
                 </h3>
@@ -1560,16 +2200,18 @@ export default function VistaHorarioAgenda({
                     null
                   )
                 }
-                className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-[#17324D]"
+                aria-label="Cerrar"
+                title="Cerrar"
               >
-                Cerrar
+                <IconoCerrar />
               </button>
 
             </div>
 
             {claseSeleccionada.tipo !== "club" &&
               claseSeleccionada.clase_alumnos.length > 0 && (
-              <div className="mt-6 rounded-2xl bg-slate-50 p-4">
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
 
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                   Asistencia · cobro · bono
@@ -1587,7 +2229,7 @@ export default function VistaHorarioAgenda({
                       return (
                         <div
                           key={participante.id}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-3 py-3"
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-[0_2px_8px_rgba(15,23,42,0.025)]"
                         >
 
                           <div className="min-w-0">
@@ -1596,8 +2238,9 @@ export default function VistaHorarioAgenda({
                             </p>
 
                             {participante.usa_bono ? (
-                              <p className="mt-1 text-xs font-bold text-violet-600">
-                                🎟 Bono asignado
+                              <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-violet-700">
+                                <IconoBono />
+                                Bono asignado
                               </p>
                             ) : (
                               <p className="mt-1 text-xs text-slate-500">
@@ -1659,7 +2302,7 @@ export default function VistaHorarioAgenda({
                                       : participante.id
                                   )
                                 }
-                                className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700"
+                                className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600"
                               >
                                 Cobrar…
                               </button>
@@ -1712,7 +2355,7 @@ export default function VistaHorarioAgenda({
               </div>
             )}
 
-            <div className="mt-6 grid gap-3">
+            <div className="mt-5 grid gap-3">
 
               <button
                 type="button"
@@ -1722,7 +2365,7 @@ export default function VistaHorarioAgenda({
                     facturable: true,
                   })
                 }
-                className="rounded-xl bg-green-600 px-4 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+                className="rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-50"
               >
                 ✓ Realizada
               </button>
@@ -1907,8 +2550,9 @@ export default function VistaHorarioAgenda({
                     claseSeleccionada.id
                   )
                 }
-                className="rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#17324D] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0F2538]"
               >
+                <IconoEditar />
                 Editar clase completa
               </button>
 
@@ -1918,9 +2562,10 @@ export default function VistaHorarioAgenda({
                 onClick={
                   borrarClaseSeleccionada
                 }
-                className="rounded-xl border border-red-300 bg-white px-5 py-3 font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
               >
-                🗑 Borrar clase
+                <IconoPapelera />
+                Borrar clase
               </button>
 
             </div>

@@ -9,12 +9,36 @@ import { useSearchParams } from "next/navigation";
 
 import { supabase } from "../../lib/supabase";
 
-import ResumenAgenda from "../../components/agenda/ResumenAgenda";
 import FiltrosAgenda from "../../components/agenda/FiltrosAgenda";
 import ListadoAgenda from "../../components/agenda/ListadoAgenda";
 import VistaSemanalAgenda from "../../components/agenda/VistaSemanalAgenda";
 import VistaHorarioAgenda from "../../components/agenda/VistaHorarioAgenda";
 import VistaMensualAgenda from "../../components/agenda/VistaMensualAgenda";
+
+const MESES_CORTOS = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
+const DIAS_SEMANA = [
+  "L",
+  "M",
+  "X",
+  "J",
+  "V",
+  "S",
+  "D",
+];
 
 type NoDisponibilidad = {
   id: string;
@@ -30,6 +54,7 @@ type Clase = {
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
+  grupo_id: string | null;
   tipo: string;
   estado: string;
   facturable: boolean;
@@ -52,6 +77,7 @@ type Clase = {
       id: string;
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -253,6 +279,26 @@ export default function AgendaPage() {
   ] =
     useState(hoy);
 
+  const [
+    selectorFechaAbierto,
+    setSelectorFechaAbierto,
+  ] =
+    useState(false);
+
+  const [
+    filtrosAbiertos,
+    setFiltrosAbiertos,
+  ] =
+    useState(false);
+
+  const [
+    mesSelectorFecha,
+    setMesSelectorFecha,
+  ] =
+    useState(
+      hoy.slice(0, 7)
+    );
+
   useEffect(() => {
     const parametros =
       new URLSearchParams(
@@ -302,6 +348,7 @@ export default function AgendaPage() {
         fecha,
         hora_inicio,
         duracion_minutos,
+        grupo_id,
         tipo,
         estado,
         facturable,
@@ -321,7 +368,8 @@ export default function AgendaPage() {
           alumnos (
             id,
             nombre,
-            apellidos
+            apellidos,
+            apodo
           )
         )
       `)
@@ -377,6 +425,9 @@ export default function AgendaPage() {
                     ""
                   } ${
                     alumno?.apellidos ||
+                    ""
+                  } ${
+                    alumno?.apodo ||
                     ""
                   }`.trim()
               )
@@ -583,6 +634,231 @@ export default function AgendaPage() {
     );
   }
 
+  function formatearPeriodoAgenda() {
+    const [
+      anio,
+      mes,
+      dia,
+    ] =
+      fechaSeleccionada
+        .split("-")
+        .map(Number);
+
+    const fecha =
+      new Date(
+        anio,
+        mes - 1,
+        dia
+      );
+
+    if (
+      vistaAgenda ===
+      "mes"
+    ) {
+      const texto =
+        fecha.toLocaleDateString(
+          "es-ES",
+          {
+            month: "long",
+            year: "numeric",
+          }
+        );
+
+      return (
+        texto.charAt(0).toUpperCase() +
+        texto.slice(1)
+      );
+    }
+
+    if (
+      vistaAgenda === "semana" ||
+      vistaAgenda === "horario"
+    ) {
+      const diaSemana =
+        fecha.getDay();
+
+      const lunes =
+        new Date(
+          fecha
+        );
+
+      lunes.setDate(
+        fecha.getDate() -
+          (diaSemana === 0
+            ? 6
+            : diaSemana - 1)
+      );
+
+      const domingo =
+        new Date(
+          lunes
+        );
+
+      domingo.setDate(
+        lunes.getDate() + 6
+      );
+
+      const mismoMes =
+        lunes.getMonth() ===
+        domingo.getMonth();
+
+      const mismoAnio =
+        lunes.getFullYear() ===
+        domingo.getFullYear();
+
+      if (
+        mismoMes &&
+        mismoAnio
+      ) {
+        return `${lunes.getDate()}–${domingo.getDate()} ${domingo.toLocaleDateString(
+          "es-ES",
+          {
+            month: "long",
+            year: "numeric",
+          }
+        )}`;
+      }
+
+      return `${lunes.toLocaleDateString(
+        "es-ES",
+        {
+          day: "numeric",
+          month: "short",
+        }
+      )} – ${domingo.toLocaleDateString(
+        "es-ES",
+        {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }
+      )}`;
+    }
+
+    return fecha.toLocaleDateString(
+      "es-ES",
+      {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }
+    );
+  }
+
+  function formatearPeriodoAgendaMovil() {
+    const [
+      anio,
+      mes,
+      dia,
+    ] =
+      fechaSeleccionada
+        .split("-")
+        .map(Number);
+
+    const fecha =
+      new Date(
+        anio,
+        mes - 1,
+        dia
+      );
+
+    if (
+      vistaAgenda ===
+      "mes"
+    ) {
+      const mesCorto =
+        fecha
+          .toLocaleDateString(
+            "es-ES",
+            {
+              month: "short",
+            }
+          )
+          .replace(".", "");
+
+      return `${mesCorto} ${anio}`;
+    }
+
+    if (
+      vistaAgenda === "semana" ||
+      vistaAgenda === "horario"
+    ) {
+      const diaSemana =
+        fecha.getDay();
+
+      const lunes =
+        new Date(fecha);
+
+      lunes.setDate(
+        fecha.getDate() -
+          (diaSemana === 0
+            ? 6
+            : diaSemana - 1)
+      );
+
+      const domingo =
+        new Date(lunes);
+
+      domingo.setDate(
+        lunes.getDate() + 6
+      );
+
+      const mesLunes =
+        lunes
+          .toLocaleDateString(
+            "es-ES",
+            {
+              month: "short",
+            }
+          )
+          .replace(".", "");
+
+      const mesDomingo =
+        domingo
+          .toLocaleDateString(
+            "es-ES",
+            {
+              month: "short",
+            }
+          )
+          .replace(".", "");
+
+      if (
+        lunes.getMonth() ===
+          domingo.getMonth() &&
+        lunes.getFullYear() ===
+          domingo.getFullYear()
+      ) {
+        return `${lunes.getDate()}–${domingo.getDate()} ${mesDomingo} ${domingo.getFullYear()}`;
+      }
+
+      return `${lunes.getDate()} ${mesLunes}–${domingo.getDate()} ${mesDomingo} ${domingo.getFullYear()}`;
+    }
+
+    const diaSemanaCorto =
+      fecha
+        .toLocaleDateString(
+          "es-ES",
+          {
+            weekday: "short",
+          }
+        )
+        .replace(".", "");
+
+    const mesCorto =
+      fecha
+        .toLocaleDateString(
+          "es-ES",
+          {
+            month: "short",
+          }
+        )
+        .replace(".", "");
+
+    return `${diaSemanaCorto}, ${dia} ${mesCorto} ${anio}`;
+  }
+
   function calcularHorario(
     clase: {
       hora_inicio: string;
@@ -674,7 +950,111 @@ export default function AgendaPage() {
     return tipo;
   }
 
+  function abrirSelectorFecha() {
+    setMesSelectorFecha(
+      fechaSeleccionada.slice(
+        0,
+        7
+      )
+    );
+    setSelectorFechaAbierto(
+      true
+    );
+  }
+
+  function cambiarMesSelectorFecha(
+    cantidad: number
+  ) {
+    const [
+      anio,
+      mes,
+    ] =
+      mesSelectorFecha
+        .split("-")
+        .map(Number);
+
+    const nuevaFecha =
+      new Date(
+        anio,
+        mes - 1 + cantidad,
+        1
+      );
+
+    setMesSelectorFecha(
+      `${nuevaFecha.getFullYear()}-${String(
+        nuevaFecha.getMonth() + 1
+      ).padStart(2, "0")}`
+    );
+  }
+
+  function seleccionarFechaAgenda(
+    fecha: string
+  ) {
+    setFechaSeleccionada(
+      fecha
+    );
+    setSelectorFechaAbierto(
+      false
+    );
+  }
+
+  const [
+    anioSelectorFecha,
+    numeroMesSelectorFecha,
+  ] =
+    mesSelectorFecha
+      .split("-")
+      .map(Number);
+
+  const primerDiaSelector =
+    new Date(
+      anioSelectorFecha,
+      numeroMesSelectorFecha - 1,
+      1
+    );
+
+  const desplazamientoSelector =
+    primerDiaSelector.getDay() ===
+    0
+      ? 6
+      : primerDiaSelector.getDay() -
+        1;
+
+  const inicioSelector =
+    new Date(
+      primerDiaSelector
+    );
+
+  inicioSelector.setDate(
+    primerDiaSelector.getDate() -
+      desplazamientoSelector
+  );
+
+  const diasSelectorFecha =
+    Array.from(
+      {
+        length: 42,
+      },
+      (_, indice) => {
+        const dia =
+          new Date(
+            inicioSelector
+          );
+
+        dia.setDate(
+          inicioSelector.getDate() +
+            indice
+        );
+
+        return dia;
+      }
+    );
+
   function irAnterior() {
+    setSelectorFechaAbierto(
+      false
+    );
+
     if (
       vistaAgenda ===
       "mes"
@@ -701,6 +1081,10 @@ export default function AgendaPage() {
   }
 
   function irSiguiente() {
+    setSelectorFechaAbierto(
+      false
+    );
+
     if (
       vistaAgenda ===
       "mes"
@@ -730,254 +1114,427 @@ export default function AgendaPage() {
     setFechaSeleccionada(
       hoy
     );
+    setSelectorFechaAbierto(
+      false
+    );
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
+    <main className="min-h-screen bg-[#F6F8FA] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
 
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto w-full max-w-[1540px]">
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* CABECERA + CONTROLES PRINCIPALES */}
+        <section className="overflow-visible rounded-2xl bg-[#0F2742] p-5 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+              Gestión
+            </p>
 
-          <div className="flex items-center gap-4">
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Agenda
+            </h1>
 
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
-              <IconoCalendario />
-            </div>
-
-            <div>
-
-              <h1 className="text-4xl font-bold text-slate-900">
-                Agenda
-              </h1>
-
-              <p className="mt-1 text-slate-600">
-                Agenda de clases
-              </p>
-
-            </div>
-
+            <p className="mt-2 text-sm text-white/55">
+              Organiza y gestiona tus clases desde una vista clara y rápida.
+            </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href =
-                `/clases?fecha=${fechaSeleccionada}`;
-            }}
-            className="inline-flex items-center justify-center rounded-xl bg-[#09a9a3] px-5 py-3 font-semibold text-white transition hover:bg-[#078b86]"
-          >
-            + Nueva clase
-          </button>
+          {/* BARRA PRINCIPAL DE AGENDA */}
+          <section className="mt-5 border-t border-white/10 pt-4">
 
-        </div>
+          <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center">
 
-        <ResumenAgenda
-          clasesHoy={
-            clasesHoy
-          }
-          proximasClases={
-            proximasClases
-          }
-        />
-
-        <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-
-            <div>
-
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                {vistaAgenda ===
-                "mes"
-                  ? "Mes seleccionado"
-                  : "Mostrar agenda desde"}
-              </p>
-
-              <p className="mt-1 text-lg font-bold capitalize text-slate-900">
-                {formatearFechaSeleccionada()}
-              </p>
-
+            <div className="grid grid-cols-4 rounded-xl border border-white/10 bg-white/10 p-1 2xl:flex">
+              {[
+                ["lista", "Lista"],
+                ["semana", "Semana"],
+                ["horario", "Horario"],
+                ["mes", "Mes"],
+              ].map(
+                ([valor, etiqueta]) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    onClick={() => {
+                      setVistaAgenda(
+                        valor as
+                          | "lista"
+                          | "semana"
+                          | "horario"
+                          | "mes"
+                      );
+                      setSelectorFechaAbierto(
+                        false
+                      );
+                    }}
+                    className={
+                      vistaAgenda ===
+                      valor
+                        ? "rounded-lg bg-[#00A79C] px-3 py-2 text-xs font-bold text-white shadow-sm sm:text-sm"
+                        : "rounded-lg px-3 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/10 hover:text-white sm:text-sm"
+                    }
+                  >
+                    {etiqueta}
+                  </button>
+                )
+              )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
 
-              <div className="mr-2 flex rounded-xl bg-slate-100 p-1">
+              <div className="mx-auto grid w-full max-w-[300px] min-w-0 grid-cols-[40px_minmax(0,1fr)_40px] items-center gap-2 sm:mx-0 sm:flex sm:w-auto sm:max-w-none">
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setVistaAgenda(
-                      "lista"
-                    )
+                  onClick={
+                    irAnterior
+                  }
+                  className="order-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white transition hover:bg-white/15"
+                  aria-label="Anterior"
+                  title="Anterior"
+                >
+                  <IconoIzquierda />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    irSiguiente
+                  }
+                  className="order-3 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white transition hover:bg-white/15 sm:order-2"
+                  aria-label="Siguiente"
+                  title="Siguiente"
+                >
+                  <IconoDerecha />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    irHoy
                   }
                   className={
-                    vistaAgenda ===
-                    "lista"
-                      ? "rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm"
-                      : "rounded-lg px-4 py-2 text-sm font-semibold text-slate-500"
+                    fechaSeleccionada ===
+                    hoy
+                      ? "order-3 hidden h-10 shrink-0 rounded-xl bg-[#00A79C] px-4 text-sm font-bold text-white sm:block"
+                      : "order-3 hidden h-10 shrink-0 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-bold text-white transition hover:bg-white/15 sm:block"
                   }
                 >
-                  Lista
+                  Hoy
+                </button>
+
+                <div className="relative order-2 w-full min-w-0 sm:order-4 sm:w-auto sm:flex-none">
+
+                  <button
+                    type="button"
+                    onClick={
+                      abrirSelectorFecha
+                    }
+                    className={
+                      selectorFechaAbierto
+                        ? "flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-[#4DD4CA]/40 bg-white/15 px-2 text-center text-sm font-bold capitalize text-white sm:min-w-[245px] sm:px-3"
+                        : "flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 text-center text-sm font-bold capitalize text-white transition hover:bg-white/15 sm:min-w-[245px] sm:px-3"
+                    }
+                    aria-label="Elegir fecha"
+                    aria-expanded={
+                      selectorFechaAbierto
+                    }
+                  >
+                    <IconoCalendario />
+                    <span className="min-w-0 truncate sm:hidden">
+                      {formatearPeriodoAgendaMovil()}
+                    </span>
+                    <span className="hidden min-w-0 truncate sm:inline">
+                      {formatearPeriodoAgenda()}
+                    </span>
+                    <span className="text-xs">
+                      ⌄
+                    </span>
+                  </button>
+
+                  {selectorFechaAbierto && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectorFechaAbierto(
+                            false
+                          )
+                        }
+                        className="fixed inset-0 z-40 cursor-default"
+                        aria-label="Cerrar selector de fecha"
+                      />
+
+                      <div className="absolute left-0 top-12 z-50 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
+
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cambiarMesSelectorFecha(
+                                -1
+                              )
+                            }
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-[#17324D] transition hover:bg-slate-50"
+                            aria-label="Mes anterior"
+                          >
+                            <IconoIzquierda />
+                          </button>
+
+                          <div className="text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                              Mes
+                            </p>
+                            <p className="mt-0.5 text-base font-bold text-[#17324D]">
+                              {MESES_CORTOS[
+                                numeroMesSelectorFecha -
+                                  1
+                              ]}{" "}
+                              {anioSelectorFecha}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cambiarMesSelectorFecha(
+                                1
+                              )
+                            }
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-[#17324D] transition hover:bg-slate-50"
+                            aria-label="Mes siguiente"
+                          >
+                            <IconoDerecha />
+                          </button>
+
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-7 gap-1">
+                          {DIAS_SEMANA.map(
+                            (dia) => (
+                              <div
+                                key={dia}
+                                className="py-1 text-center text-[10px] font-bold text-slate-400"
+                              >
+                                {dia}
+                              </div>
+                            )
+                          )}
+
+                          {diasSelectorFecha.map(
+                            (dia) => {
+                              const fechaDia =
+                                fechaLocalISO(
+                                  dia
+                                );
+
+                              const esMesVisible =
+                                dia.getMonth() ===
+                                numeroMesSelectorFecha -
+                                  1;
+
+                              const esSeleccionada =
+                                fechaDia ===
+                                fechaSeleccionada;
+
+                              const esHoy =
+                                fechaDia ===
+                                hoy;
+
+                              return (
+                                <button
+                                  key={
+                                    fechaDia
+                                  }
+                                  type="button"
+                                  onClick={() =>
+                                    seleccionarFechaAgenda(
+                                      fechaDia
+                                    )
+                                  }
+                                  className={
+                                    esSeleccionada
+                                      ? "flex h-9 w-9 items-center justify-center rounded-lg bg-[#00A79C] text-xs font-bold text-white shadow-sm"
+                                      : esHoy
+                                      ? "flex h-9 w-9 items-center justify-center rounded-lg border border-[#00A79C]/35 bg-[#E8F7F5] text-xs font-bold text-[#008C83]"
+                                      : esMesVisible
+                                      ? "flex h-9 w-9 items-center justify-center rounded-lg text-xs font-semibold text-[#17324D] transition hover:bg-slate-100"
+                                      : "flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium text-slate-300 transition hover:bg-slate-50"
+                                  }
+                                >
+                                  {dia.getDate()}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                          <p className="text-[11px] text-slate-400">
+                            Selecciona cualquier día
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              seleccionarFechaAgenda(
+                                hoy
+                              )
+                            }
+                            className="rounded-lg px-3 py-2 text-xs font-bold text-[#00A79C] transition hover:bg-[#E8F7F5]"
+                          >
+                            Hoy
+                          </button>
+                        </div>
+
+                      </div>
+                    </>
+                  )}
+
+                </div>
+
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 sm:ml-auto sm:flex sm:items-center">
+
+                <button
+                  type="button"
+                  onClick={irHoy}
+                  className={
+                    fechaSeleccionada ===
+                    hoy
+                      ? "inline-flex h-10 min-w-0 items-center justify-center rounded-xl bg-[#00A79C] px-2 text-xs font-bold text-white sm:hidden"
+                      : "inline-flex h-10 min-w-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 px-2 text-xs font-bold text-white sm:hidden"
+                  }
+                >
+                  Hoy
                 </button>
 
                 <button
                   type="button"
                   onClick={() =>
-                    setVistaAgenda(
-                      "semana"
+                    setFiltrosAbiertos(
+                      (abierto) =>
+                        !abierto
                     )
                   }
                   className={
-                    vistaAgenda ===
-                    "semana"
-                      ? "rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm"
-                      : "rounded-lg px-4 py-2 text-sm font-semibold text-slate-500"
+                    filtrosAbiertos ||
+                    busqueda.trim().length >
+                      0 ||
+                    filtroEstado !==
+                      "todas" ||
+                    filtroMes.length >
+                      0
+                      ? "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[#00A79C] bg-[#00A79C] px-2 text-xs font-bold text-white transition hover:bg-[#008F86] sm:px-4 sm:text-sm"
+                      : "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 text-xs font-bold text-white transition hover:bg-white/15 sm:px-4 sm:text-sm"
                   }
                 >
-                  Semana
+                  <span>
+                    Filtros
+                  </span>
+
+                  {(busqueda.trim().length >
+                    0 ||
+                    filtroEstado !==
+                      "todas" ||
+                    filtroMes.length >
+                      0) && (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-[10px] font-bold text-white">
+                      {
+                        [
+                          busqueda.trim().length >
+                            0,
+                          filtroEstado !==
+                            "todas",
+                          filtroMes.length >
+                            0,
+                        ].filter(
+                          Boolean
+                        ).length
+                      }
+                    </span>
+                  )}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setVistaAgenda(
-                      "horario"
-                    )
-                  }
-                  className={
-                    vistaAgenda ===
-                    "horario"
-                      ? "rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm"
-                      : "rounded-lg px-4 py-2 text-sm font-semibold text-slate-500"
-                  }
+                  onClick={() => {
+                    window.location.href =
+                      `/clases?fecha=${fechaSeleccionada}`;
+                  }}
+                  className="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl bg-[#00A79C] px-2 text-xs font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.14)] transition hover:bg-[#008F86] sm:px-4 sm:text-sm"
                 >
-                  Horario
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setVistaAgenda(
-                      "mes"
-                    )
-                  }
-                  className={
-                    vistaAgenda ===
-                    "mes"
-                      ? "rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm"
-                      : "rounded-lg px-4 py-2 text-sm font-semibold text-slate-500"
-                  }
-                >
-                  Mes
+                  + Nueva clase
                 </button>
 
               </div>
 
-              <button
-                type="button"
-                onClick={
-                  irAnterior
-                }
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                <IconoIzquierda />
-                Anterior
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  irHoy
-                }
-                className={
-                  fechaSeleccionada ===
-                  hoy
-                    ? "rounded-xl bg-[#09a9a3] px-5 py-3 text-sm font-bold text-white"
-                    : "rounded-xl bg-teal-50 px-5 py-3 text-sm font-bold text-[#078b86] transition hover:bg-teal-100"
-                }
-              >
-                Hoy
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  irSiguiente
-                }
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Siguiente
-                <IconoDerecha />
-              </button>
-
-              <input
-                type="date"
-                value={
-                  fechaSeleccionada
-                }
-                onChange={(e) => {
-                  if (
-                    e.target.value
-                  ) {
-                    setFechaSeleccionada(
-                      e.target.value
-                    );
-                  }
-                }}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
-              />
-
             </div>
 
           </div>
 
-        </div>
+          {filtrosAbiertos && (
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <FiltrosAgenda
+                busqueda={
+                  busqueda
+                }
+                filtroEstado={
+                  filtroEstado
+                }
+                filtroMes={
+                  filtroMes
+                }
+                totalClases={
+                  clasesFiltradas.length
+                }
+                setBusqueda={
+                  setBusqueda
+                }
+                setFiltroEstado={
+                  setFiltroEstado
+                }
+                setFiltroMes={
+                  setFiltroMes
+                }
+                onLimpiar={() => {
+                  setBusqueda("");
+                  setFiltroEstado(
+                    "todas"
+                  );
+                  setFiltroMes("");
+                }}
+                integrado
+              />
+            </div>
+          )}
+
+          </section>
+        </section>
 
         {filtroDashboard === "sin-cerrar" && (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 sm:px-5">
             <div>
-              <p className="font-bold text-orange-800">Clases pasadas sin cerrar</p>
-              <p className="mt-1 text-sm text-orange-700">
+              <p className="font-bold text-amber-800">
+                Clases pasadas sin cerrar
+              </p>
+              <p className="mt-1 text-sm text-amber-700">
                 Solo se muestran las clases que ya han pasado y continúan como programadas.
               </p>
             </div>
-            <a href="/agenda" className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-orange-700 shadow-sm">
+
+            <a
+              href="/agenda"
+              className="rounded-xl border border-amber-200 bg-white px-4 py-2 text-sm font-bold text-amber-700 shadow-sm transition hover:bg-amber-50"
+            >
               Quitar filtro
             </a>
           </div>
         )}
 
-        <FiltrosAgenda
-          busqueda={
-            busqueda
-          }
-          filtroEstado={
-            filtroEstado
-          }
-          filtroMes={
-            filtroMes
-          }
-          totalClases={
-            clasesFiltradas.length
-          }
-          setBusqueda={
-            setBusqueda
-          }
-          setFiltroEstado={
-            setFiltroEstado
-          }
-          setFiltroMes={
-            setFiltroMes
-          }
-          onLimpiar={() => {
-            setBusqueda("");
-            setFiltroEstado(
-              "todas"
-            );
-            setFiltroMes("");
-          }}
-        />
 
         {vistaAgenda ===
         "lista" ? (
@@ -1020,6 +1577,9 @@ export default function AgendaPage() {
             noDisponibilidades={
               noDisponibilidades
             }
+            onFechaSeleccionadaChange={
+              setFechaSeleccionada
+            }
           />
         ) : vistaAgenda ===
           "horario" ? (
@@ -1036,6 +1596,9 @@ export default function AgendaPage() {
             onClaseActualizada={
               cargarClases
             }
+            onFechaSeleccionadaChange={
+              setFechaSeleccionada
+            }
           />
         ) : (
           <VistaMensualAgenda
@@ -1047,6 +1610,9 @@ export default function AgendaPage() {
             }
             noDisponibilidades={
               noDisponibilidades
+            }
+            onFechaSeleccionadaChange={
+              setFechaSeleccionada
             }
           />
         )}

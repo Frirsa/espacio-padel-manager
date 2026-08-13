@@ -31,6 +31,233 @@ type ClaseUbicacion = {
   }[];
 };
 
+
+type IconoNombre =
+  | "ubicacion"
+  | "calendario"
+  | "historial"
+  | "euro"
+  | "editar"
+  | "estado"
+  | "borrar"
+  | "buscar"
+  | "limpiar"
+  | "pista";
+
+function Icono({
+  nombre,
+  className = "h-4 w-4",
+}: {
+  nombre: IconoNombre;
+  className?: string;
+}) {
+  const props = {
+    viewBox: "0 0 24 24",
+    className,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.9,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+
+  if (nombre === "ubicacion") {
+    return (
+      <svg {...props}>
+        <path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z" />
+        <circle cx="12" cy="10" r="2.2" />
+      </svg>
+    );
+  }
+
+  if (nombre === "calendario") {
+    return (
+      <svg {...props}>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M8 3v4M16 3v4M3 10h18" />
+      </svg>
+    );
+  }
+
+  if (nombre === "historial") {
+    return (
+      <svg {...props}>
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+        <path d="M3 3v5h5M12 7v5l3 2" />
+      </svg>
+    );
+  }
+
+  if (nombre === "euro") {
+    return (
+      <svg {...props}>
+        <path d="M18 7.5A6.5 6.5 0 1 0 18 16.5" />
+        <path d="M5 10h9M5 14h8" />
+      </svg>
+    );
+  }
+
+  if (nombre === "editar") {
+    return (
+      <svg {...props}>
+        <path d="m4 16.5-.5 4 4-.5L18.7 8.8l-3.5-3.5L4 16.5Z" />
+        <path d="m13.8 6.7 3.5 3.5" />
+      </svg>
+    );
+  }
+
+  if (nombre === "estado") {
+    return (
+      <svg {...props}>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M8 12h8M12 8v8" />
+      </svg>
+    );
+  }
+
+  if (nombre === "borrar") {
+    return (
+      <svg {...props}>
+        <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+      </svg>
+    );
+  }
+
+  if (nombre === "buscar") {
+    return (
+      <svg {...props}>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m16.5 16.5 4 4" />
+      </svg>
+    );
+  }
+
+  if (nombre === "limpiar") {
+    return (
+      <svg {...props}>
+        <path d="M4 7h16M7 12h10M10 17h4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...props}>
+      <path d="M4 8h16l-2-4H6L4 8Z" />
+      <path d="M5 8v11h14V8M9 19v-6h6v6" />
+    </svg>
+  );
+}
+
+function SelectorCorporativo({
+  etiqueta,
+  valor,
+  opciones,
+  onChange,
+}: {
+  etiqueta: string;
+  valor: string;
+  opciones: {
+    valor: string;
+    etiqueta: string;
+  }[];
+  onChange: (valor: string) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+
+  const texto =
+    opciones.find(
+      (opcion) =>
+        opcion.valor === valor
+    )?.etiqueta || "";
+
+  return (
+    <div className="relative min-w-0">
+      <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/45">
+        {etiqueta}
+      </label>
+
+      <button
+        type="button"
+        onClick={() =>
+          setAbierto(
+            (actual) => !actual
+          )
+        }
+        className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-left text-xs font-bold text-white transition hover:bg-white/15"
+      >
+        <span className="truncate">
+          {texto}
+        </span>
+
+        <svg
+          viewBox="0 0 20 20"
+          className={`h-4 w-4 shrink-0 transition ${
+            abierto
+              ? "rotate-180"
+              : ""
+          }`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          aria-hidden="true"
+        >
+          <path
+            d="m6 8 4 4 4-4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {abierto && (
+        <>
+          <button
+            type="button"
+            aria-label={`Cerrar selector ${etiqueta}`}
+            onClick={() =>
+              setAbierto(false)
+            }
+            className="fixed inset-0 z-40 cursor-default"
+          />
+
+          <div className="absolute left-0 top-[62px] z-50 w-full min-w-[180px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.16)]">
+            {opciones.map(
+              (opcion) => {
+                const seleccionada =
+                  opcion.valor ===
+                  valor;
+
+                return (
+                  <button
+                    key={opcion.valor}
+                    type="button"
+                    onClick={() => {
+                      onChange(
+                        opcion.valor
+                      );
+                      setAbierto(
+                        false
+                      );
+                    }}
+                    className={
+                      seleccionada
+                        ? "flex h-9 w-full items-center rounded-lg bg-[#17324D] px-3 text-left text-xs font-bold text-white"
+                        : "flex h-9 w-full items-center rounded-lg px-3 text-left text-xs font-semibold text-[#17324D] transition hover:bg-[#17324D] hover:text-white"
+                    }
+                  >
+                    {opcion.etiqueta}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function UbicacionesPage() {
   const [ubicaciones, setUbicaciones] =
     useState<Ubicacion[]>([]);
@@ -730,372 +957,516 @@ export default function UbicacionesPage() {
       }
     );
 
+  const totalUbicaciones =
+    ubicaciones.length;
+
+  const clubes =
+    ubicaciones.filter(
+      (ubicacion) =>
+        tipoNormalizado(
+          ubicacion.tipo
+        ) === "club"
+    ).length;
+
+  const pistasPago =
+    ubicaciones.filter(
+      (ubicacion) =>
+        tipoNormalizado(
+          ubicacion.tipo
+        ) === "pago"
+    ).length;
+
+  const pistasPrivadas =
+    ubicaciones.filter(
+      (ubicacion) =>
+        tipoNormalizado(
+          ubicacion.tipo
+        ) === "privada"
+    ).length;
+
+  const hayFiltros =
+    busqueda.trim() !== "" ||
+    filtroTipo !== "todos" ||
+    filtroEstado !== "todas";
+
+  function claseTipoUbicacion(
+    tipoUbicacion: string
+  ) {
+    const normalizado =
+      tipoNormalizado(
+        tipoUbicacion
+      );
+
+    if (
+      normalizado === "club"
+    ) {
+      return "border-amber-300 bg-amber-50 text-amber-800";
+    }
+
+    if (
+      normalizado === "pago"
+    ) {
+      return "border-emerald-300 bg-emerald-50 text-emerald-700";
+    }
+
+    return "border-violet-300 bg-violet-50 text-violet-700";
+  }
+
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
+    <main className="min-h-screen bg-[#F6F8FA] px-3 py-4 sm:px-7 sm:py-7 lg:px-9">
+      <div className="mx-auto w-full max-w-[1540px]">
 
-      <div className="mx-auto max-w-7xl">
+        {/* CABECERA DE GESTIÓN */}
+        <section className="overflow-hidden rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-5 lg:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#4DD4CA]">
+                Gestión
+              </p>
 
-        <h1 className="text-4xl font-bold text-slate-900">
-          Ubicaciones
-        </h1>
+              <h1 className="mt-1 text-[28px] font-bold tracking-tight text-white sm:text-4xl">
+                Ubicaciones
+              </h1>
 
-        <p className="mt-2 text-slate-600">
-          Clubes, pistas de pago y pistas privadas
-        </p>
+              <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-white/60 sm:mt-2 sm:text-sm">
+                Clubes, pistas de pago y pistas privadas donde impartes tus clases.
+              </p>
+            </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-3 gap-2 lg:min-w-[430px]">
+              <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/45">
+                  Total
+                </p>
+                <p className="mt-1 text-xl font-bold text-white">
+                  {totalUbicaciones}
+                </p>
+              </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow">
+              <div className="rounded-xl border border-[#4DD4CA]/20 bg-[#00A79C]/15 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#85E6DF]">
+                  Activas
+                </p>
+                <p className="mt-1 text-xl font-bold text-white">
+                  {ubicacionesActivas}
+                </p>
+              </div>
 
-            <p className="text-sm text-slate-500">
-              Ubicaciones activas
-            </p>
-
-            <p className="mt-2 text-3xl font-bold text-green-600">
-              {
-                ubicacionesActivas
-              }
-            </p>
-
+              <div className="rounded-xl border border-red-300/15 bg-red-400/10 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-red-200/80">
+                  Inactivas
+                </p>
+                <p className="mt-1 text-xl font-bold text-white">
+                  {ubicacionesInactivas}
+                </p>
+              </div>
+            </div>
           </div>
+        </section>
 
-          <div className="rounded-2xl bg-white p-5 shadow">
+        <div className="mt-4 grid gap-4 sm:mt-5 sm:gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">
 
-            <p className="text-sm text-slate-500">
-              Ubicaciones inactivas
-            </p>
+          {/* FORMULARIO */}
+          <section className="self-start overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)] xl:sticky xl:top-5">
+            <div className="bg-[#0F2742] px-4 py-4 text-white sm:px-5 sm:py-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+                    {ubicacionEditandoId
+                      ? "Edición"
+                      : "Alta"}
+                  </p>
 
-            <p className="mt-2 text-3xl font-bold text-slate-500">
-              {
-                ubicacionesInactivas
-              }
-            </p>
+                  <h2 className="mt-1 text-lg font-bold text-white">
+                    {ubicacionEditandoId
+                      ? "Editar ubicación"
+                      : "Nueva ubicación"}
+                  </h2>
 
-          </div>
+                  <p className="mt-1 text-xs leading-relaxed text-white/50">
+                    Define los datos habituales que se utilizarán al crear clases.
+                  </p>
+                </div>
 
-        </div>
-
-        <div className="mt-8 grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
-
-          <div className="rounded-2xl bg-white p-6 shadow">
-
-            <h2 className="text-xl font-bold">
-              {ubicacionEditandoId
-                ? "Editar ubicación"
-                : "Nueva ubicación"}
-            </h2>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-[#4DD4CA]">
+                  <Icono
+                    nombre="ubicacion"
+                    className="h-5 w-5"
+                  />
+                </span>
+              </div>
+            </div>
 
             <form
               onSubmit={
                 guardarUbicacion
               }
-              className="mt-6 space-y-4"
+              className="space-y-4 p-4 sm:p-5"
             >
-
               <div>
-
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
                   Nombre
                 </label>
 
                 <input
                   type="text"
                   placeholder="Ej. IQL"
-                  value={
-                    nombre
-                  }
+                  value={nombre}
                   onChange={(e) =>
                     setNombre(
                       e.target.value
                     )
                   }
                   required
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-[#17324D] outline-none transition placeholder:text-slate-300 focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                 />
-
               </div>
 
               <div>
-
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
                   Tipo de ubicación
                 </label>
 
-                <select
-                  value={
-                    tipo
-                  }
-                  onChange={(e) => {
-                    const nuevoTipo =
-                      e.target.value;
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    {
+                      valor: "club",
+                      etiqueta: "Club",
+                    },
+                    {
+                      valor: "pago",
+                      etiqueta: "De pago",
+                    },
+                    {
+                      valor: "privada",
+                      etiqueta: "Privada",
+                    },
+                  ].map(
+                    (opcion) => {
+                      const seleccionada =
+                        tipo ===
+                        opcion.valor;
 
-                    setTipo(
-                      nuevoTipo
-                    );
+                      return (
+                        <button
+                          key={opcion.valor}
+                          type="button"
+                          onClick={() => {
+                            setTipo(
+                              opcion.valor
+                            );
 
-                    if (
-                      nuevoTipo ===
-                      "privada"
-                    ) {
-                      setCostePista(
-                        "0"
+                            if (
+                              opcion.valor ===
+                              "privada"
+                            ) {
+                              setCostePista(
+                                "0"
+                              );
+                            }
+                          }}
+                          className={
+                            seleccionada
+                              ? opcion.valor === "club"
+                                ? "flex h-10 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-2 text-[11px] font-bold text-amber-800"
+                                : opcion.valor === "pago"
+                                ? "flex h-10 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-2 text-[11px] font-bold text-emerald-700"
+                                : "flex h-10 items-center justify-center rounded-xl border border-violet-300 bg-violet-50 px-2 text-[11px] font-bold text-violet-700"
+                              : "flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50"
+                          }
+                        >
+                          {opcion.etiqueta}
+                        </button>
                       );
                     }
-                  }}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                >
+                  )}
+                </div>
 
-                  <option value="club">
-                    Club / centro deportivo
-                  </option>
-
-                  <option value="pago">
-                    Pista de pago
-                  </option>
-
-                  <option value="privada">
-                    Pista privada / urbanización
-                  </option>
-
-                </select>
-
+                <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                  {textoTipoUbicacion(
+                    tipo
+                  )}
+                </p>
               </div>
 
               <div>
-
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
                   Dirección
                 </label>
 
-                <input
-                  type="text"
-                  placeholder="Dirección"
-                  value={
-                    direccion
-                  }
-                  onChange={(e) =>
-                    setDireccion(
-                      e.target.value
-                    )
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                />
-
-              </div>
-
-              <div>
-
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Coste habitual de pista
-                </label>
-
                 <div className="relative">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-350">
+                    <Icono
+                      nombre="ubicacion"
+                    />
+                  </span>
 
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={
-                      costePista
-                    }
+                    type="text"
+                    placeholder="Dirección"
+                    value={direccion}
                     onChange={(e) =>
-                      setCostePista(
+                      setDireccion(
                         e.target.value
                       )
                     }
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-10"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3.5 text-sm font-medium text-[#17324D] outline-none transition placeholder:text-slate-300 focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                   />
-
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 font-semibold text-slate-400">
-                    €
-                  </span>
-
                 </div>
-
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Se utilizará como valor por defecto al crear una clase. Podrás cambiarlo en cada clase sin modificar este importe habitual.
-                </p>
-
               </div>
 
-              {ubicacionEditandoId && (
+              {tipo === "privada" ? (
+                <div className="rounded-xl border border-[#00A79C]/15 bg-[#E8F7F5]/70 p-3.5">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 text-[#00A79C]">
+                      <Icono
+                        nombre="pista"
+                      />
+                    </span>
 
+                    <div>
+                      <p className="text-xs font-bold text-[#008C83]">
+                        Sin coste habitual de pista
+                      </p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                        Las pistas privadas / urbanizaciones se guardan con coste habitual 0 €.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <div>
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                    Coste habitual de pista
+                  </label>
 
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0,00"
+                      value={costePista}
+                      onChange={(e) =>
+                        setCostePista(
+                          e.target.value
+                        )
+                      }
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-10 text-sm font-semibold text-[#17324D] outline-none transition placeholder:text-slate-300 focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
+                    />
+
+                    <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
+                      €
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                    Valor por defecto al crear una clase. Podrás cambiarlo en una clase concreta sin modificar este importe habitual.
+                  </p>
+                </div>
+              )}
+
+              {ubicacionEditandoId && (
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
                     Estado
                   </label>
 
-                  <select
-                    value={
-                      activa
-                        ? "activa"
-                        : "inactiva"
-                    }
-                    onChange={(e) =>
-                      setActiva(
-                        e.target.value ===
-                          "activa"
-                      )
-                    }
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                  >
-
-                    <option value="activa">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiva(true)
+                      }
+                      className={
+                        activa
+                          ? "h-10 rounded-xl border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-700"
+                          : "h-10 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                      }
+                    >
                       Activa
-                    </option>
+                    </button>
 
-                    <option value="inactiva">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiva(false)
+                      }
+                      className={
+                        !activa
+                          ? "h-10 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700"
+                          : "h-10 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                      }
+                    >
                       Inactiva
-                    </option>
-
-                  </select>
-
+                    </button>
+                  </div>
                 </div>
               )}
 
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white"
-              >
-                {ubicacionEditandoId
-                  ? "Guardar cambios"
-                  : "Guardar ubicación"}
-              </button>
-
-              {ubicacionEditandoId && (
-
+              <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2 xl:grid-cols-1">
                 <button
-                  type="button"
-                  onClick={() => {
-                    limpiarFormulario();
-                    setMensaje("");
-                  }}
-                  className="w-full rounded-xl bg-slate-200 px-5 py-3 font-semibold text-slate-800"
+                  type="submit"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#00A79C] px-4 text-sm font-bold text-white transition hover:bg-[#008F86]"
                 >
-                  Cancelar edición
+                  <Icono
+                    nombre="ubicacion"
+                  />
+                  {ubicacionEditandoId
+                    ? "Guardar cambios"
+                    : "Guardar ubicación"}
                 </button>
-              )}
 
-            </form>
-
-            {mensaje && (
-              <p className="mt-4 text-sm">
-                {mensaje}
-              </p>
-            )}
-
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow">
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-
-              <div>
-                <h2 className="text-xl font-bold">
-                  Ubicaciones registradas
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  {ubicacionesFiltradas.length}{" "}
-                  {ubicacionesFiltradas.length === 1
-                    ? "ubicación mostrada"
-                    : "ubicaciones mostradas"}
-                </p>
+                {ubicacionEditandoId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      limpiarFormulario();
+                      setMensaje("");
+                    }}
+                    className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-600 transition hover:bg-slate-100"
+                  >
+                    Cancelar edición
+                  </button>
+                )}
               </div>
 
-            </div>
+              {mensaje && (
+                <p className="rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-3 text-xs font-medium leading-relaxed text-[#17324D]">
+                  {mensaje}
+                </p>
+              )}
+            </form>
+          </section>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-
-              <input
-                type="text"
-                placeholder="Buscar nombre o dirección..."
-                value={busqueda}
-                onChange={(e) =>
-                  setBusqueda(
-                    e.target.value
-                  )
-                }
-                className="rounded-xl border border-slate-300 px-4 py-3"
-              />
-
-              <select
-                value={filtroTipo}
-                onChange={(e) =>
-                  setFiltroTipo(
-                    e.target.value
-                  )
-                }
-                className="rounded-xl border border-slate-300 px-4 py-3"
-              >
-                <option value="todos">
-                  Todos los tipos
-                </option>
-
-                <option value="club">
-                  Club / centro deportivo
-                </option>
-
-                <option value="pago">
-                  Pista de pago
-                </option>
-
-                <option value="privada">
-                  Pista privada / urbanización
-                </option>
-              </select>
-
-              <select
-                value={filtroEstado}
-                onChange={(e) =>
-                  setFiltroEstado(
-                    e.target.value
-                  )
-                }
-                className="rounded-xl border border-slate-300 px-4 py-3"
-              >
-                <option value="todas">
-                  Todas
-                </option>
-
-                <option value="activas">
-                  Activas
-                </option>
-
-                <option value="inactivas">
-                  Inactivas
-                </option>
-              </select>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setBusqueda("");
-                  setFiltroTipo(
-                    "todos"
-                  );
-                  setFiltroEstado(
-                    "todas"
-                  );
-                }}
-                className="rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-800 transition hover:bg-slate-300"
-              >
-                Limpiar filtros
-              </button>
-
-            </div>
-
-            <div className="mt-6 space-y-5">
-
-              {ubicacionesFiltradas.length === 0 && (
-
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
-
-                  <p className="font-semibold text-slate-600">
-                    No hay ubicaciones que coincidan con los filtros.
+          {/* LISTADO */}
+          <div className="min-w-0">
+            <section className="relative rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+                    Directorio
                   </p>
 
+                  <h2 className="mt-1 text-xl font-bold text-white">
+                    Ubicaciones registradas
+                  </h2>
+
+                  <p className="mt-1 text-xs text-white/50">
+                    Clubes {clubes} · De pago {pistasPago} · Privadas {pistasPrivadas}
+                  </p>
+                </div>
+
+                <div className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold text-white/80 sm:px-4 sm:py-2 sm:text-sm">
+                  {ubicacionesFiltradas.length} de {ubicaciones.length}
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[minmax(260px,1fr)_190px_150px_auto] sm:items-end">
+                  <div className="col-span-2 min-w-0 sm:col-span-1">
+                    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/45">
+                      Buscar
+                    </label>
+
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/45">
+                        <Icono
+                          nombre="buscar"
+                        />
+                      </span>
+
+                      <input
+                        type="text"
+                        placeholder="Nombre o dirección..."
+                        value={busqueda}
+                        onChange={(e) =>
+                          setBusqueda(
+                            e.target.value
+                          )
+                        }
+                        className="h-10 w-full rounded-xl border border-white/15 bg-white/10 pl-9 pr-3 text-xs font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-[#4DD4CA]/50 focus:bg-white/[0.12]"
+                      />
+                    </div>
+                  </div>
+
+                  <SelectorCorporativo
+                    etiqueta="Tipo"
+                    valor={filtroTipo}
+                    opciones={[
+                      {
+                        valor: "todos",
+                        etiqueta: "Todos los tipos",
+                      },
+                      {
+                        valor: "club",
+                        etiqueta: "Club / centro",
+                      },
+                      {
+                        valor: "pago",
+                        etiqueta: "Pista de pago",
+                      },
+                      {
+                        valor: "privada",
+                        etiqueta: "Pista privada",
+                      },
+                    ]}
+                    onChange={
+                      setFiltroTipo
+                    }
+                  />
+
+                  <SelectorCorporativo
+                    etiqueta="Estado"
+                    valor={filtroEstado}
+                    opciones={[
+                      {
+                        valor: "todas",
+                        etiqueta: "Todas",
+                      },
+                      {
+                        valor: "activas",
+                        etiqueta: "Activas",
+                      },
+                      {
+                        valor: "inactivas",
+                        etiqueta: "Inactivas",
+                      },
+                    ]}
+                    onChange={
+                      setFiltroEstado
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    disabled={!hayFiltros}
+                    onClick={() => {
+                      setBusqueda("");
+                      setFiltroTipo(
+                        "todos"
+                      );
+                      setFiltroEstado(
+                        "todas"
+                      );
+                    }}
+                    className="col-span-2 inline-flex h-10 w-full self-end items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-35 sm:col-span-1 sm:w-auto"
+                  >
+                    <Icono
+                      nombre="limpiar"
+                    />
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div className="mt-3 space-y-3 sm:mt-4">
+              {ubicacionesFiltradas.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center">
+                  <p className="font-semibold text-slate-500">
+                    No hay ubicaciones que coincidan con los filtros.
+                  </p>
                 </div>
               )}
 
@@ -1116,93 +1487,307 @@ export default function UbicacionesPage() {
                       ubicacion.id
                     );
 
+                  const tipoUbicacion =
+                    tipoNormalizado(
+                      ubicacion.tipo
+                    );
+
                   return (
-                    <div
+                    <article
                       key={ubicacion.id}
                       className={
                         ubicacion.activa
-                          ? "rounded-2xl border border-slate-200 bg-white p-5"
-                          : "rounded-2xl border border-slate-200 bg-slate-50 p-5 opacity-70"
+                          ? "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]"
+                          : "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.025)]"
                       }
                     >
-
-                      <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
-
+                      <header
+                        className={
+                          ubicacion.activa
+                            ? "flex flex-col gap-3 border-b border-slate-100 bg-[#FBFCFD] px-3 py-3.5 sm:px-4 lg:flex-row lg:items-center lg:justify-between"
+                            : "flex flex-col gap-3 border-b border-slate-200 bg-slate-100/70 px-3 py-3.5 sm:px-4 lg:flex-row lg:items-center lg:justify-between"
+                        }
+                      >
                         <div className="min-w-0">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <h3 className="truncate text-base font-bold text-[#17324D] sm:text-lg">
+                              {ubicacion.nombre}
+                            </h3>
 
-                          <p className="text-lg font-bold text-slate-900">
-                            {ubicacion.nombre}
+                            {!ubicacion.activa && (
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                            )}
+                          </div>
+
+                          <p className="mt-1 flex items-start gap-1.5 text-xs font-medium leading-relaxed text-slate-400">
+                            <Icono
+                              nombre="ubicacion"
+                              className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                            />
+                            <span>
+                              {ubicacion.direccion ||
+                                "Sin dirección registrada"}
+                            </span>
                           </p>
-
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-
-                            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                              {textoTipoUbicacion(
-                                ubicacion.tipo
-                              )}
-                            </span>
-
-                            <span
-                              className={
-                                ubicacion.activa
-                                  ? "rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700"
-                                  : "rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700"
-                              }
-                            >
-                              {ubicacion.activa
-                                ? "Activa"
-                                : "Inactiva"}
-                            </span>
-
-                          </div>
-
-                          {ubicacion.direccion && (
-                            <p className="mt-3 text-sm leading-6 text-slate-500">
-                              {ubicacion.direccion}
-                            </p>
-                          )}
-
-                          <div className="mt-5 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3">
-
-                            <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
-                              Coste habitual de pista
-                            </p>
-
-                            <p className="mt-1 text-xl font-bold text-teal-700">
-                              {Number(
-                                ubicacion.coste_pista ||
-                                  0
-                              ).toFixed(2)}{" "}
-                              €
-                            </p>
-
-                            <p className="mt-1 text-xs leading-5 text-slate-500">
-                              Valor por defecto. Podrás modificarlo en cada clase.
-                            </p>
-
-                          </div>
-
                         </div>
 
-                        <div>
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 lg:justify-end">
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${claseTipoUbicacion(
+                              ubicacion.tipo
+                            )}`}
+                          >
+                            {textoTipoUbicacion(
+                              ubicacion.tipo
+                            )}
+                          </span>
 
-                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          <span
+                            className={
+                              ubicacion.activa
+                                ? "rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700"
+                                : "rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700"
+                            }
+                          >
+                            {ubicacion.activa
+                              ? "Activa"
+                              : "Inactiva"}
+                          </span>
+                        </div>
+                      </header>
 
-                            <div className="flex min-h-[120px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
 
-                              <p className="flex h-[36px] items-center justify-center text-xs text-slate-500">
+                      {/* RESUMEN COMPACTO MÓVIL */}
+                      <div className="border-b border-slate-100 bg-white p-3 md:hidden">
+                        <div className="grid grid-cols-2 gap-2">
+
+                          {/* COSTE HABITUAL */}
+                          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                              Coste habitual
+                            </p>
+                            <p className="mt-1 text-sm font-bold text-[#17324D]">
+                              {tipoUbicacion ===
+                              "privada"
+                                ? "Sin coste"
+                                : `${Number(
+                                    ubicacion.coste_pista ||
+                                      0
+                                  ).toFixed(
+                                    2
+                                  )} €`}
+                            </p>
+                          </div>
+
+                          {/* CLASES REALIZADAS */}
+                          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                              Clases realizadas
+                            </p>
+                            <p className="mt-1 text-sm font-bold text-[#17324D]">
+                              {resumen.totalRealizadas}
+                            </p>
+                          </div>
+
+                          {/* PRÓXIMA CLASE */}
+                          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                              Próxima clase
+                            </p>
+
+                            {resumen.proximaClase ? (
+                              <>
+                                <p className="mt-1 text-xs font-bold text-[#17324D]">
+                                  {formatearFecha(
+                                    resumen.proximaClase.fecha
+                                  )}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-medium text-slate-500">
+                                  {calcularHorario(
+                                    resumen.proximaClase.hora_inicio,
+                                    resumen.proximaClase.duracion_minutos
+                                  )}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="mt-1 text-xs font-semibold text-slate-400">
+                                Sin próxima clase
+                              </p>
+                            )}
+                          </div>
+
+                          {/* ÚLTIMA CLASE */}
+                          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                              Última clase
+                            </p>
+
+                            {resumen.ultimaClase ? (
+                              <>
+                                <p className="mt-1 text-xs font-bold text-[#17324D]">
+                                  {formatearFecha(
+                                    resumen.ultimaClase.fecha
+                                  )}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-medium text-slate-500">
+                                  {calcularHorario(
+                                    resumen.ultimaClase.hora_inicio,
+                                    resumen.ultimaClase.duracion_minutos
+                                  )}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="mt-1 text-xs font-semibold text-slate-400">
+                                Sin clases realizadas
+                              </p>
+                            )}
+                          </div>
+
+                          {/* RESUMEN ECONÓMICO */}
+                          <div className="col-span-2 grid grid-cols-3 gap-2">
+                            <div className="rounded-xl border border-slate-100 bg-white px-2.5 py-2.5">
+                              <p className="text-[8px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                                Gastos pista
+                              </p>
+                              <p className="mt-0.5 text-[11px] font-bold text-red-600">
+                                {resumen.gastosPista.toFixed(
+                                  2
+                                )} €
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-100 bg-white px-2.5 py-2.5">
+                              <p className="text-[8px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                                Ingresos club
+                              </p>
+                              <p className="mt-0.5 text-[11px] font-bold text-emerald-700">
+                                {resumen.ingresosClub.toFixed(
+                                  2
+                                )} €
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-100 bg-white px-2.5 py-2.5">
+                              <p className="text-[8px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                                Saldo
+                              </p>
+                              <p
+                                className={
+                                  resumen.saldo > 0
+                                    ? "mt-0.5 text-[11px] font-bold text-emerald-700"
+                                    : resumen.saldo < 0
+                                    ? "mt-0.5 text-[11px] font-bold text-red-600"
+                                    : "mt-0.5 text-[11px] font-bold text-[#17324D]"
+                                }
+                              >
+                                {resumen.saldo.toFixed(
+                                  2
+                                )} €
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="hidden grid-cols-1 divide-y divide-slate-100 md:grid md:grid-cols-2 md:divide-x md:divide-y-0 xl:grid-cols-[1.05fr_1fr_1fr]">
+                        {/* DATOS */}
+                        <section className="p-3.5 sm:p-4 md:col-span-2 xl:col-span-1">
+                          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                            <span className="text-[#00A79C]">
+                              <Icono
+                                nombre="ubicacion"
+                              />
+                            </span>
+
+                            <div>
+                              <h4 className="text-sm font-bold text-[#17324D]">
+                                Datos
+                              </h4>
+                              <p className="mt-0.5 text-[10px] text-slate-400">
+                                Configuración habitual
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-1 divide-y divide-slate-100">
+                            <div className="flex items-start gap-3 py-3">
+                              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#00A79C]/10 text-[#00A79C]">
+                                <Icono
+                                  nombre="pista"
+                                />
+                              </span>
+
+                              <div>
+                                <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
+                                  Tipo
+                                </p>
+                                <p className="mt-0.5 text-xs font-semibold text-[#17324D]">
+                                  {textoTipoUbicacion(
+                                    ubicacion.tipo
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-3 py-3">
+                              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#00A79C]/10 text-[#00A79C]">
+                                <Icono
+                                  nombre="euro"
+                                />
+                              </span>
+
+                              <div>
+                                <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
+                                  Coste habitual
+                                </p>
+                                <p className="mt-0.5 text-xs font-semibold text-[#17324D]">
+                                  {tipoUbicacion ===
+                                  "privada"
+                                    ? "Sin coste"
+                                    : `${Number(
+                                        ubicacion.coste_pista ||
+                                          0
+                                      ).toFixed(
+                                        2
+                                      )} €`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+
+                        {/* ACTIVIDAD */}
+                        <section className="p-3.5 sm:p-4">
+                          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                            <span className="text-[#00A79C]">
+                              <Icono
+                                nombre="calendario"
+                              />
+                            </span>
+
+                            <div>
+                              <h4 className="text-sm font-bold text-[#17324D]">
+                                Actividad
+                              </h4>
+                              <p className="mt-0.5 text-[10px] text-slate-400">
+                                Uso de esta ubicación
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-1 divide-y divide-slate-100">
+                            <div className="py-3">
+                              <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
                                 Próxima clase
                               </p>
-
                               {resumen.proximaClase ? (
                                 <>
-                                  <p className="mt-1 font-bold leading-none text-slate-900">
+                                  <p className="mt-1 text-xs font-bold text-[#17324D]">
                                     {formatearFecha(
                                       resumen.proximaClase.fecha
                                     )}
                                   </p>
-
-                                  <p className="mt-3 whitespace-nowrap text-sm font-semibold leading-none text-slate-800">
+                                  <p className="mt-0.5 text-[11px] font-medium text-slate-500">
                                     {calcularHorario(
                                       resumen.proximaClase.hora_inicio,
                                       resumen.proximaClase.duracion_minutos
@@ -1210,34 +1795,24 @@ export default function UbicacionesPage() {
                                   </p>
                                 </>
                               ) : (
-                                <>
-                                  <p className="mt-1 font-bold leading-none text-slate-500">
-                                    —
-                                  </p>
-
-                                  <p className="mt-3 text-sm leading-none text-slate-500">
-                                    —
-                                  </p>
-                                </>
+                                <p className="mt-1 text-xs font-semibold text-slate-400">
+                                  Sin próxima clase
+                                </p>
                               )}
-
                             </div>
 
-                            <div className="flex min-h-[120px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
-
-                              <p className="flex h-[36px] items-center justify-center text-xs text-slate-500">
-                                Última clase realizada
+                            <div className="py-3">
+                              <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
+                                Última clase
                               </p>
-
                               {resumen.ultimaClase ? (
                                 <>
-                                  <p className="mt-1 font-bold leading-none text-slate-900">
+                                  <p className="mt-1 text-xs font-bold text-[#17324D]">
                                     {formatearFecha(
                                       resumen.ultimaClase.fecha
                                     )}
                                   </p>
-
-                                  <p className="mt-3 whitespace-nowrap text-sm font-semibold leading-none text-slate-800">
+                                  <p className="mt-0.5 text-[11px] font-medium text-slate-500">
                                     {calcularHorario(
                                       resumen.ultimaClase.hora_inicio,
                                       resumen.ultimaClase.duracion_minutos
@@ -1245,187 +1820,116 @@ export default function UbicacionesPage() {
                                   </p>
                                 </>
                               ) : (
-                                <>
-                                  <p className="mt-1 font-bold leading-none text-slate-500">
-                                    —
-                                  </p>
-
-                                  <p className="mt-3 text-sm leading-none text-slate-500">
-                                    —
-                                  </p>
-                                </>
+                                <p className="mt-1 text-xs font-semibold text-slate-400">
+                                  Sin clases realizadas
+                                </p>
                               )}
-
                             </div>
 
-                            <div className="flex min-h-[120px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
-
-                              <p className="flex h-[36px] items-center justify-center text-xs text-slate-500">
+                            <div className="flex items-center justify-between gap-3 py-3">
+                              <p className="text-xs font-semibold text-slate-500">
                                 Clases realizadas
                               </p>
-
-                              <p className="mt-3 text-2xl font-bold text-slate-900">
+                              <span className="rounded-full bg-[#EEF3F8] px-2.5 py-1 text-xs font-bold text-[#17324D]">
                                 {resumen.totalRealizadas}
-                              </p>
-
+                              </span>
                             </div>
+                          </div>
+                        </section>
 
-                            <div className="flex min-h-[120px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+                        {/* ECONOMÍA */}
+                        <section className="p-3.5 sm:p-4">
+                          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                            <span className="text-[#00A79C]">
+                              <Icono
+                                nombre="euro"
+                              />
+                            </span>
 
-                              <p className="flex h-[36px] items-center justify-center text-xs text-slate-500">
-                                Gastos de pista
+                            <div>
+                              <h4 className="text-sm font-bold text-[#17324D]">
+                                Economía
+                              </h4>
+                              <p className="mt-0.5 text-[10px] text-slate-400">
+                                Histórico realizado
                               </p>
-
-                              <p className="mt-3 text-xl font-bold text-red-600">
-                                {resumen.gastosPista.toFixed(
-                                  2
-                                )}{" "}
-                                €
-                              </p>
-
                             </div>
-
                           </div>
 
-                          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-
-                            <div className="flex min-h-[95px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3 text-center xl:col-start-1">
-
-                              <p className="text-xs text-slate-500">
-                                Ingresos del club
+                          <div className="mt-1 divide-y divide-slate-100">
+                            <div className="flex items-center justify-between gap-3 py-3">
+                              <p className="text-xs font-semibold text-slate-500">
+                                Gastos de pista
                               </p>
-
-                              <p className="mt-2 text-xl font-bold text-green-600">
-                                {resumen.ingresosClub.toFixed(
+                              <p className="text-xs font-bold text-red-600">
+                                {resumen.gastosPista.toFixed(
                                   2
-                                )}{" "}
-                                €
+                                )} €
                               </p>
-
                             </div>
 
-                            <div className="flex min-h-[95px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3 text-center xl:col-start-2">
-
-                              <p className="text-xs text-slate-500">
-                                Saldo club / pista
+                            <div className="flex items-center justify-between gap-3 py-3">
+                              <p className="text-xs font-semibold text-slate-500">
+                                Ingresos club
                               </p>
+                              <p className="text-xs font-bold text-emerald-700">
+                                {resumen.ingresosClub.toFixed(
+                                  2
+                                )} €
+                              </p>
+                            </div>
 
+                            <div className="flex items-center justify-between gap-3 py-3">
+                              <p className="text-xs font-bold text-[#17324D]">
+                                Saldo
+                              </p>
                               <p
                                 className={
                                   resumen.saldo > 0
-                                    ? "mt-2 text-xl font-bold text-green-600"
+                                    ? "text-sm font-bold text-emerald-700"
                                     : resumen.saldo < 0
-                                    ? "mt-2 text-xl font-bold text-red-600"
-                                    : "mt-2 text-xl font-bold text-slate-900"
+                                    ? "text-sm font-bold text-red-600"
+                                    : "text-sm font-bold text-[#17324D]"
                                 }
                               >
                                 {resumen.saldo.toFixed(
                                   2
-                                )}{" "}
-                                €
+                                )} €
                               </p>
-
                             </div>
-
                           </div>
-
-                          <div className="mt-4 flex flex-wrap justify-end gap-2">
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                cambiarHistorial(
-                                  ubicacion.id
-                                )
-                              }
-                              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700"
-                            >
-                              {historialAbierto
-                                ? "Ocultar historial"
-                                : "Ver historial"}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                editarUbicacion(
-                                  ubicacion
-                                )
-                              }
-                              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
-                            >
-                              Editar
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                cambiarEstadoUbicacion(
-                                  ubicacion
-                                )
-                              }
-                              className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-300"
-                            >
-                              {ubicacion.activa
-                                ? "Desactivar"
-                                : "Activar"}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                borrarUbicacion(
-                                  ubicacion.id
-                                )
-                              }
-                              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-                            >
-                              Borrar
-                            </button>
-
-                          </div>
-
-                        </div>
-
+                        </section>
                       </div>
 
+                      {/* HISTORIAL */}
                       {historialAbierto && (
-
-                        <div className="mt-6 rounded-2xl border-2 border-slate-200 bg-slate-50 p-5">
-
+                        <div className="border-t border-slate-100 bg-slate-50/60 p-3.5 sm:p-5">
                           <div className="flex flex-wrap items-center justify-between gap-3">
-
                             <div>
-
-                              <h3 className="text-lg font-bold text-slate-900">
+                              <h4 className="text-sm font-bold text-[#17324D]">
                                 Historial de clases
-                              </h3>
-
-                              <p className="mt-1 text-sm text-slate-500">
+                              </h4>
+                              <p className="mt-0.5 text-[10px] text-slate-400">
                                 Clases registradas en {ubicacion.nombre}
                               </p>
-
                             </div>
 
-                            <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">
+                            <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold text-slate-500">
                               {clasesUbicacion.length}{" "}
-                              {clasesUbicacion.length === 1
+                              {clasesUbicacion.length ===
+                              1
                                 ? "clase"
                                 : "clases"}
                             </span>
-
                           </div>
 
-                          {clasesUbicacion.length === 0 ? (
-
-                            <p className="mt-4 text-sm text-slate-500">
+                          {clasesUbicacion.length ===
+                          0 ? (
+                            <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-5 text-center text-xs font-medium text-slate-400">
                               Esta ubicación todavía no tiene clases registradas.
-                            </p>
-
+                            </div>
                           ) : (
-
-                            <div className="mt-4 space-y-2">
-
+                            <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
                               {[...clasesUbicacion]
                                 .sort(
                                   (a, b) => {
@@ -1441,7 +1945,10 @@ export default function UbicacionesPage() {
                                   }
                                 )
                                 .map(
-                                  (clase) => {
+                                  (
+                                    clase,
+                                    indice
+                                  ) => {
                                     const nombres =
                                       clase.clase_alumnos
                                         .map(
@@ -1478,159 +1985,196 @@ export default function UbicacionesPage() {
                                     return (
                                       <div
                                         key={clase.id}
-                                        className="rounded-xl border border-slate-200 bg-white p-4"
+                                        className={
+                                          indice === 0
+                                            ? "relative grid gap-3 px-3 py-3.5 sm:px-4 lg:grid-cols-[145px_minmax(0,1fr)_220px]"
+                                            : "relative grid gap-3 border-t border-slate-100 px-3 py-3.5 sm:px-4 lg:grid-cols-[145px_minmax(0,1fr)_220px]"
+                                        }
                                       >
+                                        {clase.estado ===
+                                          "cancelada" && (
+                                          <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                                        )}
 
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <p className="text-xs font-bold text-[#17324D]">
+                                              {formatearFecha(
+                                                clase.fecha
+                                              )}
+                                            </p>
 
-                                          <div>
-
-                                            <div className="flex flex-wrap items-center gap-2">
-
-                                              <p className="font-semibold text-slate-900">
-                                                {formatearFecha(
-                                                  clase.fecha
-                                                )}
-                                              </p>
-
-                                              <span
-                                                className={
-                                                  clase.estado ===
-                                                  "realizada"
-                                                    ? "rounded-full bg-green-100 px-2 py-1 text-[11px] font-semibold text-green-700"
-                                                    : clase.estado ===
-                                                      "cancelada"
-                                                    ? "rounded-full bg-red-100 px-2 py-1 text-[11px] font-semibold text-red-700"
-                                                    : "rounded-full bg-blue-100 px-2 py-1 text-[11px] font-semibold text-blue-700"
-                                                }
-                                              >
-                                                {clase.estado ===
+                                            <span
+                                              className={
+                                                clase.estado ===
                                                 "realizada"
-                                                  ? "Realizada"
+                                                  ? "rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700"
                                                   : clase.estado ===
                                                     "cancelada"
-                                                  ? "Cancelada"
-                                                  : "Programada"}
-                                              </span>
-
-                                            </div>
-
-                                            <p className="mt-2 whitespace-nowrap text-sm font-medium text-slate-700">
-                                              {calcularHorario(
-                                                clase.hora_inicio,
-                                                clase.duracion_minutos
-                                              )}
-                                            </p>
-
-                                            <p className="mt-2 text-sm text-slate-600">
-                                              {nombres ||
-                                                "Sin alumnos"}
-                                            </p>
-
+                                                  ? "rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[9px] font-bold text-red-700"
+                                                  : "rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-bold text-slate-600"
+                                              }
+                                            >
+                                              {clase.estado ===
+                                              "realizada"
+                                                ? "Realizada"
+                                                : clase.estado ===
+                                                  "cancelada"
+                                                ? "Cancelada"
+                                                : "Programada"}
+                                            </span>
                                           </div>
 
-                                          <div className="sm:text-right">
-
-                                            {Number(
-                                              clase.importe_club ||
-                                                0
-                                            ) > 0 && (
-                                              <p className="text-sm text-slate-600">
-                                                Pago del club:{" "}
-                                                <span className="font-semibold text-green-700">
-                                                  {Number(
-                                                    clase.importe_club
-                                                  ).toFixed(
-                                                    2
-                                                  )}{" "}
-                                                  €
-                                                </span>
-                                              </p>
+                                          <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                                            {calcularHorario(
+                                              clase.hora_inicio,
+                                              clase.duracion_minutos
                                             )}
-
-                                            {Number(
-                                              clase.coste_pista ||
-                                                0
-                                            ) > 0 && (
-                                              <p className="mt-1 text-sm text-slate-600">
-                                                Coste de pista:{" "}
-                                                <span className="font-semibold text-red-600">
-                                                  {Number(
-                                                    clase.coste_pista
-                                                  ).toFixed(
-                                                    2
-                                                  )}{" "}
-                                                  €
-                                                </span>
-                                              </p>
-                                            )}
-
-                                            {Number(
-                                              clase.importe_club ||
-                                                0
-                                            ) === 0 &&
-                                              Number(
-                                                clase.coste_pista ||
-                                                  0
-                                              ) === 0 && (
-                                                <p className="text-sm text-slate-400">
-                                                  Sin movimientos de club/pista
-                                                </p>
-                                              )}
-
-                                            {(Number(
-                                              clase.importe_club ||
-                                                0
-                                            ) > 0 ||
-                                              Number(
-                                                clase.coste_pista ||
-                                                  0
-                                              ) > 0) && (
-                                              <p
-                                                className={
-                                                  saldoClase > 0
-                                                    ? "mt-2 text-sm font-semibold text-green-600"
-                                                    : saldoClase < 0
-                                                    ? "mt-2 text-sm font-semibold text-red-600"
-                                                    : "mt-2 text-sm font-semibold text-slate-700"
-                                                }
-                                              >
-                                                Saldo:{" "}
-                                                {saldoClase.toFixed(
-                                                  2
-                                                )}{" "}
-                                                €
-                                              </p>
-                                            )}
-
-                                          </div>
-
+                                          </p>
                                         </div>
 
+                                        <div className="min-w-0">
+                                          <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
+                                            Alumnos
+                                          </p>
+                                          <p className="mt-1 break-words text-xs font-semibold text-[#17324D]">
+                                            {nombres ||
+                                              "Sin alumnos"}
+                                          </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 text-xs lg:block lg:text-right">
+                                          <div>
+                                            <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400 lg:hidden">
+                                              Club
+                                            </p>
+                                            <p className="mt-1 font-semibold text-emerald-700 lg:mt-0">
+                                              {Number(
+                                                clase.importe_club ||
+                                                  0
+                                              ).toFixed(
+                                                2
+                                              )} €
+                                            </p>
+                                          </div>
+
+                                          <div>
+                                            <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400 lg:hidden">
+                                              Pista
+                                            </p>
+                                            <p className="mt-1 font-semibold text-red-600 lg:mt-1">
+                                              {Number(
+                                                clase.coste_pista ||
+                                                  0
+                                              ).toFixed(
+                                                2
+                                              )} €
+                                            </p>
+                                          </div>
+
+                                          <p
+                                            className={
+                                              saldoClase > 0
+                                                ? "col-span-2 mt-1 font-bold text-emerald-700"
+                                                : saldoClase < 0
+                                                ? "col-span-2 mt-1 font-bold text-red-600"
+                                                : "col-span-2 mt-1 font-bold text-[#17324D]"
+                                            }
+                                          >
+                                            Saldo {saldoClase.toFixed(
+                                              2
+                                            )} €
+                                          </p>
+                                        </div>
                                       </div>
                                     );
                                   }
                                 )}
-
                             </div>
                           )}
-
                         </div>
                       )}
 
-                    </div>
+                      {/* ACCIONES */}
+                      <div className="border-t border-slate-100 bg-[#0F2742] px-3 py-3 sm:px-4">
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cambiarHistorial(
+                                ubicacion.id
+                              )
+                            }
+                            className={
+                              historialAbierto
+                                ? "inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-[#4DD4CA]/35 bg-[#00A79C]/20 px-3 text-[11px] font-bold text-[#85E6DF] transition hover:bg-[#00A79C]/30 sm:w-auto"
+                                : "inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15 sm:w-auto"
+                            }
+                          >
+                            <Icono
+                              nombre="historial"
+                            />
+                            {historialAbierto
+                              ? "Ocultar historial"
+                              : "Historial"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              editarUbicacion(
+                                ubicacion
+                              )
+                            }
+                            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15 sm:w-auto"
+                          >
+                            <Icono
+                              nombre="editar"
+                            />
+                            Editar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cambiarEstadoUbicacion(
+                                ubicacion
+                              )
+                            }
+                            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15 sm:w-auto"
+                          >
+                            <Icono
+                              nombre="estado"
+                            />
+                            {ubicacion.activa
+                              ? "Desactivar"
+                              : "Activar"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              borrarUbicacion(
+                                ubicacion.id
+                              )
+                            }
+                            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-red-300/40 bg-red-400/10 px-3 text-[11px] font-bold text-red-200 transition hover:bg-red-400/20 sm:w-auto"
+                          >
+                            <Icono
+                              nombre="borrar"
+                            />
+                            Borrar
+                          </button>
+                        </div>
+                      </div>
+                    </article>
                   );
                 }
               )}
-
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </main>
   );
-}          
+}

@@ -7,6 +7,7 @@ type Alumno = {
   id: string;
   nombre: string;
   apellidos: string | null;
+  apodo: string | null;
 };
 
 type Grupo = {
@@ -18,6 +19,7 @@ type Grupo = {
     alumnos: {
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -33,6 +35,259 @@ type ClaseGrupo = {
     nombre: string;
   } | null;
 };
+
+function nombreAlumnoGrupo(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  return `${alumno.nombre || ""} ${
+    alumno.apellidos || ""
+  }`.trim();
+}
+
+
+function Icono({
+  nombre,
+  className = "h-4 w-4",
+}: {
+  nombre:
+    | "grupo"
+    | "buscar"
+    | "alumnos"
+    | "calendario"
+    | "historial"
+    | "editar"
+    | "estado"
+    | "borrar"
+    | "limpiar"
+    | "check";
+  className?: string;
+}) {
+  const props = {
+    viewBox: "0 0 24 24",
+    className,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.9,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+
+  if (nombre === "grupo") {
+    return (
+      <svg {...props}>
+        <circle cx="9" cy="8" r="3" />
+        <circle cx="17" cy="10" r="2.5" />
+        <path d="M3.5 19c.7-3.2 2.8-5 5.5-5s4.8 1.8 5.5 5" />
+        <path d="M14.5 15.5c2.9 0 4.8 1.3 5.5 3.5" />
+      </svg>
+    );
+  }
+
+  if (nombre === "buscar") {
+    return (
+      <svg {...props}>
+        <circle cx="11" cy="11" r="6" />
+        <path d="m16 16 4 4" />
+      </svg>
+    );
+  }
+
+  if (nombre === "alumnos") {
+    return (
+      <svg {...props}>
+        <circle cx="12" cy="8" r="3.25" />
+        <path d="M5 20c.55-4 2.9-6 7-6s6.45 2 7 6" />
+      </svg>
+    );
+  }
+
+  if (nombre === "calendario") {
+    return (
+      <svg {...props}>
+        <rect x="4" y="5" width="16" height="15" rx="2" />
+        <path d="M8 3v4M16 3v4M4 10h16" />
+      </svg>
+    );
+  }
+
+  if (nombre === "historial") {
+    return (
+      <svg {...props}>
+        <path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5" />
+        <path d="M4 4v4.5h4.5M12 8v5l3 2" />
+      </svg>
+    );
+  }
+
+  if (nombre === "editar") {
+    return (
+      <svg {...props}>
+        <path d="m4 16.5-.5 4 4-.5L18.7 8.8l-3.5-3.5L4 16.5Z" />
+        <path d="m13.8 6.7 3.5 3.5" />
+      </svg>
+    );
+  }
+
+  if (nombre === "estado") {
+    return (
+      <svg {...props}>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    );
+  }
+
+  if (nombre === "borrar") {
+    return (
+      <svg {...props}>
+        <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+      </svg>
+    );
+  }
+
+  if (nombre === "limpiar") {
+    return (
+      <svg {...props}>
+        <path d="M4 7h16M7 12h10M10 17h4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...props}>
+      <path d="m5 12 4 4L19 6" />
+    </svg>
+  );
+}
+
+
+function CampoEstadoGrupos({
+  valor,
+  onChange,
+}: {
+  valor: string;
+  onChange: (valor: string) => void;
+}) {
+  const [abierto, setAbierto] =
+    useState(false);
+
+  const opciones = [
+    {
+      valor: "todos",
+      etiqueta: "Todos",
+    },
+    {
+      valor: "activos",
+      etiqueta: "Activos",
+    },
+    {
+      valor: "inactivos",
+      etiqueta: "Inactivos",
+    },
+  ];
+
+  const etiquetaActual =
+    opciones.find(
+      (opcion) =>
+        opcion.valor === valor
+    )?.etiqueta || "Todos";
+
+  return (
+    <div className="relative w-full min-w-0 sm:w-[155px] sm:shrink-0">
+      <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+        Estado
+      </span>
+
+      <button
+        type="button"
+        onClick={() =>
+          setAbierto(
+            (actual) => !actual
+          )
+        }
+        className={
+          abierto
+            ? "flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[#4DD4CA]/40 bg-white/15 px-3 text-xs font-semibold text-white transition"
+            : "flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-xs font-semibold text-white transition hover:bg-white/15"
+        }
+        aria-label="Filtrar por estado"
+        aria-expanded={abierto}
+      >
+        <span className="truncate">
+          {etiquetaActual}
+        </span>
+
+        <span className="shrink-0 text-[10px] text-white/45">
+          ⌄
+        </span>
+      </button>
+
+      {abierto && (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              setAbierto(false)
+            }
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Cerrar selector de estado"
+          />
+
+          <div className="absolute right-0 top-[58px] z-50 w-full min-w-[170px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.16)]">
+            {opciones.map(
+              (opcion) => {
+                const seleccionada =
+                  opcion.valor ===
+                  valor;
+
+                return (
+                  <button
+                    key={opcion.valor}
+                    type="button"
+                    onClick={() => {
+                      onChange(
+                        opcion.valor
+                      );
+                      setAbierto(
+                        false
+                      );
+                    }}
+                    className={
+                      seleccionada
+                        ? "flex h-9 w-full items-center rounded-lg bg-[#17324D] px-3 text-left text-xs font-bold text-white"
+                        : "flex h-9 w-full items-center rounded-lg px-3 text-left text-xs font-semibold text-[#17324D] transition hover:bg-[#17324D] hover:text-white"
+                    }
+                  >
+                    {opcion.etiqueta}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function GruposPage() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
@@ -61,7 +316,7 @@ export default function GruposPage() {
   async function cargarDatos() {
     const { data: alumnosData } = await supabase
       .from("alumnos")
-      .select("id,nombre,apellidos")
+      .select("id,nombre,apellidos,apodo")
       .eq("activo", true)
       .order("nombre");
 
@@ -75,7 +330,8 @@ export default function GruposPage() {
           alumno_id,
           alumnos (
             nombre,
-            apellidos
+            apellidos,
+            apodo
           )
         )
       `)
@@ -441,6 +697,8 @@ export default function GruposPage() {
       const nombreCompleto =
         `${alumno.nombre} ${
           alumno.apellidos || ""
+        } ${
+          alumno.apodo || ""
         }`.toLowerCase();
 
       return nombreCompleto.includes(
@@ -458,6 +716,8 @@ export default function GruposPage() {
             (alumno) =>
               `${alumno?.nombre || ""} ${
                 alumno?.apellidos || ""
+              } ${
+                alumno?.apodo || ""
               }`.trim()
           )
           .join(" ")
@@ -495,251 +755,394 @@ export default function GruposPage() {
     ).length;
 
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
-      <div className="mx-auto max-w-6xl">
+    <main className="min-h-screen bg-[#F6F8FA] px-3 py-4 sm:px-7 sm:py-7 lg:px-9">
+      <div className="mx-auto w-full max-w-[1540px]">
 
-        <h1 className="text-4xl font-bold text-slate-900">
-          Grupos
-        </h1>
+        {/* CABECERA PRINCIPAL */}
+        <section className="overflow-hidden rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-5 lg:p-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(360px,1fr)_minmax(500px,1fr)] xl:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+                Gestión
+              </p>
 
-        <p className="mt-2 text-slate-600">
-          Crea grupos habituales de alumnos
-        </p>
+              <h1 className="mt-1 text-[28px] font-bold tracking-tight text-white sm:text-4xl">
+                Grupos
+              </h1>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-white/60 sm:mt-2 sm:text-sm">
+                Organiza alumnos habituales y consulta la actividad de cada grupo desde un único espacio.
+              </p>
+            </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow">
-            <p className="text-sm text-slate-500">
-              Grupos activos
-            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+                  Total
+                </p>
+                <p className="mt-1 text-2xl font-bold text-white">
+                  {grupos.length}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/45">
+                  Registrados
+                </p>
+              </div>
 
-            <p className="mt-2 text-3xl font-bold text-green-600">
-              {gruposActivos}
-            </p>
+              <div className="rounded-xl border border-[#4DD4CA]/20 bg-[#00A79C]/15 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-[#8BE7DF]">
+                  Activos
+                </p>
+                <p className="mt-1 text-2xl font-bold text-[#8BE7DF]">
+                  {gruposActivos}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/45">
+                  Disponibles
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-3">
+                <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+                  Inactivos
+                </p>
+                <p className="mt-1 text-2xl font-bold text-white">
+                  {gruposInactivos}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/45">
+                  Histórico
+                </p>
+              </div>
+            </div>
           </div>
+        </section>
 
-          <div className="rounded-2xl bg-white p-5 shadow">
-            <p className="text-sm text-slate-500">
-              Grupos inactivos
-            </p>
+        <div className="mt-4 grid gap-4 sm:mt-5 sm:gap-5 xl:grid-cols-[370px_minmax(0,1fr)]">
 
-            <p className="mt-2 text-3xl font-bold text-slate-500">
-              {gruposInactivos}
-            </p>
-          </div>
+          {/* NUEVO / EDITAR GRUPO */}
+          <aside className="self-start overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.045)]">
+            <div className="bg-[#0F2742] px-4 py-4 text-white sm:px-5 sm:py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-[#4DD4CA]">
+                  <Icono
+                    nombre="grupo"
+                    className="h-5 w-5"
+                  />
+                </div>
 
-        </div>
-
-        <div className="mt-8 grid gap-8 lg:grid-cols-3">
-
-          <div className="rounded-2xl bg-white p-6 shadow">
-
-            <h2 className="text-xl font-bold">
-              {grupoEditandoId
-                ? "Editar grupo"
-                : "Nuevo grupo"}
-            </h2>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#4DD4CA]">
+                    Gestión
+                  </p>
+                  <h2 className="mt-0.5 text-lg font-bold">
+                    {grupoEditandoId
+                      ? "Editar grupo"
+                      : "Nuevo grupo"}
+                  </h2>
+                  <p className="mt-0.5 text-[11px] text-white/55">
+                    Nombre, alumnos y estado
+                  </p>
+                </div>
+              </div>
+            </div>
 
             <form
               onSubmit={guardarGrupo}
-              className="mt-6 space-y-4"
+              className="p-4 sm:p-5"
             >
-              <input
-                type="text"
-                placeholder="Nombre del grupo"
-                value={nombreGrupo}
-                onChange={(e) =>
-                  setNombreGrupo(
-                    e.target.value
-                  )
-                }
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              />
-
-              <div>
-                <p className="mb-3 text-sm font-medium">
-                  Alumnos
-                </p>
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                  Nombre del grupo
+                </span>
 
                 <input
                   type="text"
-                  placeholder="Buscar alumno..."
-                  value={busquedaAlumno}
+                  placeholder="Ej. Martes 18:00"
+                  value={nombreGrupo}
                   onChange={(e) =>
-                    setBusquedaAlumno(
+                    setNombreGrupo(
                       e.target.value
                     )
                   }
-                  className="mb-3 w-full rounded-xl border border-slate-300 px-4 py-3"
+                  required
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition placeholder:text-slate-400 focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                 />
+              </label>
 
-                <p className="mb-3 text-sm text-slate-500">
-                  {alumnosSeleccionados.length} alumno(s) seleccionado(s)
-                </p>
+              <div className="mt-5 border-t border-slate-100 pt-5">
+                <div className="flex flex-wrap items-end justify-between gap-2 sm:gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#00A79C]">
+                        <Icono nombre="alumnos" />
+                      </span>
+                      <p className="text-sm font-bold text-[#17324D]">
+                        Alumnos
+                      </p>
+                    </div>
 
-                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      Selecciona los miembros habituales
+                    </p>
+                  </div>
 
-                  {alumnosFiltrados.length ===
-                    0 && (
-                    <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+                  <span className="shrink-0 rounded-full border border-[#00A79C]/20 bg-[#E8F7F5] px-2.5 py-1 text-[10px] font-bold text-[#008C83]">
+                    {alumnosSeleccionados.length} seleccionados
+                  </span>
+                </div>
+
+                <div className="relative mt-3">
+                  <Icono
+                    nombre="buscar"
+                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  />
+
+                  <input
+                    type="text"
+                    placeholder="Buscar alumno..."
+                    value={busquedaAlumno}
+                    onChange={(e) =>
+                      setBusquedaAlumno(
+                        e.target.value
+                      )
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-3.5 text-sm text-[#17324D] outline-none transition placeholder:text-slate-400 focus:border-[#00A79C]/60 focus:bg-white focus:ring-2 focus:ring-[#00A79C]/10"
+                  />
+                </div>
+
+                <div className="mt-3 max-h-[280px] space-y-2 overflow-y-auto pr-1 sm:max-h-[330px]">
+                  {alumnosFiltrados.length === 0 && (
+                    <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-500">
                       No se han encontrado alumnos.
                     </p>
                   )}
 
                   {alumnosFiltrados.map(
-                    (alumno) => (
-                      <label
-                        key={alumno.id}
-                        className="flex items-center gap-3 rounded-lg border border-slate-200 p-3"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={alumnosSeleccionados.includes(
-                            alumno.id
-                          )}
-                          onChange={() =>
-                            cambiarAlumno(
-                              alumno.id
-                            )
+                    (alumno) => {
+                      const seleccionado =
+                        alumnosSeleccionados.includes(
+                          alumno.id
+                        );
+
+                      return (
+                        <label
+                          key={alumno.id}
+                          className={
+                            seleccionado
+                              ? "flex cursor-pointer items-center gap-3 rounded-xl border border-[#00A79C]/35 bg-[#E8F7F5] px-3 py-2.5 transition"
+                              : "flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition hover:border-slate-300 hover:bg-slate-50"
                           }
-                        />
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              seleccionado
+                            }
+                            onChange={() =>
+                              cambiarAlumno(
+                                alumno.id
+                              )
+                            }
+                            className="h-4 w-4 accent-[#00A79C]"
+                          />
 
-                        <span>
-                          {alumno.nombre}{" "}
-                          {alumno.apellidos ||
-                            ""}
-                        </span>
-                      </label>
-                    )
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00A79C]/10 text-[#00A79C]">
+                            <Icono
+                              nombre="alumnos"
+                              className="h-4 w-4"
+                            />
+                          </div>
+
+                          <span className="min-w-0 truncate text-sm font-semibold text-[#17324D]">
+                            {nombreAlumnoGrupo(
+                              alumno
+                            )}
+                          </span>
+                        </label>
+                      );
+                    }
                   )}
-
                 </div>
               </div>
 
               {grupoEditandoId && (
-                <select
-                  value={
-                    activo
-                      ? "activo"
-                      : "inactivo"
-                  }
-                  onChange={(e) =>
-                    setActivo(
-                      e.target.value ===
-                        "activo"
-                    )
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                >
-                  <option value="activo">
-                    Activo
-                  </option>
+                <div className="mt-5 border-t border-slate-100 pt-5">
+                  <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                    Estado
+                  </span>
 
-                  <option value="inactivo">
-                    Inactivo
-                  </option>
-                </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActivo(true)
+                      }
+                      className={
+                        activo
+                          ? "h-10 rounded-xl bg-[#17324D] px-3 text-xs font-bold text-white"
+                          : "h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                      }
+                    >
+                      Activo
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActivo(false)
+                      }
+                      className={
+                        !activo
+                          ? "h-10 rounded-xl bg-[#17324D] px-3 text-xs font-bold text-white"
+                          : "h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                      }
+                    >
+                      Inactivo
+                    </button>
+                  </div>
+                </div>
               )}
 
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white"
-              >
-                {grupoEditandoId
-                  ? "Guardar cambios"
-                  : "Guardar grupo"}
-              </button>
-
-              {grupoEditandoId && (
+              <div className="mt-5 border-t border-slate-100 pt-4">
                 <button
-                  type="button"
-                  onClick={() => {
-                    limpiarFormulario();
-                    setMensaje("");
-                  }}
-                  className="w-full rounded-xl bg-slate-200 px-5 py-3 font-semibold text-slate-800"
+                  type="submit"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#00A79C] px-4 text-sm font-bold text-white transition hover:bg-[#008F86]"
                 >
-                  Cancelar edición
+                  <Icono nombre="check" />
+                  {grupoEditandoId
+                    ? "Guardar cambios"
+                    : "Guardar grupo"}
                 </button>
-              )}
 
-            </form>
+                {grupoEditandoId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      limpiarFormulario();
+                      setMensaje("");
+                    }}
+                    className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-[#17324D] transition hover:bg-slate-50"
+                  >
+                    Cancelar edición
+                  </button>
+                )}
+              </div>
 
-            {mensaje && (
-              <p className="mt-4 text-sm">
-                {mensaje}
-              </p>
-            )}
-
-          </div>
-
-          <div className="rounded-2xl bg-white p-6 shadow lg:col-span-2">
-
-            <h2 className="text-xl font-bold">
-              Grupos registrados
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              {gruposFiltrados.length} grupo(s) mostrado(s)
-            </p>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-
-              <input
-                type="text"
-                placeholder="Buscar grupo o alumno..."
-                value={busquedaGrupos}
-                onChange={(e) =>
-                  setBusquedaGrupos(
-                    e.target.value
-                  )
-                }
-                className="rounded-xl border border-slate-300 px-4 py-3"
-              />
-
-              <select
-                value={filtroEstado}
-                onChange={(e) =>
-                  setFiltroEstado(
-                    e.target.value
-                  )
-                }
-                className="rounded-xl border border-slate-300 px-4 py-3"
-              >
-                <option value="todos">
-                  Todos
-                </option>
-
-                <option value="activos">
-                  Activos
-                </option>
-
-                <option value="inactivos">
-                  Inactivos
-                </option>
-              </select>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setBusquedaGrupos("");
-                  setFiltroEstado("todos");
-                }}
-                className="rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-800"
-              >
-                Limpiar filtros
-              </button>
-
-            </div>
-
-            <div className="mt-6 space-y-4">
-
-              {gruposFiltrados.length ===
-                0 && (
-                <p className="text-slate-500">
-                  No hay grupos que coincidan con los filtros.
+              {mensaje && (
+                <p className="mt-4 rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-600">
+                  {mensaje}
                 </p>
+              )}
+            </form>
+          </aside>
+
+          <div className="min-w-0">
+
+            {/* BLOQUE INDEPENDIENTE DE FILTROS */}
+            <section className="relative rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#4DD4CA]">
+                    <Icono
+                      nombre="grupo"
+                      className="h-5 w-5"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+                      Gestión
+                    </p>
+
+                    <h2 className="mt-0.5 text-xl font-bold text-white">
+                      Grupos registrados
+                    </h2>
+
+                    <p className="mt-1 text-sm text-white/55">
+                      Consulta, filtra y gestiona tus grupos habituales
+                    </p>
+                  </div>
+                </div>
+
+                <div className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold text-white/80 sm:px-4 sm:py-2 sm:text-sm">
+                  {gruposFiltrados.length}{" "}
+                  {gruposFiltrados.length === 1
+                    ? "grupo"
+                    : "grupos"}
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-white/10 pt-4 sm:mt-5">
+                <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-end">
+                  <div className="col-span-2 min-w-0 sm:min-w-[280px] sm:flex-1">
+                    <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+                      Buscar
+                    </span>
+
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4DD4CA]">
+                        <Icono nombre="buscar" />
+                      </span>
+
+                      <input
+                        type="text"
+                        placeholder="Grupo o alumno..."
+                        value={busquedaGrupos}
+                        onChange={(e) =>
+                          setBusquedaGrupos(
+                            e.target.value
+                          )
+                        }
+                        className="h-10 w-full rounded-xl border border-white/15 bg-white/10 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-white/35 hover:bg-white/15 focus:border-[#4DD4CA]/45 focus:ring-2 focus:ring-[#00A79C]/15"
+                      />
+                    </div>
+                  </div>
+
+                  <CampoEstadoGrupos
+                    valor={filtroEstado}
+                    onChange={
+                      setFiltroEstado
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    disabled={
+                      !busquedaGrupos &&
+                      filtroEstado === "todos"
+                    }
+                    onClick={() => {
+                      setBusquedaGrupos("");
+                      setFiltroEstado(
+                        "todos"
+                      );
+                    }}
+                    className="inline-flex h-10 w-full self-end items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-35 sm:w-auto sm:shrink-0"
+                  >
+                    <Icono nombre="limpiar" />
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* TARJETAS DE GRUPOS */}
+            <div className="mt-3 space-y-3 sm:mt-4">
+              {gruposFiltrados.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
+                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm">
+                    <Icono
+                      nombre="grupo"
+                      className="h-5 w-5"
+                    />
+                  </div>
+
+                  <p className="mt-3 font-bold text-[#17324D]">
+                    No hay resultados
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Prueba a cambiar la búsqueda o los filtros.
+                  </p>
+                </div>
               )}
 
               {gruposFiltrados.map(
@@ -751,14 +1154,13 @@ export default function GruposPage() {
                           item.alumnos
                       )
                       .filter(Boolean)
-                      .map(
-                        (alumno) =>
-                          `${alumno?.nombre || ""} ${
-                            alumno?.apellidos ||
-                            ""
-                          }`.trim()
+                      .map((alumno) =>
+                        nombreAlumnoGrupo(
+                          alumno
+                        )
                       )
-                      .join(", ");
+                      .filter(Boolean)
+                      .join(" · ");
 
                   const resumen =
                     obtenerResumenGrupo(
@@ -776,177 +1178,289 @@ export default function GruposPage() {
                     );
 
                   return (
-                    <div
+                    <article
                       key={grupo.id}
-                      className={
-                        grupo.activo
-                          ? "rounded-xl border border-slate-200 bg-white p-4"
-                          : "rounded-xl border border-slate-200 bg-slate-50 p-4 opacity-70"
-                      }
+                      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]"
                     >
-                      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-
-                        <div className="min-w-0">
-
-                          <p className="font-semibold">
-                            {grupo.nombre}
-                          </p>
-
-                          <p
+                      {/* CABECERA */}
+                      <div
+                        className={
+                          grupo.activo
+                            ? "flex flex-col gap-3 border-b border-slate-100 bg-[#FBFCFD] px-3 py-3.5 sm:px-4 lg:flex-row lg:items-center lg:justify-between"
+                            : "flex flex-col gap-3 border-b border-slate-200 bg-slate-100/70 px-3 py-3.5 sm:px-4 lg:flex-row lg:items-center lg:justify-between"
+                        }
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span
                             className={
                               grupo.activo
-                                ? "mt-1 text-sm font-semibold text-green-600"
-                                : "mt-1 text-sm font-semibold text-red-600"
+                                ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00A79C]/10 text-[#00A79C]"
+                                : "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-slate-500"
                             }
                           >
-                            {grupo.activo
-                              ? "Activo"
-                              : "Inactivo"}
-                          </p>
+                            <Icono
+                              nombre="grupo"
+                              className="h-5 w-5"
+                            />
+                          </span>
 
-                          <p className="mt-2 text-sm text-slate-600">
-                            {nombres ||
-                              "Sin alumnos"}
-                          </p>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="truncate text-base font-bold text-[#17324D]">
+                                {grupo.nombre}
+                              </h3>
 
-                          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-
-                            <div className="rounded-lg bg-slate-50 p-3">
-                              <p className="text-xs text-slate-500">
-                                Próxima clase
-                              </p>
-
-                              <p className="mt-1 text-sm font-semibold text-slate-800">
-                                {resumen.proximaClase
-                                  ? `${formatearFecha(
-                                      resumen
-                                        .proximaClase
-                                        .fecha
-                                    )} · ${calcularHorario(
-                                      resumen
-                                        .proximaClase
-                                        .hora_inicio,
-                                      resumen
-                                        .proximaClase
-                                        .duracion_minutos
-                                    )}`
-                                  : "Sin próximas clases"}
-                              </p>
+                              <span
+                                className={
+                                  grupo.activo
+                                    ? "rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700"
+                                    : "rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600"
+                                }
+                              >
+                                {grupo.activo
+                                  ? "Activo"
+                                  : "Inactivo"}
+                              </span>
                             </div>
 
-                            <div className="rounded-lg bg-slate-50 p-3">
-                              <p className="text-xs text-slate-500">
-                                Última clase realizada
-                              </p>
-
-                              <p className="mt-1 text-sm font-semibold text-slate-800">
-                                {resumen.ultimaClase
-                                  ? `${formatearFecha(
-                                      resumen
-                                        .ultimaClase
-                                        .fecha
-                                    )} · ${calcularHorario(
-                                      resumen
-                                        .ultimaClase
-                                        .hora_inicio,
-                                      resumen
-                                        .ultimaClase
-                                        .duracion_minutos
-                                    )}`
-                                  : "Sin clases realizadas"}
-                              </p>
-                            </div>
-
-                            <div className="rounded-lg bg-slate-50 p-3 sm:col-span-2">
-                              <p className="text-xs text-slate-500">
-                                Clases realizadas
-                              </p>
-
-                              <p className="mt-1 text-2xl font-bold text-teal-700">
-                                {resumen.totalRealizadas}
-                              </p>
-                            </div>
-
+                            <p className="mt-0.5 text-xs font-medium text-slate-400">
+                              {grupo.grupo_alumnos.length}{" "}
+                              {grupo.grupo_alumnos.length === 1
+                                ? "alumno"
+                                : "alumnos"}
+                            </p>
                           </div>
-
                         </div>
 
-                        <div className="lg:border-l lg:border-slate-200 lg:pl-6">
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                            {resumen.totalRealizadas} realizadas
+                          </span>
 
-                          <p className="mb-3 text-sm text-slate-500">
-                            {grupo.grupo_alumnos.length} alumno(s)
+                          {resumen.proximaClase && (
+                            <span className="rounded-full border border-[#00A79C]/20 bg-[#E8F7F5] px-2.5 py-1 text-[10px] font-bold text-[#008C83]">
+                              Próxima · {formatearFecha(
+                                resumen.proximaClase.fecha
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* INFORMACIÓN */}
+                      <div className="grid grid-cols-2 divide-y divide-slate-100 lg:grid-cols-[1.25fr_1fr_1fr] lg:divide-x lg:divide-y-0">
+                        <section className="col-span-2 p-3.5 sm:p-4 lg:col-span-1">
+                          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                            <span className="text-[#00A79C]">
+                              <Icono
+                                nombre="alumnos"
+                                className="h-5 w-5"
+                              />
+                            </span>
+
+                            <div>
+                              <h4 className="text-sm font-bold text-[#17324D]">
+                                Alumnos
+                              </h4>
+                              <p className="mt-0.5 text-[10px] text-slate-400">
+                                Miembros habituales del grupo
+                              </p>
+                            </div>
+                          </div>
+
+                          <p className="mt-3 text-sm font-semibold leading-relaxed text-[#17324D]">
+                            {nombres ||
+                              "Sin alumnos asignados"}
                           </p>
+                        </section>
 
-                          <div className="flex flex-wrap gap-2">
+                        <section className="p-3.5 sm:p-4">
+                          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                            <span className="text-[#00A79C]">
+                              <Icono
+                                nombre="calendario"
+                                className="h-5 w-5"
+                              />
+                            </span>
 
-                            <button
-                              onClick={() =>
-                                cambiarHistorial(
-                                  grupo.id
-                                )
-                              }
-                              className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white"
-                            >
+                            <div>
+                              <h4 className="text-sm font-bold text-[#17324D]">
+                                Próxima clase
+                              </h4>
+                              <p className="mt-0.5 text-[10px] text-slate-400">
+                                Siguiente cita del grupo
+                              </p>
+                            </div>
+                          </div>
+
+                          {resumen.proximaClase ? (
+                            <>
+                              <p className="mt-3 text-sm font-bold text-[#17324D]">
+                                {formatearFecha(
+                                  resumen.proximaClase.fecha
+                                )}
+                              </p>
+
+                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                                {calcularHorario(
+                                  resumen.proximaClase.hora_inicio,
+                                  resumen.proximaClase.duracion_minutos
+                                )}
+                              </p>
+
+                              <p className="mt-1 truncate text-xs text-slate-400">
+                                {resumen.proximaClase.ubicaciones?.nombre ||
+                                  "Sin ubicación"}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="mt-3 text-sm font-semibold text-slate-400">
+                              Sin próximas clases
+                            </p>
+                          )}
+                        </section>
+
+                        <section className="p-3.5 sm:p-4">
+                          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                            <span className="text-[#00A79C]">
+                              <Icono
+                                nombre="historial"
+                                className="h-5 w-5"
+                              />
+                            </span>
+
+                            <div>
+                              <h4 className="text-sm font-bold text-[#17324D]">
+                                Última clase
+                              </h4>
+                              <p className="mt-0.5 text-[10px] text-slate-400">
+                                Actividad más reciente
+                              </p>
+                            </div>
+                          </div>
+
+                          {resumen.ultimaClase ? (
+                            <>
+                              <p className="mt-3 text-sm font-bold text-[#17324D]">
+                                {formatearFecha(
+                                  resumen.ultimaClase.fecha
+                                )}
+                              </p>
+
+                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                                {calcularHorario(
+                                  resumen.ultimaClase.hora_inicio,
+                                  resumen.ultimaClase.duracion_minutos
+                                )}
+                              </p>
+
+                              <p className="mt-1 truncate text-xs text-slate-400">
+                                {resumen.ultimaClase.ubicaciones?.nombre ||
+                                  "Sin ubicación"}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="mt-3 text-sm font-semibold text-slate-400">
+                              Sin clases realizadas
+                            </p>
+                          )}
+                        </section>
+                      </div>
+
+                      {/* ACCIONES - MISMO LENGUAJE QUE FICHA DE ALUMNOS */}
+                      <div className="bg-[#0F2742] px-3 py-3 sm:px-4">
+                        <div className="grid grid-cols-2 gap-2 border-t border-white/10 pt-3 sm:grid-cols-4">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cambiarHistorial(
+                                grupo.id
+                              )
+                            }
+                            className={
+                              historialAbierto
+                                ? "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[#00A79C] bg-[#00A79C] px-3 text-[11px] font-bold text-white transition hover:bg-[#008F86]"
+                                : "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15"
+                            }
+                          >
+                            <Icono nombre="historial" />
+                            <span className="truncate">
                               {historialAbierto
                                 ? "Ocultar historial"
                                 : "Ver historial"}
-                            </button>
+                            </span>
+                          </button>
 
-                            <button
-                              onClick={() =>
-                                editarGrupo(
-                                  grupo
-                                )
-                              }
-                              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
-                            >
-                              Editar
-                            </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              editarGrupo(
+                                grupo
+                              )
+                            }
+                            className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15"
+                          >
+                            <Icono nombre="editar" />
+                            Editar
+                          </button>
 
-                            <button
-                              onClick={() =>
-                                cambiarEstadoGrupo(
-                                  grupo
-                                )
-                              }
-                              className="rounded-lg bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-800"
-                            >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cambiarEstadoGrupo(
+                                grupo
+                              )
+                            }
+                            className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15"
+                          >
+                            <Icono nombre="estado" />
+                            <span className="truncate">
                               {grupo.activo
                                 ? "Desactivar"
                                 : "Activar"}
-                            </button>
+                            </span>
+                          </button>
 
-                            <button
-                              onClick={() =>
-                                borrarGrupo(
-                                  grupo.id
-                                )
-                              }
-                              className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white"
-                            >
-                              Borrar
-                            </button>
-
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              borrarGrupo(
+                                grupo.id
+                              )
+                            }
+                            className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-red-300/40 bg-red-400/10 px-3 text-[11px] font-bold text-red-200 transition hover:bg-red-400/20"
+                          >
+                            <Icono nombre="borrar" />
+                            Borrar
+                          </button>
                         </div>
-
                       </div>
 
                       {historialAbierto && (
-                        <div className="mt-6 rounded-2xl border-2 border-slate-200 bg-slate-50 p-5">
+                        <div className="border-t border-slate-100 bg-slate-50/60 p-3.5 sm:p-5">
+                          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+                            <div>
+                              <h4 className="font-bold text-[#17324D]">
+                                Historial de clases
+                              </h4>
 
-                          <h3 className="text-lg font-bold text-slate-900">
-                            Historial de clases
-                          </h3>
+                              <p className="mt-0.5 text-xs text-slate-400">
+                                Actividad asociada a este grupo
+                              </p>
+                            </div>
+
+                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                              {clasesGrupo.length} clases
+                            </span>
+                          </div>
 
                           {clasesGrupo.length ===
                           0 ? (
-                            <p className="mt-3 text-sm text-slate-500">
+                            <p className="mt-4 rounded-xl bg-white px-4 py-3 text-sm text-slate-500">
                               Este grupo todavía no tiene clases registradas.
                             </p>
                           ) : (
-                            <div className="mt-4 space-y-2">
-
+                            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
                               {clasesGrupo
                                 .sort(
                                   (a, b) => {
@@ -961,46 +1475,51 @@ export default function GruposPage() {
                                   }
                                 )
                                 .map(
-                                  (clase) => (
+                                  (
+                                    clase,
+                                    indice
+                                  ) => (
                                     <div
                                       key={
                                         clase.id
                                       }
-                                      className="rounded-xl bg-white p-4"
+                                      className={
+                                        indice ===
+                                        0
+                                          ? "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-3.5 sm:px-4 lg:grid-cols-[140px_minmax(0,1fr)_130px] lg:gap-4"
+                                          : "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-t border-slate-100 px-3 py-3.5 sm:px-4 lg:grid-cols-[140px_minmax(0,1fr)_130px] lg:gap-4"
+                                      }
                                     >
-                                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                      <div>
+                                        <p className="text-sm font-bold text-[#17324D]">
+                                          {formatearFecha(
+                                            clase.fecha
+                                          )}
+                                        </p>
 
-                                        <div>
-                                          <p className="font-semibold">
-                                            {formatearFecha(
-                                              clase.fecha
-                                            )}
-                                          </p>
+                                        <p className="mt-0.5 text-xs text-slate-500">
+                                          {calcularHorario(
+                                            clase.hora_inicio,
+                                            clase.duracion_minutos
+                                          )}
+                                        </p>
+                                      </div>
 
-                                          <p className="mt-1 font-medium">
-                                            {calcularHorario(
-                                              clase.hora_inicio,
-                                              clase.duracion_minutos
-                                            )}
-                                          </p>
+                                      <p className="col-span-2 truncate text-sm text-slate-600 lg:col-span-1">
+                                        {clase.ubicaciones?.nombre ||
+                                          "Sin ubicación"}
+                                      </p>
 
-                                          <p className="mt-1 text-sm text-slate-600">
-                                            {clase
-                                              .ubicaciones
-                                              ?.nombre ||
-                                              "Sin ubicación"}
-                                          </p>
-                                        </div>
-
-                                        <p
+                                      <div className="flex justify-end lg:col-auto">
+                                        <span
                                           className={
                                             clase.estado ===
                                             "realizada"
-                                              ? "text-sm font-semibold text-green-600"
+                                              ? "rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700"
                                               : clase.estado ===
                                                 "cancelada"
-                                              ? "text-sm font-semibold text-red-600"
-                                              : "text-sm font-semibold text-blue-600"
+                                              ? "rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-600"
+                                              : "rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600"
                                           }
                                         >
                                           {clase.estado ===
@@ -1010,27 +1529,21 @@ export default function GruposPage() {
                                               "cancelada"
                                             ? "Cancelada"
                                             : "Programada"}
-                                        </p>
-
+                                        </span>
                                       </div>
                                     </div>
                                   )
                                 )}
-
                             </div>
                           )}
-
                         </div>
                       )}
-
-                    </div>
+                    </article>
                   );
                 }
               )}
-
             </div>
           </div>
-
         </div>
       </div>
     </main>

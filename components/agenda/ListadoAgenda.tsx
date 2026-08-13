@@ -1,3 +1,5 @@
+"use client";
+
 type Clase = {
   id: string;
   fecha: string;
@@ -5,6 +7,9 @@ type Clase = {
   duracion_minutos: number;
   tipo: string;
   estado: string;
+  facturable: boolean;
+  cobrada: boolean;
+  grupo_id: string | null;
   observaciones: string | null;
 
   ubicaciones: {
@@ -12,9 +17,12 @@ type Clase = {
   } | null;
 
   clase_alumnos: {
+    pagado: boolean;
+    usa_bono: boolean;
     alumnos: {
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -50,129 +58,278 @@ type Props = {
   ) => string;
 };
 
-function IconoReloj() {
+
+function nombreAlumnoAgenda(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined,
+  unico: boolean
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  if (unico) {
+    return `${alumno.nombre || ""} ${
+      alumno.apellidos || ""
+    }`.trim();
+  }
+
+  return (
+    alumno.nombre || ""
+  ).trim();
+}
+
+function IconoAlumno() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5"
+      className="h-4 w-4"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
       <circle
         cx="12"
-        cy="12"
-        r="9"
+        cy="8"
+        r="3.25"
       />
 
-      <path d="M12 7v5l3 2" />
+      <path d="M5 20c.55-4 2.9-6 7-6s6.45 2 7 6" />
     </svg>
   );
 }
 
-function IconoUbicacion() {
+function IconoGrupo() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5"
+      className="h-4 w-4"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
-
       <circle
-        cx="12"
-        cy="10"
+        cx="8"
+        cy="8.5"
         r="2.5"
       />
-    </svg>
-  );
-}
-
-function IconoAlumnos() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle
-        cx="9"
-        cy="8"
-        r="3"
-      />
-
-      <path d="M3 20c0-4 2.5-7 6-7s6 3 6 7" />
 
       <circle
-        cx="17"
-        cy="9"
-        r="2"
+        cx="16"
+        cy="8.5"
+        r="2.5"
       />
 
-      <path d="M16 14c3 0 5 2.2 5 5" />
+      <path d="M3.75 18.5c.45-3 1.85-4.75 4.25-4.75s3.8 1.75 4.25 4.75" />
+
+      <path d="M11.75 18.5c.45-3 1.85-4.75 4.25-4.75s3.8 1.75 4.25 4.75" />
     </svg>
   );
 }
 
-function IconoPala() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <ellipse
-        cx="10"
-        cy="9"
-        rx="5"
-        ry="6"
-      />
-
-      <path d="m13 14 6 6" />
-
-      <path d="m17 18 2-2" />
-    </svg>
-  );
-}
-
-function EstadoClase({
+function IconoEstadoClase({
   estado,
 }: {
   estado: string;
 }) {
-  if (
-    estado === "realizada"
-  ) {
+  if (estado === "realizada") {
     return (
-      <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-700">
-        Realizada
-      </span>
+      <svg
+        viewBox="0 0 20 20"
+        className="h-3.5 w-3.5"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M4.5 10.2 8.1 13.8 15.6 6.3"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     );
   }
 
-  if (
-    estado === "cancelada"
-  ) {
+  if (estado === "cancelada") {
     return (
-      <span className="inline-flex items-center rounded-full bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700">
-        Cancelada
-      </span>
+      <svg
+        viewBox="0 0 20 20"
+        className="h-3.5 w-3.5"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M5.2 5.2 14.8 14.8M14.8 5.2 5.2 14.8"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+        />
+      </svg>
     );
   }
 
   return (
-    <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700">
-      Programada
-    </span>
+    <svg
+      viewBox="0 0 20 20"
+      className="h-3.5 w-3.5"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle
+        cx="10"
+        cy="10"
+        r="6.7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+
+      <path
+        d="M10 6.4v4l2.7 1.6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
+function estadoEconomicoClase(
+  clase: Clase
+) {
+  if (!clase.facturable) {
+    return "no_facturable" as const;
+  }
+
+  if (clase.tipo === "club") {
+    return clase.cobrada
+      ? "cobrada" as const
+      : "pendiente" as const;
+  }
+
+  if (
+    clase.clase_alumnos.length === 0
+  ) {
+    return "pendiente" as const;
+  }
+
+  const pagosNormales =
+    clase.clase_alumnos.filter(
+      (participante) =>
+        !participante.usa_bono
+    );
+
+  if (
+    pagosNormales.length === 0
+  ) {
+    return "cobrada" as const;
+  }
+
+  return pagosNormales.every(
+    (participante) =>
+      participante.pagado
+  )
+    ? "cobrada" as const
+    : "pendiente" as const;
+}
+
+function EstadosClase({
+  clase,
+}: {
+  clase: Clase;
+}) {
+  const economico =
+    estadoEconomicoClase(
+      clase
+    );
+
+  const operativo =
+    clase.estado === "realizada"
+      ? {
+          texto: "Realizada",
+          clase:
+            "border-emerald-200 bg-emerald-50 text-emerald-700",
+        }
+      : clase.estado ===
+        "cancelada"
+      ? {
+          texto: "Cancelada",
+          clase:
+            "border-red-200 bg-red-50 text-red-700",
+        }
+      : {
+          texto: "Programada",
+          clase:
+            "border-slate-200 bg-slate-50 text-slate-600",
+        };
+
+  const economicoVisual =
+    economico === "cobrada"
+      ? {
+          texto: "Cobrada",
+          clase:
+            "border-emerald-200 bg-emerald-50 text-emerald-700",
+        }
+      : economico ===
+        "no_facturable"
+      ? {
+          texto:
+            "No facturable",
+          clase:
+            "border-slate-200 bg-slate-50 text-slate-500",
+        }
+      : {
+          texto: "Pendiente",
+          clase:
+            "border-red-200 bg-red-50 text-red-700",
+        };
+
+  return (
+    <div className="inline-grid grid-cols-[115px_115px] gap-1.5 lg:ml-auto">
+      <span
+        className={`inline-flex h-7 w-[115px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-[11px] font-bold ${operativo.clase}`}
+        title={`Estado: ${operativo.texto}`}
+      >
+        <IconoEstadoClase
+          estado={clase.estado}
+        />
+
+        {operativo.texto}
+      </span>
+
+      <span
+        className={`inline-flex h-7 w-[115px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-[11px] font-bold ${economicoVisual.clase}`}
+        title={`Cobro: ${economicoVisual.texto}`}
+      >
+        <span className="text-[12px] font-black leading-none">
+          €
+        </span>
+
+        {economicoVisual.texto}
+      </span>
+    </div>
+  );
+}
 
 function fechaEnPeriodo(
   fecha: string,
@@ -185,22 +342,17 @@ function fechaEnPeriodo(
 }
 
 function colorClasePorTipo(
-  tipo: string,
-  estado: string
+  tipo: string
 ) {
-  if (estado === "cancelada") {
-    return "border-red-200 bg-red-50";
-  }
-
   if (tipo === "club") {
-    return "border-orange-200 bg-orange-50";
+    return "border-l-amber-300 bg-amber-50/90 hover:bg-amber-50";
   }
 
   if (tipo === "privada") {
-    return "border-violet-200 bg-violet-50";
+    return "border-l-violet-300 bg-violet-50 hover:bg-violet-50/80";
   }
 
-  return "border-[#09a9a3]/50 bg-[#09a9a3]/10";
+  return "border-l-[#00A79C]/40 bg-[#00A79C]/10 hover:bg-[#00A79C]/[0.13]";
 }
 
 export default function ListadoAgenda({
@@ -216,20 +368,18 @@ export default function ListadoAgenda({
 }: Props) {
   if (cargando) {
     return (
-      <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-slate-500">
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+        <p className="text-sm text-slate-500">
           Cargando agenda...
         </p>
       </div>
     );
   }
 
-  if (
-    totalClases === 0
-  ) {
+  if (totalClases === 0) {
     return (
-      <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="font-medium text-slate-500">
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+        <p className="text-sm font-medium text-slate-500">
           No hay clases que coincidan con los filtros.
         </p>
       </div>
@@ -237,8 +387,7 @@ export default function ListadoAgenda({
   }
 
   return (
-    <div className="mt-6 space-y-6">
-
+    <div className="mt-4 space-y-3">
       {clasesAgrupadas.map(
         ([fecha, clasesDia]) => {
           const esHoy =
@@ -256,24 +405,21 @@ export default function ListadoAgenda({
           return (
             <section
               key={fecha}
-              className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]"
             >
-
               <div
                 className={
                   esHoy
-                    ? "flex items-center justify-between bg-[#09a9a3] px-6 py-5 text-white"
-                    : "flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-5"
+                    ? "flex min-h-12 items-center justify-between gap-3 border-b border-[#00A79C]/20 bg-[#E8F7F5] px-4 py-2.5"
+                    : "flex min-h-12 items-center justify-between gap-3 border-b border-slate-200 bg-[#FBFCFD] px-4 py-2.5"
                 }
               >
-
-                <div>
-
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                   <p
                     className={
                       esHoy
-                        ? "text-lg font-bold"
-                        : "text-lg font-bold text-slate-900"
+                        ? "text-sm font-extrabold uppercase tracking-[0.03em] text-[#008C83]"
+                        : "text-sm font-extrabold uppercase tracking-[0.03em] text-[#17324D]"
                     }
                   >
                     {formatearCabeceraFecha(
@@ -281,28 +427,23 @@ export default function ListadoAgenda({
                     )}
                   </p>
 
-                  <p
+                  <span
                     className={
                       esHoy
-                        ? "mt-1 text-sm text-teal-50"
-                        : "mt-1 text-sm text-slate-500"
+                        ? "text-xs font-semibold text-[#008C83]/70"
+                        : "text-xs font-semibold text-slate-400"
                     }
                   >
-                    {
-                      clasesDia.length
-                    }{" "}
-                    {clasesDia.length ===
-                    1
+                    {clasesDia.length}{" "}
+                    {clasesDia.length === 1
                       ? "clase"
                       : "clases"}
-                  </p>
-
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-
+                <div className="flex shrink-0 items-center gap-2">
                   {noDisponible ? (
-                    <span className="rounded-full bg-red-100 px-3 py-2 text-xs font-bold text-red-700">
+                    <span className="rounded-full bg-red-100 px-2.5 py-1.5 text-[10px] font-bold text-red-700">
                       No disponible
                     </span>
                   ) : (
@@ -317,11 +458,7 @@ export default function ListadoAgenda({
                             volver
                           )}`;
                       }}
-                      className={
-                        esHoy
-                          ? "flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl font-bold text-[#09a9a3] shadow-sm"
-                          : "flex h-9 w-9 items-center justify-center rounded-full border border-teal-200 bg-white text-xl font-bold text-[#09a9a3] shadow-sm hover:bg-teal-50"
-                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-bold leading-none text-[#00A79C] shadow-sm transition hover:border-[#00A79C]/30 hover:bg-[#E8F7F5]"
                       title={`Crear clase el ${fecha}`}
                     >
                       +
@@ -329,18 +466,16 @@ export default function ListadoAgenda({
                   )}
 
                   {esHoy && (
-                    <span className="rounded-full bg-white px-4 py-2 text-xs font-bold text-[#078b86] shadow-sm">
-                      HOY
+                    <span className="rounded-full bg-[#00A79C] px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-wide text-white">
+                      Hoy
                     </span>
                   )}
-
                 </div>
-
               </div>
 
               {noDisponible && (
-                <div className="border-b border-red-200 bg-red-50 px-6 py-3">
-                  <p className="text-sm font-semibold text-red-700">
+                <div className="border-b border-red-200 bg-red-50 px-4 py-2">
+                  <p className="text-xs font-semibold text-red-700">
                     Día bloqueado
                     {noDisponible.motivo
                       ? ` · ${noDisponible.motivo}`
@@ -349,8 +484,7 @@ export default function ListadoAgenda({
                 </div>
               )}
 
-              <div className="divide-y divide-slate-200">
-
+              <div className="divide-y divide-slate-200/80">
                 {clasesDia.map(
                   (clase) => {
                     const {
@@ -361,35 +495,34 @@ export default function ListadoAgenda({
                         clase
                       );
 
-                    const nombresAlumnos =
+                    const alumnosDatos =
                       clase.clase_alumnos
                         .map(
                           (item) =>
                             item.alumnos
                         )
-                        .filter(Boolean)
-                        .map(
-                          (alumno) =>
-                            `${
-                              alumno?.nombre ||
-                              ""
-                            } ${
-                              alumno?.apellidos ||
-                              ""
-                            }`.trim()
-                        )
-                        .join(", ");
+                        .filter(Boolean);
 
-                    const esPasada =
-                      clase.fecha <
-                      hoy;
+                    const nombresAlumnos =
+                      alumnosDatos
+                        .map((alumno) =>
+                          nombreAlumnoAgenda(
+                            alumno,
+                            alumnosDatos.length === 1
+                          )
+                        )
+                        .filter(Boolean)
+                        .join(" · ");
+
+                    const esGrupo =
+                      Boolean(
+                        clase.grupo_id
+                      );
 
                     return (
                       <button
                         type="button"
-                        key={
-                          clase.id
-                        }
+                        key={clase.id}
                         onClick={() => {
                           const volver =
                             `/agenda?vista=lista&fecha=${fechaSeleccionada}`;
@@ -399,162 +532,93 @@ export default function ListadoAgenda({
                               volver
                             )}`;
                         }}
-                        className={`block w-full border-l-4 px-6 py-5 text-left transition hover:brightness-[0.98] ${
-                          esPasada
-                            ? "opacity-65"
-                            : ""
-                        } ${colorClasePorTipo(
-                          clase.tipo,
-                          clase.estado
+                        className={`relative block w-full border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
+                          clase.tipo
                         )}`}
                       >
+                        {clase.estado === "cancelada" && (
+                          <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                        )}
 
-                        <div className="grid gap-5 lg:grid-cols-[175px_minmax(0,1fr)_130px] lg:items-center">
+                        <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
+                          <div className="min-w-0">
+                            <p className="whitespace-nowrap text-sm font-extrabold tracking-tight text-[#17324D]">
+                              {horaInicio} h a{" "}
+                              {horaFin} h
+                            </p>
 
-                          <div className="flex items-center gap-3">
-
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
-                              <IconoReloj />
-                            </div>
-
-                            <div>
-
-                              <p className="text-lg font-bold text-slate-900">
-                                {
-                                  horaInicio
-                                }{" "}
-                                h
-                              </p>
-
-                              <p className="text-xs font-medium text-slate-500">
-                                hasta{" "}
-                                {
-                                  horaFin
-                                }{" "}
-                                h
-                              </p>
-
-                            </div>
-
+                            <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+                              {
+                                clase.duracion_minutos
+                              }{" "}
+                              min
+                            </p>
                           </div>
 
-                          <div className="grid gap-3 sm:grid-cols-[1.35fr_1fr]">
-
-                            <div className="flex min-w-0 items-start gap-3">
-
-                              <span className="mt-0.5 shrink-0 text-purple-600">
-                                <IconoUbicacion />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 text-[#17324D]">
+                              <span className="shrink-0">
+                                {esGrupo ? (
+                                  <IconoGrupo />
+                                ) : (
+                                  <IconoAlumno />
+                                )}
                               </span>
 
-                              <div className="min-w-0">
+                              <span className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-slate-400">
+                                {esGrupo
+                                  ? "Grupo"
+                                  : "Alumno(s)"}
+                              </span>
 
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                  Ubicación
-                                </p>
-
-                                <p className="mt-1 text-sm font-semibold leading-snug text-slate-900">
-                                  {clase
-                                    .ubicaciones
-                                    ?.nombre ||
-                                    "Sin ubicación"}
-                                </p>
-
-                              </div>
-
+                              <span className="min-w-0 truncate text-sm font-bold text-[#17324D]">
+                                {nombresAlumnos ||
+                                  "Sin alumnos"}
+                              </span>
                             </div>
 
-                            <div className="flex min-w-0 items-start gap-3">
+                            <p className="mt-1 truncate text-xs font-medium text-slate-500">
+                              {clase
+                                .ubicaciones
+                                ?.nombre ||
+                                "Sin ubicación"}
+                              {" · "}
+                              {textoTipo(
+                                clase.tipo
+                              )}
+                            </p>
 
-                              <span className="mt-0.5 shrink-0 text-blue-600">
-                                <IconoAlumnos />
-                              </span>
-
-                              <div className="min-w-0">
-
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                  Alumno(s)
-                                </p>
-
-                                <p className="mt-1 text-sm font-semibold text-slate-900">
-                                  {nombresAlumnos ||
-                                    "Sin alumnos"}
-                                </p>
-
-                              </div>
-
-                            </div>
-
-                            <div className="flex items-start gap-3 sm:col-span-2">
-
-                              <span className="mt-0.5 shrink-0 text-orange-500">
-                                <IconoPala />
-                              </span>
-
-                              <div>
-
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                  Tipo de clase
-                                </p>
-
-                                <p className="mt-1 text-sm font-medium text-slate-700">
-                                  {textoTipo(
-                                    clase.tipo
-                                  )}{" "}
-                                  ·{" "}
+                            {clase.estado ===
+                              "cancelada" &&
+                              clase.observaciones && (
+                                <p
+                                  className="mt-1 truncate text-[11px] font-semibold text-red-700"
+                                  title={
+                                    clase.observaciones
+                                  }
+                                >
+                                  Cancelación
+                                  {" · "}
                                   {
-                                    clase.duracion_minutos
-                                  }{" "}
-                                  min
+                                    clase.observaciones
+                                  }
                                 </p>
-
-                              </div>
-
-                            </div>
-
+                              )}
                           </div>
 
-                          <div className="lg:text-right">
-
-                            <EstadoClase
-                              estado={
-                                clase.estado
-                              }
-                            />
-
-                          </div>
-
+                          <EstadosClase
+                            clase={clase}
+                          />
                         </div>
-
-                        {clase.estado ===
-                          "cancelada" &&
-                          clase.observaciones && (
-                            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-
-                              <p className="text-xs font-bold uppercase tracking-wide text-red-700">
-                                Motivo de cancelación
-                              </p>
-
-                              <p className="mt-1 text-sm text-red-900">
-                                {
-                                  clase.observaciones
-                                }
-                              </p>
-
-                            </div>
-                          )}
-
                       </button>
                     );
                   }
                 )}
-
               </div>
-
             </section>
           );
         }
       )}
-
     </div>
   );
 }

@@ -102,7 +102,60 @@ type Tarifa = {
   numero_alumnos: number;
   importe: number;
   activa: boolean;
+  ubicaciones?: {
+    nombre: string;
+  } | null;
 };
+
+function estadoEconomicoClase(
+  clase: Clase,
+  pagos: PagoClase[]
+) {
+  if (clase.facturable === false) {
+    return "no_facturable" as const;
+  }
+
+  if (clase.tipo === "club") {
+    return clase.cobrada
+      ? "cobrada" as const
+      : "pendiente" as const;
+  }
+
+  if (clase.clase_alumnos.length === 0) {
+    return "pendiente" as const;
+  }
+
+  const pagosNormales =
+    clase.clase_alumnos.filter(
+      (participante) =>
+        !participante.usa_bono
+    );
+
+  if (pagosNormales.length === 0) {
+    return "cobrada" as const;
+  }
+
+  const todosPagados =
+    pagosNormales.every(
+      (participante) => {
+        const pago =
+          pagos.find(
+            (item) =>
+              item.clase_id === clase.id &&
+              item.alumno_id === participante.alumno_id
+          );
+
+        return (
+          pago?.estado === "pagado" ||
+          participante.pagado === true
+        );
+      }
+    );
+
+  return todosPagados
+    ? "cobrada" as const
+    : "pendiente" as const;
+}
 
 function IconoCalendario() {
   return (
@@ -183,6 +236,24 @@ function IconoPersonas() {
   );
 }
 
+function IconoAlumno() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="3.25" />
+      <path d="M5 20c.55-4 2.9-6 7-6s6.45 2 7 6" />
+    </svg>
+  );
+}
+
 function IconoClase() {
   return (
     <svg
@@ -195,6 +266,593 @@ function IconoClase() {
       <path d="M4 19V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14" />
       <path d="M8 21h8M8 8h8M8 12h5" />
     </svg>
+  );
+}
+
+
+function formatearFechaControl(
+  valor: string
+) {
+  if (!valor) {
+    return "Seleccionar fecha";
+  }
+
+  const [anio, mes, dia] =
+    valor.split("-").map(Number);
+
+  const fecha =
+    new Date(
+      anio,
+      mes - 1,
+      dia
+    );
+
+  return new Intl.DateTimeFormat(
+    "es-ES",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  ).format(fecha);
+}
+
+function formatearMesControl(
+  valor: string
+) {
+  if (!valor) {
+    return "Todos los meses";
+  }
+
+  const [anio, mes] =
+    valor.split("-").map(Number);
+
+  const fecha =
+    new Date(
+      anio,
+      mes - 1,
+      1
+    );
+
+  return new Intl.DateTimeFormat(
+    "es-ES",
+    {
+      month: "long",
+      year: "numeric",
+    }
+  ).format(fecha);
+}
+
+function CampoFechaAgenda({
+  etiqueta,
+  valor,
+  onChange,
+  min,
+  required = false,
+}: {
+  etiqueta: string;
+  valor: string;
+  onChange: (valor: string) => void;
+  min?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+        {etiqueta}
+      </span>
+
+      <div className="relative">
+        <div className="flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-bold capitalize text-[#17324D] transition hover:bg-slate-50">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-[#00A79C]">
+              <IconoCalendario />
+            </span>
+            <span className="truncate">
+              {formatearFechaControl(
+                valor
+              )}
+            </span>
+          </span>
+
+          <span className="shrink-0 text-xs text-slate-400">
+            âŒ„
+          </span>
+        </div>
+
+        <input
+          type="date"
+          value={valor}
+          min={min}
+          required={required}
+          onChange={(e) =>
+            onChange(
+              e.target.value
+            )
+          }
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          aria-label={etiqueta}
+        />
+      </div>
+    </label>
+  );
+}
+
+function IconoBuscar() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+function IconoRestablecer() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 4v6h6" />
+      <path d="M5.5 15a8 8 0 1 0 1.8-8.3L4 10" />
+    </svg>
+  );
+}
+
+function IconoEditar() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 20h4l11-11-4-4L4 16v4Z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+function IconoBorrar() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M7 7l1 13h8l1-13" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
+  );
+}
+
+function IconoEuro() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M18 7.5A6.5 6.5 0 1 0 18 16.5" />
+      <path d="M5 10h9M5 14h8" />
+    </svg>
+  );
+}
+
+function formatearFechaFiltro(
+  valor: string
+) {
+  if (!valor) {
+    return "Seleccionar";
+  }
+
+  const [anio, mes, dia] =
+    valor.split("-");
+
+  if (!anio || !mes || !dia) {
+    return valor;
+  }
+
+  return `${dia}/${mes}/${anio}`;
+}
+
+function CampoFechaFiltro({
+  etiqueta,
+  valor,
+  onChange,
+  min,
+}: {
+  etiqueta: string;
+  valor: string;
+  onChange: (valor: string) => void;
+  min?: string;
+}) {
+  const inputRef =
+    useRef<HTMLInputElement | null>(null);
+
+  function abrirSelectorFecha() {
+    const input = inputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    try {
+      input.showPicker();
+    } catch {
+      input.focus();
+      input.click();
+    }
+  }
+
+  return (
+    <div className="block w-full min-w-0 sm:w-[140px] sm:shrink-0">
+      <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+        {etiqueta}
+      </span>
+
+      <div className="relative">
+        <button
+          type="button"
+          onClick={abrirSelectorFecha}
+          className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2.5 text-xs font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-[#00A79C]/25"
+          aria-label={`Elegir fecha ${etiqueta.toLowerCase()}`}
+        >
+          <span className={valor ? "text-white" : "text-white/55"}>
+            {formatearFechaFiltro(
+              valor
+            )}
+          </span>
+          <span className="shrink-0 text-[#4DD4CA]">
+            <IconoCalendario />
+          </span>
+        </button>
+
+        <input
+          ref={inputRef}
+          type="date"
+          value={valor}
+          min={min}
+          onChange={(e) =>
+            onChange(e.target.value)
+          }
+          className="pointer-events-none absolute h-px w-px opacity-0"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
+    </div>
+  );
+}
+
+function CampoMesAgenda({
+  valor,
+  onChange,
+}: {
+  valor: string;
+  onChange: (valor: string) => void;
+}) {
+  const ahora = new Date();
+  const [abierto, setAbierto] =
+    useState(false);
+  const [anioSelector, setAnioSelector] =
+    useState(
+      valor
+        ? Number(valor.slice(0, 4))
+        : ahora.getFullYear()
+    );
+
+  useEffect(() => {
+    if (valor) {
+      setAnioSelector(
+        Number(valor.slice(0, 4))
+      );
+    }
+  }, [valor]);
+
+  const meses = [
+    "Ene",
+    "Feb",
+    "Mar",
+    "Abr",
+    "May",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dic",
+  ];
+
+  const mesActivo = valor
+    ? Number(valor.slice(5, 7))
+    : null;
+
+  function abrirSelector() {
+    setAnioSelector(
+      valor
+        ? Number(valor.slice(0, 4))
+        : new Date().getFullYear()
+    );
+    setAbierto(true);
+  }
+
+  function seleccionarMes(
+    numeroMes: number
+  ) {
+    onChange(
+      `${anioSelector}-${String(
+        numeroMes
+      ).padStart(2, "0")}`
+    );
+    setAbierto(false);
+  }
+
+  return (
+    <div className="relative w-full min-w-0 sm:w-[205px] sm:shrink-0">
+      <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+        Mes
+      </span>
+
+      <button
+        type="button"
+        onClick={abrirSelector}
+        className={
+          abierto
+            ? "flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#4DD4CA]/40 bg-white/15 px-3 text-sm font-bold capitalize text-white transition"
+            : "flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-sm font-bold capitalize text-white transition hover:bg-white/15"
+        }
+        aria-label="Elegir mes"
+        aria-expanded={abierto}
+      >
+        <span className="text-[#4DD4CA]">
+          <IconoCalendario />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-center">
+          {formatearMesControl(valor)}
+        </span>
+        <span className="text-xs text-white/45">
+          âŒ„
+        </span>
+      </button>
+
+      {abierto && (
+        <>
+          <button
+            type="button"
+            onClick={() => setAbierto(false)}
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Cerrar selector de mes"
+          />
+
+          <div className="absolute left-1/2 top-[58px] z-50 w-[310px] max-w-[calc(100vw-1.5rem)] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-[0_18px_50px_rgba(15,23,42,0.18)] sm:left-auto sm:right-0 sm:w-[320px] sm:translate-x-0 sm:p-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setAnioSelector(
+                    (anio) => anio - 1
+                  )
+                }
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-lg font-bold text-[#17324D] transition hover:bg-slate-50"
+                aria-label="AÃ±o anterior"
+              >
+                â€¹
+              </button>
+
+              <p className="text-sm font-bold text-[#17324D]">
+                {anioSelector}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setAnioSelector(
+                    (anio) => anio + 1
+                  )
+                }
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-lg font-bold text-[#17324D] transition hover:bg-slate-50"
+                aria-label="AÃ±o siguiente"
+              >
+                â€º
+              </button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {meses.map(
+                (nombreMes, indice) => {
+                  const numeroMes =
+                    indice + 1;
+                  const seleccionado =
+                    anioSelector ===
+                      Number(
+                        valor.slice(0, 4)
+                      ) &&
+                    mesActivo ===
+                      numeroMes;
+
+                  return (
+                    <button
+                      key={nombreMes}
+                      type="button"
+                      onClick={() =>
+                        seleccionarMes(
+                          numeroMes
+                        )
+                      }
+                      className={
+                        seleccionado
+                          ? "h-9 rounded-lg bg-[#00A79C] text-xs font-bold text-white"
+                          : "h-9 rounded-lg border border-slate-100 bg-[#FBFCFD] text-xs font-semibold text-slate-600 transition hover:border-[#00A79C]/30 hover:bg-[#E8F7F5] hover:text-[#008C83]"
+                      }
+                    >
+                      {nombreMes}
+                    </button>
+                  );
+                }
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setAbierto(false);
+              }}
+              className="mt-3 h-9 w-full rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-[#17324D]"
+            >
+              Todos los meses
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
+function CampoEstadoClases({
+  valor,
+  onChange,
+}: {
+  valor: string;
+  onChange: (valor: string) => void;
+}) {
+  const [abierto, setAbierto] =
+    useState(false);
+
+  const opciones = [
+    {
+      valor: "todas",
+      etiqueta: "Todos",
+    },
+    {
+      valor: "programada",
+      etiqueta: "Programadas",
+    },
+    {
+      valor: "realizada",
+      etiqueta: "Realizadas",
+    },
+    {
+      valor: "cancelada",
+      etiqueta: "Canceladas",
+    },
+  ];
+
+  const etiquetaActual =
+    opciones.find(
+      (opcion) =>
+        opcion.valor === valor
+    )?.etiqueta || "Todos";
+
+  return (
+    <div className="relative w-full min-w-0 sm:w-[158px] sm:shrink-0">
+      <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+        Estado
+      </span>
+
+      <button
+        type="button"
+        onClick={() =>
+          setAbierto(
+            (actual) => !actual
+          )
+        }
+        className={
+          abierto
+            ? "flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[#4DD4CA]/40 bg-white/15 px-3 text-xs font-semibold text-white transition"
+            : "flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-xs font-semibold text-white transition hover:bg-white/15"
+        }
+        aria-label="Filtrar por estado"
+        aria-expanded={abierto}
+      >
+        <span className="truncate">
+          {etiquetaActual}
+        </span>
+
+        <span className="shrink-0 text-[10px] text-white/45">
+          âŒ„
+        </span>
+      </button>
+
+      {abierto && (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              setAbierto(false)
+            }
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Cerrar selector de estado"
+          />
+
+          <div className="absolute left-0 top-[58px] z-50 w-full min-w-[170px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.16)]">
+            {opciones.map(
+              (opcion) => {
+                const seleccionada =
+                  opcion.valor ===
+                  valor;
+
+                return (
+                  <button
+                    key={opcion.valor}
+                    type="button"
+                    onClick={() => {
+                      onChange(
+                        opcion.valor
+                      );
+                      setAbierto(
+                        false
+                      );
+                    }}
+                    className={
+                      seleccionada
+                        ? "flex h-9 w-full items-center rounded-lg bg-[#17324D] px-3 text-left text-xs font-bold text-white"
+                        : "flex h-9 w-full items-center rounded-lg px-3 text-left text-xs font-semibold text-[#17324D] transition hover:bg-[#17324D] hover:text-white"
+                    }
+                  >
+                    {opcion.etiqueta}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -697,9 +1355,18 @@ export default function ClasesPage() {
     } =
       await supabase
         .from("tarifas")
-        .select(
-          "id,ubicacion_id,concepto,duracion_minutos,numero_alumnos,importe,activa"
-        )
+        .select(`
+          id,
+          ubicacion_id,
+          concepto,
+          duracion_minutos,
+          numero_alumnos,
+          importe,
+          activa,
+          ubicaciones (
+            nombre
+          )
+        `)
         .eq(
           "activa",
           true
@@ -730,9 +1397,105 @@ export default function ClasesPage() {
         []) as RelacionBonoAlumno[]
     );
 
-    setClases(
+    const tarifasCargadas =
+      (tarifasData ||
+        []) as unknown as Tarifa[];
+
+    const clasesCargadas =
       (clasesData ||
-        []) as unknown as Clase[]
+        []) as unknown as Clase[];
+
+    const clasesNormalizadas =
+      clasesCargadas.map(
+        (clase) => {
+          if (
+            clase.tipo !==
+              "club" ||
+            Number(
+              clase.importe_club ||
+                0
+            ) > 0 ||
+            !clase.ubicacion_id
+          ) {
+            return clase;
+          }
+
+          const tarifaClub =
+            buscarTarifaEnLista(
+              tarifasCargadas,
+              "club_paga",
+              clase.ubicacion_id,
+              clase.duracion_minutos,
+              clase.clase_alumnos.length,
+              clase.ubicaciones?.nombre
+            );
+
+          if (!tarifaClub) {
+            return clase;
+          }
+
+          return {
+            ...clase,
+            importe_club:
+              Number(
+                tarifaClub.importe ||
+                  0
+              ),
+          };
+        }
+      );
+
+    const clasesParaActualizar =
+      clasesNormalizadas.filter(
+        (claseNormalizada) => {
+          const original =
+            clasesCargadas.find(
+              (clase) =>
+                clase.id ===
+                claseNormalizada.id
+            );
+
+          return (
+            original?.tipo ===
+              "club" &&
+            Number(
+              original.importe_club ||
+                0
+            ) === 0 &&
+            Number(
+              claseNormalizada.importe_club ||
+                0
+            ) > 0
+          );
+        }
+      );
+
+    if (
+      clasesParaActualizar.length >
+      0
+    ) {
+      await Promise.all(
+        clasesParaActualizar.map(
+          (clase) =>
+            supabase
+              .from("clases")
+              .update({
+                importe_club:
+                  Number(
+                    clase.importe_club ||
+                      0
+                  ),
+              })
+              .eq(
+                "id",
+                clase.id
+              )
+        )
+      );
+    }
+
+    setClases(
+      clasesNormalizadas
     );
 
     setPagosClase(
@@ -741,8 +1504,7 @@ export default function ClasesPage() {
     );
 
     setTarifas(
-      (tarifasData ||
-        []) as Tarifa[]
+      tarifasCargadas
     );
   }
 
@@ -794,23 +1556,113 @@ export default function ClasesPage() {
     setModoCreacion("individual");
   }
 
+  function normalizarTextoTarifa(
+    valor: string | null | undefined
+  ) {
+    return (valor || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function buscarTarifaEnLista(
+    listaTarifas: Tarifa[],
+    conceptoBuscado: string,
+    ubicacionBuscada: string,
+    duracionBuscada: number,
+    numeroAlumnosBuscado: number,
+    ubicacionNombreBuscada?: string | null
+  ) {
+    const conceptoNormalizado =
+      normalizarTextoTarifa(
+        conceptoBuscado
+      );
+
+    const candidatas =
+      listaTarifas.filter(
+        (tarifa) =>
+          tarifa.activa !== false &&
+          normalizarTextoTarifa(
+            tarifa.concepto
+          ) === conceptoNormalizado &&
+          Number(
+            tarifa.duracion_minutos
+          ) ===
+            Number(
+              duracionBuscada
+            ) &&
+          Number(
+            tarifa.numero_alumnos
+          ) ===
+            Number(
+              numeroAlumnosBuscado
+            )
+      );
+
+    const coincidenciaId =
+      candidatas.find(
+        (tarifa) =>
+          String(
+            tarifa.ubicacion_id ||
+              ""
+          ) ===
+          String(
+            ubicacionBuscada ||
+              ""
+          )
+      );
+
+    if (coincidenciaId) {
+      return coincidenciaId;
+    }
+
+    const nombreNormalizado =
+      normalizarTextoTarifa(
+        ubicacionNombreBuscada
+      );
+
+    if (nombreNormalizado) {
+      const coincidenciasNombre =
+        candidatas.filter(
+          (tarifa) =>
+            normalizarTextoTarifa(
+              tarifa.ubicaciones
+                ?.nombre
+            ) === nombreNormalizado
+        );
+
+      if (
+        coincidenciasNombre.length ===
+        1
+      ) {
+        return coincidenciasNombre[0];
+      }
+    }
+
+    return undefined;
+  }
+
   function buscarTarifa(
     conceptoBuscado: string,
     ubicacionBuscada: string,
     duracionBuscada: number,
     numeroAlumnosBuscado: number
   ) {
-    return tarifas.find(
-      (tarifa) =>
-        tarifa.activa &&
-        tarifa.ubicacion_id ===
-          ubicacionBuscada &&
-        tarifa.concepto ===
-          conceptoBuscado &&
-        tarifa.duracion_minutos ===
-          duracionBuscada &&
-        tarifa.numero_alumnos ===
-          numeroAlumnosBuscado
+    const nombreUbicacion =
+      ubicaciones.find(
+        (ubicacion) =>
+          String(ubicacion.id) ===
+          String(ubicacionBuscada)
+      )?.nombre;
+
+    return buscarTarifaEnLista(
+      tarifas,
+      conceptoBuscado,
+      ubicacionBuscada,
+      duracionBuscada,
+      numeroAlumnosBuscado,
+      nombreUbicacion
     );
   }
 
@@ -1195,7 +2047,7 @@ export default function ClasesPage() {
       alumnoId;
 
     if (esPropio) {
-      return `Bono propio · ${bono.numero_clases} clases · ${bono.clases_restantes} restantes`;
+      return `Bono propio Â· ${bono.numero_clases} clases Â· ${bono.clases_restantes} restantes`;
     }
 
     const titular =
@@ -1213,7 +2065,7 @@ export default function ClasesPage() {
           }`.trim()
         : "otro alumno";
 
-    return `Bono de ${nombreTitular} · ${bono.numero_clases} clases · ${bono.clases_restantes} restantes`;
+    return `Bono de ${nombreTitular} Â· ${bono.numero_clases} clases Â· ${bono.clases_restantes} restantes`;
   }
   function cambiarAlumno(
     alumno: Alumno
@@ -1782,8 +2634,8 @@ export default function ClasesPage() {
 
         notas:
           estadoClase === "cancelada"
-            ? "Clase cancelada facturable · generado desde Clases"
-            : "Generado automáticamente desde Clases",
+            ? "Clase cancelada facturable Â· generado desde Clases"
+            : "Generado automÃ¡ticamente desde Clases",
       };
 
       if (
@@ -2203,7 +3055,7 @@ export default function ClasesPage() {
       !fechaFinSerie
     ) {
       setMensaje(
-        "❌ Indica la fecha de inicio y la fecha final de la serie."
+        "âŒ Indica la fecha de inicio y la fecha final de la serie."
       );
       return;
     }
@@ -2212,7 +3064,7 @@ export default function ClasesPage() {
       diasSerie.length === 0
     ) {
       setMensaje(
-        "❌ Selecciona al menos un día de la semana."
+        "âŒ Selecciona al menos un dÃ­a de la semana."
       );
       return;
     }
@@ -2224,7 +3076,7 @@ export default function ClasesPage() {
       fechas.length === 0
     ) {
       setMensaje(
-        "❌ No hay fechas que coincidan con los días seleccionados."
+        "âŒ No hay fechas que coincidan con los dÃ­as seleccionados."
       );
       return;
     }
@@ -2237,7 +3089,7 @@ export default function ClasesPage() {
 
       if (bloqueo) {
         setMensaje(
-          `❌ No puedes crear la serie. El ${fechaSerie} está marcado como no disponible${
+          `âŒ No puedes crear la serie. El ${fechaSerie} estÃ¡ marcado como no disponible${
             bloqueo.motivo
               ? `: ${bloqueo.motivo}`
               : "."
@@ -2333,6 +3185,46 @@ export default function ClasesPage() {
             }
           );
 
+    const tarifaClubSerie =
+      tipo === "club"
+        ? buscarTarifa(
+            "club_paga",
+            ubicacionId,
+            Number(duracion),
+            alumnosSeleccionados.length
+          )
+        : undefined;
+
+    if (
+      tipo === "club" &&
+      !tarifaClubSerie
+    ) {
+      const nombreUbicacion =
+        ubicaciones.find(
+          (item) =>
+            item.id === ubicacionId
+        )?.nombre ||
+        "esta ubicaciÃ³n";
+
+      setMensaje(
+        `âŒ No hay una tarifa de club configurada para ${nombreUbicacion}, ${duracion} minutos y ${alumnosSeleccionados.length} alumno${
+          alumnosSeleccionados.length ===
+          1
+            ? ""
+            : "s"
+        }.`
+      );
+      return;
+    }
+
+    const importeClubSerie =
+      tipo === "club"
+        ? Number(
+            tarifaClubSerie?.importe ||
+              0
+          )
+        : 0;
+
     const {
       data:
         serieCreada,
@@ -2371,7 +3263,7 @@ export default function ClasesPage() {
       !serieCreada
     ) {
       setMensaje(
-        "❌ No se pudo crear la serie: " +
+        "âŒ No se pudo crear la serie: " +
           (
             errorSerie?.message ||
             ""
@@ -2397,11 +3289,7 @@ export default function ClasesPage() {
             grupoId || null,
           tipo,
           importe_club:
-            tipo === "club"
-              ? importeClub
-                ? Number(importeClub)
-                : 0
-              : 0,
+            importeClubSerie,
           coste_pista:
             tipo === "club"
               ? 0
@@ -2448,7 +3336,7 @@ export default function ClasesPage() {
         );
 
       setMensaje(
-        "❌ No se pudieron crear las clases de la serie: " +
+        "âŒ No se pudieron crear las clases de la serie: " +
           (
             errorClases?.message ||
             ""
@@ -2488,7 +3376,7 @@ export default function ClasesPage() {
         errorParticipantes
       ) {
         setMensaje(
-          "⚠️ La serie se creó, pero hubo un problema al añadir los alumnos."
+          "âš ï¸ La serie se creÃ³, pero hubo un problema al aÃ±adir los alumnos."
         );
 
         await cargarDatos();
@@ -2517,9 +3405,9 @@ export default function ClasesPage() {
     }
 
     setMensaje(
-      `✅ Serie creada correctamente: ${fechas.length} clase(s) programada(s)${
+      `âœ… Serie creada correctamente: ${fechas.length} clase(s) programada(s)${
         falloGoogleSerie
-          ? " · ⚠️ Alguna clase no pudo sincronizarse con Google Calendar."
+          ? " Â· âš ï¸ Alguna clase no pudo sincronizarse con Google Calendar."
           : ""
       }`
     );
@@ -2732,16 +3620,16 @@ export default function ClasesPage() {
 
       const mensajeBorrado =
         alcance === "una"
-          ? "✅ Clase borrada correctamente"
+          ? "âœ… Clase borrada correctamente"
           : alcance ===
             "siguientes"
-          ? "✅ Esta clase y las siguientes se han borrado correctamente"
-          : "✅ Serie completa borrada correctamente";
+          ? "âœ… Esta clase y las siguientes se han borrado correctamente"
+          : "âœ… Serie completa borrada correctamente";
 
       setMensaje(
         mensajeBorrado +
           (falloGoogle
-            ? " · ⚠️ Algún evento no pudo borrarse de Google Calendar."
+            ? " Â· âš ï¸ AlgÃºn evento no pudo borrarse de Google Calendar."
             : "")
       );
 
@@ -2755,7 +3643,7 @@ export default function ClasesPage() {
           : "Error desconocido";
 
       setMensaje(
-        "❌ " + texto
+        "âŒ " + texto
       );
     } finally {
       setBorrandoSerie(
@@ -2778,7 +3666,7 @@ export default function ClasesPage() {
 
     const confirmar =
       window.confirm(
-        "¿Seguro que quieres borrar esta clase?"
+        "Â¿Seguro que quieres borrar esta clase?"
       );
 
     if (
@@ -2897,7 +3785,7 @@ export default function ClasesPage() {
 
       if (bloqueo) {
         setMensaje(
-          `❌ No puedes crear una clase ese día. Está marcado como no disponible${
+          `âŒ No puedes crear una clase ese dÃ­a. EstÃ¡ marcado como no disponible${
             bloqueo.motivo
               ? `: ${bloqueo.motivo}`
               : "."
@@ -2934,7 +3822,7 @@ export default function ClasesPage() {
           ]
         ) {
           setMensaje(
-            "❌ Hay un alumno marcado con bono pero no tiene bono seleccionado."
+            "âŒ Hay un alumno marcado con bono pero no tiene bono seleccionado."
           );
 
           return;
@@ -2947,7 +3835,7 @@ export default function ClasesPage() {
       facturableCancelacion === null
     ) {
       setMensaje(
-        "❌ Elige si la clase cancelada se cobra o no se cobra."
+        "âŒ Elige si la clase cancelada se cobra o no se cobra."
       );
       return;
     }
@@ -3096,6 +3984,46 @@ export default function ClasesPage() {
             }
           );
 
+    const tarifaClubClase =
+      tipo === "club"
+        ? buscarTarifa(
+            "club_paga",
+            ubicacionId,
+            Number(duracion),
+            alumnosSeleccionados.length
+          )
+        : undefined;
+
+    if (
+      tipo === "club" &&
+      !tarifaClubClase
+    ) {
+      const nombreUbicacion =
+        ubicaciones.find(
+          (item) =>
+            item.id === ubicacionId
+        )?.nombre ||
+        "esta ubicaciÃ³n";
+
+      setMensaje(
+        `âŒ No hay una tarifa de club configurada para ${nombreUbicacion}, ${duracion} minutos y ${alumnosSeleccionados.length} alumno${
+          alumnosSeleccionados.length ===
+          1
+            ? ""
+            : "s"
+        }.`
+      );
+      return;
+    }
+
+    const importeClubFinal =
+      tipo === "club"
+        ? Number(
+            tarifaClubClase?.importe ||
+              0
+          )
+        : 0;
+
     const usoNuevo =
       contarUsoBonos(
         participantesNuevos,
@@ -3125,14 +4053,7 @@ export default function ClasesPage() {
       tipo,
 
       importe_club:
-        tipo ===
-        "club"
-          ? importeClub
-            ? Number(
-                importeClub
-              )
-            : 0
-          : 0,
+        importeClubFinal,
 
       coste_pista:
         tipo ===
@@ -3351,8 +4272,8 @@ export default function ClasesPage() {
         setMensaje(
           alcanceEdicionSerie ===
             "siguientes"
-            ? "✅ Esta clase y las siguientes se han actualizado correctamente"
-            : "✅ Toda la serie se ha actualizado correctamente"
+            ? "âœ… Esta clase y las siguientes se han actualizado correctamente"
+            : "âœ… Toda la serie se ha actualizado correctamente"
         );
 
         if (
@@ -3382,7 +4303,7 @@ export default function ClasesPage() {
             : "Error desconocido";
 
         setMensaje(
-          "❌ No se pudo actualizar la serie: " +
+          "âŒ No se pudo actualizar la serie: " +
             texto
         );
 
@@ -3440,7 +4361,7 @@ export default function ClasesPage() {
       !claseGuardada
     ) {
       setMensaje(
-        "❌ Error al guardar la clase: " +
+        "âŒ Error al guardar la clase: " +
           (
             errorClase?.message ||
             ""
@@ -3468,7 +4389,7 @@ export default function ClasesPage() {
 
       if (error) {
         setMensaje(
-          "❌ Error al actualizar los alumnos: " +
+          "âŒ Error al actualizar los alumnos: " +
             error.message
         );
 
@@ -3505,7 +4426,7 @@ export default function ClasesPage() {
 
       if (error) {
         setMensaje(
-          "⚠️ Clase guardada, pero hubo un error al añadir alumnos: " +
+          "âš ï¸ Clase guardada, pero hubo un error al aÃ±adir alumnos: " +
             error.message
         );
 
@@ -3528,7 +4449,7 @@ export default function ClasesPage() {
       );
     } catch {
       setMensaje(
-        "⚠️ La clase se guardó, pero hubo un problema actualizando bonos o pagos."
+        "âš ï¸ La clase se guardÃ³, pero hubo un problema actualizando bonos o pagos."
       );
 
       cargarDatos();
@@ -3557,9 +4478,9 @@ export default function ClasesPage() {
       null;
 
     setMensaje(
-      "✅ Clase guardada correctamente" +
+      "âœ… Clase guardada correctamente" +
         (falloGoogle
-          ? " · ⚠️ No se pudo sincronizar con Google Calendar."
+          ? " Â· âš ï¸ No se pudo sincronizar con Google Calendar."
           : "")
     );
 
@@ -3679,14 +4600,8 @@ export default function ClasesPage() {
           ) &&
           (
             !filtroFechaDesde ||
-            (
-              filtroFechaDesde &&
-              !filtroFechaHasta
-                ? clase.fecha ===
-                  filtroFechaDesde
-                : clase.fecha >=
-                  filtroFechaDesde
-            )
+            clase.fecha >=
+              filtroFechaDesde
           ) &&
           (
             !filtroFechaHasta ||
@@ -3707,6 +4622,13 @@ export default function ClasesPage() {
             claseEditandoId
         )
       : clasesFiltradas;
+
+  const hayFiltrosClases =
+    Boolean(busquedaClases) ||
+    filtroEstado !== "todas" ||
+    Boolean(filtroMes) ||
+    Boolean(filtroFechaDesde) ||
+    Boolean(filtroFechaHasta);
   function calcularHorario(
     clase: Clase
   ) {
@@ -3830,62 +4752,137 @@ export default function ClasesPage() {
     );
   }
 
+  const clasesProgramadas =
+    clases.filter(
+      (clase) =>
+        clase.estado ===
+        "programada"
+    ).length;
+
+  const clasesRealizadas =
+    clases.filter(
+      (clase) =>
+        clase.estado ===
+        "realizada"
+    ).length;
+
+  const clasesCanceladas =
+    clases.filter(
+      (clase) =>
+        clase.estado ===
+        "cancelada"
+    ).length;
+
   return (
-    <main className="min-h-screen bg-slate-100 px-5 py-7 sm:px-7 lg:px-9">
+    <main className="min-h-screen bg-[#F6F8FA] px-3 py-4 sm:px-7 sm:py-7 lg:px-9">
 
       <div className="mx-auto w-full max-w-[1540px]">
 
-        <div className="mb-7">
+        <section className="overflow-hidden rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-5 lg:p-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(360px,1fr)_minmax(560px,1.25fr)] xl:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+                GestiÃ³n
+              </p>
 
-          <h1 className="text-4xl font-bold text-slate-900">
-            Clases
-          </h1>
+              <h1 className="mt-1 text-[28px] font-bold tracking-tight text-white sm:text-4xl">
+                Clases
+              </h1>
 
-          <p className="mt-2 text-slate-600">
-            Registro y control de clases
-          </p>
+              <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-white/60 sm:mt-2 sm:text-sm">
+                Programa, edita y controla alumnos, cobros y series desde un Ãºnico espacio.
+              </p>
+            </div>
 
-        </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+                  Total
+                </p>
+                <p className="mt-1 text-2xl font-bold">
+                  {clases.length}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/45">
+                  Registradas
+                </p>
+              </div>
 
-        {!formularioAbierto && (
-          <div className="mb-7 flex flex-wrap justify-end gap-3">
+              <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-3">
+                <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+                  Programadas
+                </p>
+                <p className="mt-1 text-2xl font-bold text-white">
+                  {clasesProgramadas}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/45">
+                  Pendientes
+                </p>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                limpiarFormulario();
-                setMensaje("");
-                setModoCreacion(
-                  "serie"
-                );
-                setFormularioAbierto(
-                  true
-                );
-              }}
-              className="rounded-xl border border-[#09a9a3] bg-white px-6 py-3 font-semibold text-[#078b86] shadow-sm transition hover:bg-teal-50"
-            >
-              + Nueva serie
-            </button>
+              <div className="rounded-xl border border-[#4DD4CA]/20 bg-[#00A79C]/15 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-[#8BE7DF]">
+                  Realizadas
+                </p>
+                <p className="mt-1 text-2xl font-bold text-[#8BE7DF]">
+                  {clasesRealizadas}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/45">
+                  Completadas
+                </p>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                limpiarFormulario();
-                setMensaje("");
-                setModoCreacion(
-                  "individual"
-                );
-                setFormularioAbierto(
-                  true
-                );
-              }}
-              className="rounded-xl bg-[#09a9a3] px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-[#078f8a]"
-            >
-              + Nueva clase
-            </button>
-
+              <div className="rounded-xl border border-red-300/15 bg-red-400/10 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-red-200">
+                  Canceladas
+                </p>
+                <p className="mt-1 text-2xl font-bold text-red-200">
+                  {clasesCanceladas}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/45">
+                  HistÃ³rico
+                </p>
+              </div>
+            </div>
           </div>
-        )}
+
+          {!formularioAbierto && (
+            <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/10 pt-4 sm:mt-5 sm:flex sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  limpiarFormulario();
+                  setMensaje("");
+                  setModoCreacion(
+                    "serie"
+                  );
+                  setFormularioAbierto(
+                    true
+                  );
+                }}
+                className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-white/15 bg-white/10 px-3 text-xs font-bold text-white transition hover:bg-white/15 sm:w-auto sm:px-5 sm:text-sm"
+              >
+                + Nueva serie
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  limpiarFormulario();
+                  setMensaje("");
+                  setModoCreacion(
+                    "individual"
+                  );
+                  setFormularioAbierto(
+                    true
+                  );
+                }}
+                className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#00A79C] px-3 text-xs font-bold text-white transition hover:bg-[#008C83] sm:w-auto sm:px-5 sm:text-sm"
+              >
+                + Nueva clase
+              </button>
+            </div>
+          )}
+        </section>
 
         {formularioAbierto && (
         <form
@@ -3893,20 +4890,20 @@ export default function ClasesPage() {
           onSubmit={
             guardarClase
           }
-          className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:p-5"
+          className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_10px_30px_rgba(15,23,42,0.045)] sm:mt-5 sm:p-4 lg:p-5"
         >
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-2xl bg-[#0F2742] p-3.5 text-white sm:flex sm:items-center sm:justify-between sm:gap-3 sm:p-5">
 
             <div className="flex items-center gap-4">
 
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#4DD4CA]">
                 <IconoClase />
               </div>
 
               <div>
 
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="text-xl font-bold text-white">
                   {claseEditandoId
                     ? "Editar clase"
                     : modoCreacion ===
@@ -3915,13 +4912,13 @@ export default function ClasesPage() {
                     : "Nueva clase"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-white/55">
                   {claseEditandoId
                     ? "Modifica los datos de la clase"
                     : modoCreacion ===
                       "serie"
-                    ? "Programa automáticamente clases recurrentes"
-                    : "Datos y gestión de la clase"}
+                    ? "Programa automÃ¡ticamente clases recurrentes"
+                    : "Datos y gestiÃ³n de la clase"}
                 </p>
 
               </div>
@@ -3945,9 +4942,9 @@ export default function ClasesPage() {
                     false
                   );
                 }}
-                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="mt-3 rounded-xl border border-white/15 bg-white/10 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/15 sm:mt-0"
               >
-                Cancelar edición
+                Cancelar ediciÃ³n
               </button>
 
             )}
@@ -3955,20 +4952,20 @@ export default function ClasesPage() {
           </div>
 
           {!claseEditandoId && (
-            <section className="mt-4 rounded-2xl border border-teal-200 bg-teal-50/50 p-4">
+            <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
 
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div className="-mx-4 -mt-4 mb-4 flex flex-col gap-2 bg-[#0F2742] px-4 py-3.5 text-white sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#078b86]">
-                    1. Selecciona alumno o grupo
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+                    1. Participantes
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Al elegir el primer alumno se completan automáticamente sus datos habituales.
+                  <p className="mt-1 text-xs text-white/55">
+                    Selecciona un grupo o los alumnos de esta clase.
                   </p>
                 </div>
 
                 {alumnosSeleccionados.length > 0 && (
-                  <span className="w-fit rounded-full bg-white px-3 py-1 text-xs font-bold text-[#078b86]">
+                  <span className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-white/80">
                     {alumnosSeleccionados.length} seleccionado{alumnosSeleccionados.length === 1 ? "" : "s"}
                   </span>
                 )}
@@ -3988,7 +4985,7 @@ export default function ClasesPage() {
                         e.target.value
                       )
                     }
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                   >
                     <option value="">
                       Sin grupo / elegir alumnos
@@ -4043,7 +5040,7 @@ export default function ClasesPage() {
                         e.target.value
                       )
                     }
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                   />
 
                   <div className="mt-2 grid max-h-[125px] gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
@@ -4072,7 +5069,7 @@ export default function ClasesPage() {
                                   alumno
                                 )
                               }
-                              className="h-3.5 w-3.5 accent-[#09a9a3]"
+                              className="h-3.5 w-3.5 accent-[#00A79C]"
                             />
 
                             <span className="min-w-0 truncate">
@@ -4091,61 +5088,40 @@ export default function ClasesPage() {
             </section>
           )}
 
-          <div className="mt-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-              2. Datos de la clase
-            </p>
+          <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
+            <div className="border-b border-slate-100 bg-[#0F2742]/[0.035] px-4 py-3.5">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#17324D]">
+                2. Datos de la clase
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Fecha, horario, duraciÃ³n, ubicaciÃ³n y tipo.
+              </p>
+            </div>
 
+            <div className="p-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
 
-            <div>
-
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                {modoCreacion ===
-                  "serie"
-                    ? "Fecha inicio"
-                    : "Fecha"}
-              </label>
-
-              <input
-                type="date"
-                value={fecha}
-                onChange={(e) =>
-                  setFecha(
-                    e.target.value
-                  )
-                }
-                required
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-              />
-
-            </div>
+            <CampoFechaAgenda
+              etiqueta={
+                modoCreacion === "serie"
+                  ? "Fecha inicio"
+                  : "Fecha"
+              }
+              valor={fecha}
+              onChange={setFecha}
+              required
+            />
 
             {modoCreacion ===
               "serie" && (
 
-              <div>
-
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Fecha final
-                </label>
-
-                <input
-                  type="date"
-                  value={
-                    fechaFinSerie
-                  }
-                  min={fecha}
-                  onChange={(e) =>
-                    setFechaFinSerie(
-                      e.target.value
-                    )
-                  }
-                  required
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-                />
-
-              </div>
+              <CampoFechaAgenda
+                etiqueta="Fecha final"
+                valor={fechaFinSerie}
+                min={fecha}
+                onChange={setFechaFinSerie}
+                required
+              />
 
             )}
 
@@ -4164,7 +5140,7 @@ export default function ClasesPage() {
                   )
                 }
                 required
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               />
 
             </div>
@@ -4172,7 +5148,7 @@ export default function ClasesPage() {
             <div>
 
               <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                Duración
+                DuraciÃ³n
               </label>
 
               <select
@@ -4202,7 +5178,7 @@ export default function ClasesPage() {
                     );
                   }
                 }}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               >
                 <option value="30">
                   30 minutos
@@ -4234,7 +5210,7 @@ export default function ClasesPage() {
             <div>
 
               <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                Ubicación
+                UbicaciÃ³n
               </label>
 
               <select
@@ -4254,10 +5230,10 @@ export default function ClasesPage() {
                     nuevaUbicacionId
                   );
                 }}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               >
                 <option value="">
-                  Seleccionar ubicación
+                  Seleccionar ubicaciÃ³n
                 </option>
 
                 {ubicaciones.map(
@@ -4483,7 +5459,7 @@ export default function ClasesPage() {
                     nuevosMetodos
                   );
                 }}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               >
 
                 <option value="">
@@ -4554,7 +5530,7 @@ export default function ClasesPage() {
                     );
                   }
                 }}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               >
                 <option value="club">
                   Clase para club
@@ -4572,19 +5548,20 @@ export default function ClasesPage() {
             </div>
 
           </div>
-          </div>
+            </div>
+          </section>
 
           {modoCreacion ===
             "serie" && (
 
-            <div className="mt-5 rounded-2xl border border-teal-200 bg-teal-50/60 p-5">
+            <div className="mt-4 rounded-2xl border border-[#00A79C]/20 bg-[#E8F7F5] p-5">
 
-              <p className="text-xs font-bold uppercase tracking-wide text-[#078b86]">
-                Días de repetición
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#008C83]">
+                DÃ­as de repeticiÃ³n
               </p>
 
               <p className="mt-1 text-sm text-slate-600">
-                Selecciona uno o varios días de la semana.
+                Selecciona uno o varios dÃ­as de la semana.
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -4592,10 +5569,10 @@ export default function ClasesPage() {
                 {[
                   [1, "Lunes"],
                   [2, "Martes"],
-                  [3, "Miércoles"],
+                  [3, "MiÃ©rcoles"],
                   [4, "Jueves"],
                   [5, "Viernes"],
-                  [6, "Sábado"],
+                  [6, "SÃ¡bado"],
                   [0, "Domingo"],
                 ].map(
                   ([
@@ -4628,8 +5605,8 @@ export default function ClasesPage() {
                         }
                         className={
                           activo
-                            ? "rounded-xl bg-[#09a9a3] px-4 py-2.5 text-sm font-semibold text-white"
-                            : "rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                            ? "rounded-xl bg-[#00A79C] px-4 py-2.5 text-sm font-semibold text-white"
+                            : "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                         }
                       >
                         {nombre}
@@ -4646,8 +5623,8 @@ export default function ClasesPage() {
                 diasSerie.length >
                   0 && (
 
-                <p className="mt-4 text-sm font-semibold text-[#078b86]">
-                  Se crearán{" "}
+                <p className="mt-4 text-sm font-semibold text-[#008C83]">
+                  Se crearÃ¡n{" "}
                   {
                     fechasDeSerie()
                       .length
@@ -4674,13 +5651,13 @@ export default function ClasesPage() {
 
               <div className="flex items-center gap-3">
 
-                <div className="text-[#09a9a3]">
+                <div className="text-[#00A79C]">
                   <IconoPersonas />
                 </div>
 
                 <div>
 
-                  <h3 className="font-bold text-slate-900">
+                  <h3 className="font-bold text-[#17324D]">
                     Alumnos
                   </h3>
 
@@ -4703,7 +5680,7 @@ export default function ClasesPage() {
                     e.target.value
                   )
                 }
-                className="mt-4 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                className="mt-4 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               />
 
               <div className="mt-3 grid max-h-[230px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
@@ -4739,7 +5716,7 @@ export default function ClasesPage() {
                               alumno
                             )
                           }
-                          className="h-4 w-4 accent-[#09a9a3]"
+                          className="h-4 w-4 accent-[#00A79C]"
                         />
 
                         <span className="min-w-0 truncate">
@@ -4769,7 +5746,7 @@ export default function ClasesPage() {
 
                   <div>
 
-                    <h3 className="font-bold text-slate-900">
+                    <h3 className="font-bold text-[#17324D]">
                       Precio y forma de pago
                     </h3>
 
@@ -4824,7 +5801,7 @@ export default function ClasesPage() {
                 {alumnosElegidos.length ===
                 0 ? (
 
-                  <div className="mt-4 flex min-h-[150px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/60 px-5 text-center">
+                  <div className="mt-4 flex min-h-[150px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/60 px-5 text-center">
 
                     <p className="text-sm text-slate-400">
                       Selecciona al menos un alumno para configurar el pago.
@@ -4861,7 +5838,7 @@ export default function ClasesPage() {
 
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 
-                              <p className="font-bold text-slate-900">
+                              <p className="font-bold text-[#17324D]">
                                 {
                                   alumno.nombre
                                 }{" "}
@@ -4905,7 +5882,7 @@ export default function ClasesPage() {
                                   className={
                                     modo ===
                                     "normal"
-                                      ? "rounded-md bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-sm"
+                                      ? "rounded-md bg-white px-3 py-1.5 text-xs font-bold text-[#17324D] shadow-sm"
                                       : "rounded-md px-3 py-1.5 text-xs font-semibold text-slate-500"
                                   }
                                 >
@@ -4956,7 +5933,7 @@ export default function ClasesPage() {
                                   className={
                                     modo ===
                                     "bono"
-                                      ? "rounded-md bg-white px-3 py-1.5 text-xs font-bold text-[#078b86] shadow-sm"
+                                      ? "rounded-md bg-white px-3 py-1.5 text-xs font-bold text-[#008C83] shadow-sm"
                                       : bonosAlumno.length ===
                                         0
                                       ? "cursor-not-allowed rounded-md px-3 py-1.5 text-xs font-semibold text-slate-300"
@@ -4999,7 +5976,7 @@ export default function ClasesPage() {
                                       })
                                     )
                                   }
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
                                 >
 
                                   {bonosAlumno.map(
@@ -5058,7 +6035,7 @@ export default function ClasesPage() {
                                       )
                                     }
                                     placeholder="0,00"
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
                                   />
 
                                 </div>
@@ -5090,7 +6067,7 @@ export default function ClasesPage() {
                                         })
                                       )
                                     }
-                                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
                                   >
                                     <option value="pendiente">
                                       Pendiente
@@ -5106,7 +6083,7 @@ export default function ClasesPage() {
                                 <div>
 
                                   <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                                    Método
+                                    MÃ©todo
                                   </label>
 
                                   <select
@@ -5127,7 +6104,7 @@ export default function ClasesPage() {
                                         })
                                       )
                                     }
-                                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
                                   >
                                     <option value="efectivo">
                                       Efectivo
@@ -5167,7 +6144,17 @@ export default function ClasesPage() {
 
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
+            <div className="border-b border-slate-100 bg-[#0F2742]/[0.035] px-4 py-3.5">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#17324D]">
+                3. EconomÃ­a y estado
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Importes, coste de pista, ingresos adicionales y estado operativo.
+              </p>
+            </div>
+
+            <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
 
             {tipo ===
               "club" && (
@@ -5193,17 +6180,17 @@ export default function ClasesPage() {
                       )
                     }
                     placeholder="0,00"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-slate-800 outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                   />
 
                   <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                    €
+                    â‚¬
                   </span>
 
                 </div>
 
                 <p className="mt-2 text-xs text-slate-500">
-                  Se busca automáticamente en Tarifas según ubicación, duración y número de alumnos. Puedes cambiarlo manualmente para esta clase.
+                  Se busca automÃ¡ticamente en Tarifas segÃºn ubicaciÃ³n, duraciÃ³n y nÃºmero de alumnos. Puedes cambiarlo manualmente para esta clase.
                 </p>
 
               </div>
@@ -5234,17 +6221,17 @@ export default function ClasesPage() {
                       )
                     }
                     placeholder="0,00"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-slate-800 outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                   />
 
                   <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                    €
+                    â‚¬
                   </span>
 
                 </div>
 
                 <p className="mt-2 text-xs text-slate-500">
-                  Se busca primero en Tarifas según ubicación, duración y número de alumnos. Si no existe, usa el coste habitual de la ubicación. Puedes cambiarlo manualmente para esta clase.
+                  Se busca primero en Tarifas segÃºn ubicaciÃ³n, duraciÃ³n y nÃºmero de alumnos. Si no existe, usa el coste habitual de la ubicaciÃ³n. Puedes cambiarlo manualmente para esta clase.
                 </p>
 
               </div>
@@ -5289,11 +6276,11 @@ export default function ClasesPage() {
                     )
                   }
                   placeholder="0,00"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-10 text-slate-800 outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                 />
 
                 <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                  €
+                  â‚¬
                 </span>
 
               </div>
@@ -5339,7 +6326,7 @@ export default function ClasesPage() {
                     nuevoEstado
                   );
                 }}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               >
                 <option value="programada">
                   Programada
@@ -5356,13 +6343,14 @@ export default function ClasesPage() {
 
             </div>
 
-          </div>
+            </div>
+          </section>
 
           <div
             className={
               estado === "cancelada"
-                ? "mt-4 rounded-2xl border border-red-200 bg-red-50 p-4"
-                : "mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                ? "mt-4 rounded-2xl border border-red-200 bg-red-50/70 p-4"
+                : "mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]"
             }
           >
 
@@ -5374,14 +6362,14 @@ export default function ClasesPage() {
               }
             >
               {estado === "cancelada"
-                ? "Motivo de cancelación / anotación"
-                : "Anotación"}
+                ? "Motivo de cancelaciÃ³n / anotaciÃ³n"
+                : "AnotaciÃ³n"}
             </label>
 
             {estado === "cancelada" && (
               <div className="mb-4">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-700">
-                  ¿Esta cancelación se cobra?
+                  Â¿Esta cancelaciÃ³n se cobra?
                 </p>
 
                 <div className="grid max-w-md grid-cols-2 gap-2">
@@ -5411,7 +6399,7 @@ export default function ClasesPage() {
                     className={
                       facturableCancelacion === false
                         ? "rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-bold text-white"
-                        : "rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                        : "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
                     }
                   >
                     No se cobra
@@ -5432,23 +6420,23 @@ export default function ClasesPage() {
               rows={2}
               placeholder={
                 estado === "cancelada"
-                  ? "Indica el motivo de la cancelación o cualquier anotación..."
-                  : "Añade una anotación sobre esta clase..."
+                  ? "Indica el motivo de la cancelaciÃ³n o cualquier anotaciÃ³n..."
+                  : "AÃ±ade una anotaciÃ³n sobre esta clase..."
               }
               className={
                 estado === "cancelada"
                   ? "mt-2 w-full resize-none rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-red-300"
-                  : "mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#09a9a3]"
+                  : "mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#00A79C]/60"
               }
             />
 
             <p className="mt-2 text-xs text-slate-500">
-              Opcional. La anotación quedará visible en la clase registrada.
+              Opcional. La anotaciÃ³n quedarÃ¡ visible en la clase registrada.
             </p>
 
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
 
             <div>
 
@@ -5456,11 +6444,11 @@ export default function ClasesPage() {
                 <p
                   className={
                     mensaje.startsWith(
-                      "❌"
+                      "âŒ"
                     )
                       ? "text-sm font-semibold text-red-600"
                       : mensaje.startsWith(
-                          "⚠️"
+                          "âš ï¸"
                         )
                       ? "text-sm font-semibold text-amber-600"
                       : mensaje ===
@@ -5492,14 +6480,14 @@ export default function ClasesPage() {
                     false
                   );
                 }}
-                className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-[#17324D] transition hover:bg-slate-50"
               >
                 Cancelar
               </button>
 
               <button
                 type="submit"
-                className="min-w-[180px] rounded-xl bg-[#09a9a3] px-6 py-3 font-bold text-white transition hover:bg-[#078b86]"
+                className="h-11 min-w-[180px] rounded-xl bg-[#00A79C] px-6 text-sm font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.12)] transition hover:bg-[#008C83]"
               >
                 {claseEditandoId
                   ? "Guardar cambios"
@@ -5515,34 +6503,38 @@ export default function ClasesPage() {
 
         </form>
         )}
-        <section className="mt-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-7">
+        <section className="relative mt-4 rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:mt-5 sm:p-5">
 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
             <div className="flex items-center gap-4">
 
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#4DD4CA]">
                 <IconoCalendario />
               </div>
 
               <div>
-                <h2 className="text-xl font-bold text-slate-900">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+                  GestiÃ³n
+                </p>
+
+                <h2 className="mt-0.5 text-xl font-bold text-white">
                   {claseEditandoId
-                    ? "Clase que estás editando"
+                    ? "Clase que estÃ¡s editando"
                     : "Clases registradas"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-white/55">
                   {claseEditandoId
                     ? "Solo se muestra la clase seleccionada"
-                    : "Consulta y gestiona las clases por orden cronológico"}
+                    : "Consulta, filtra y gestiona las clases por orden cronolÃ³gico"}
                 </p>
               </div>
 
             </div>
 
             {!claseEditandoId && (
-              <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
+              <div className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold text-white/80 sm:px-4 sm:py-2 sm:text-sm">
                 {clasesFiltradas.length}{" "}
                 {clasesFiltradas.length === 1
                   ? "clase"
@@ -5553,107 +6545,126 @@ export default function ClasesPage() {
           </div>
 
           {!claseEditandoId && (
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-end">
 
-            <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(320px,1fr)_150px_150px_150px_150px_150px]">
+                <div className="col-span-2 min-w-0 sm:min-w-[280px] sm:flex-1">
+                  <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-white/45">
+                    Buscar
+                  </span>
 
-              <input
-                type="text"
-                placeholder="Buscar alumno o ubicación..."
-                value={busquedaClases}
-                onChange={(e) =>
-                  setBusquedaClases(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-              />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4DD4CA]">
+                      <IconoBuscar />
+                    </span>
 
-              <select
-                value={filtroEstado}
-                onChange={(e) =>
-                  setFiltroEstado(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-              >
-                <option value="todas">
-                  Todos los estados
-                </option>
+                    <input
+                      type="text"
+                      placeholder="Alumno o ubicaciÃ³n..."
+                      value={busquedaClases}
+                      onChange={(e) =>
+                        setBusquedaClases(
+                          e.target.value
+                        )
+                      }
+                      className="h-10 w-full rounded-xl border border-white/15 bg-white/10 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-white/35 hover:bg-white/15 focus:border-[#4DD4CA]/45 focus:ring-2 focus:ring-[#00A79C]/15"
+                    />
+                  </div>
+                </div>
 
-                <option value="programada">
-                  Programadas
-                </option>
+                <CampoEstadoClases
+                  valor={filtroEstado}
+                  onChange={
+                    setFiltroEstado
+                  }
+                />
 
-                <option value="realizada">
-                  Realizadas
-                </option>
+                <CampoMesAgenda
+                  valor={filtroMes}
+                  onChange={(valor) => {
+                    setFiltroMes(valor);
+                    if (valor) {
+                      setFiltroFechaDesde(
+                        ""
+                      );
+                      setFiltroFechaHasta(
+                        ""
+                      );
+                    }
+                  }}
+                />
 
-                <option value="cancelada">
-                  Canceladas
-                </option>
-              </select>
+                <CampoFechaFiltro
+                  etiqueta="Desde"
+                  valor={filtroFechaDesde}
+                  onChange={(valor) => {
+                    setFiltroFechaDesde(
+                      valor
+                    );
+                    if (valor) {
+                      setFiltroMes(
+                        ""
+                      );
+                    }
+                  }}
+                />
 
-              <input
-                type="month"
-                value={filtroMes}
-                onChange={(e) =>
-                  setFiltroMes(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-              />
+                <CampoFechaFiltro
+                  etiqueta="Hasta"
+                  valor={filtroFechaHasta}
+                  min={
+                    filtroFechaDesde ||
+                    undefined
+                  }
+                  onChange={(valor) => {
+                    setFiltroFechaHasta(
+                      valor
+                    );
+                    if (valor) {
+                      setFiltroMes(
+                        ""
+                      );
+                    }
+                  }}
+                />
 
-              <input
-                type="date"
-                aria-label="Desde"
-                title="Desde"
-                value={filtroFechaDesde}
-                onChange={(e) =>
-                  setFiltroFechaDesde(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-              />
+                <button
+                  type="button"
+                  disabled={!hayFiltrosClases}
+                  onClick={() => {
+                    setBusquedaClases(
+                      ""
+                    );
+                    setFiltroEstado(
+                      "todas"
+                    );
+                    setFiltroMes(
+                      ""
+                    );
+                    setFiltroFechaDesde(
+                      ""
+                    );
+                    setFiltroFechaHasta(
+                      ""
+                    );
+                  }}
+                  className="col-span-2 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-35 sm:col-span-1 sm:w-auto sm:shrink-0"
+                >
+                  <IconoRestablecer />
+                  Limpiar
+                </button>
 
-              <input
-                type="date"
-                aria-label="Hasta"
-                title="Hasta"
-                value={filtroFechaHasta}
-                onChange={(e) =>
-                  setFiltroFechaHasta(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-              />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setBusquedaClases("");
-                  setFiltroEstado("todas");
-                  setFiltroMes("");
-                  setFiltroFechaDesde("");
-                  setFiltroFechaHasta("");
-                }}
-                className="w-full rounded-xl bg-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-300"
-              >
-                Limpiar
-              </button>
-
+              </div>
             </div>
-
           )}
 
-          <div className="mt-5 space-y-3">
+        </section>
+
+          <div className="mt-3 space-y-3 sm:mt-4">
 
             {clasesMostradas.length === 0 && (
 
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
 
                 <p className="font-semibold text-slate-600">
                   No hay clases para mostrar
@@ -5665,23 +6676,20 @@ export default function ClasesPage() {
 
             {clasesMostradas.map(
               (clase) => {
-
                 const {
                   horaInicio,
                   horaFin,
-                } =
-                  calcularHorario(
-                    clase
-                  );
+                } = calcularHorario(
+                  clase
+                );
 
                 const [
                   anio,
                   mes,
                   dia,
-                ] =
-                  clase.fecha.split(
-                    "-"
-                  );
+                ] = clase.fecha.split(
+                  "-"
+                );
 
                 const importeTotalAlumnos =
                   clase.clase_alumnos.reduce(
@@ -5697,490 +6705,522 @@ export default function ClasesPage() {
                     0
                   );
 
+                const tarifaClubVisual =
+                  clase.tipo === "club" &&
+                  clase.ubicacion_id
+                    ? buscarTarifaEnLista(
+                        tarifas,
+                        "club_paga",
+                        clase.ubicacion_id,
+                        clase.duracion_minutos,
+                        clase.clase_alumnos.length,
+                        clase.ubicaciones?.nombre
+                      )
+                    : undefined;
+
+                const importeBase =
+                  clase.tipo === "club"
+                    ? Number(
+                        Number(
+                          clase.importe_club ||
+                            0
+                        ) > 0
+                          ? clase.importe_club
+                          : tarifaClubVisual
+                              ?.importe || 0
+                      )
+                    : importeTotalAlumnos;
+
+                const costePistaClase =
+                  Number(
+                    clase.coste_pista ||
+                      0
+                  );
+
+                const ingresoExtraClase =
+                  Number(
+                    clase.ingreso_extra ||
+                      0
+                  );
+
                 const resultadoClase =
-                  clase.estado === "cancelada" &&
+                  clase.estado ===
+                    "cancelada" &&
                   clase.facturable === false
                     ? 0
-                    : (
-                        clase.tipo === "club"
-                          ? Number(
-                              clase.importe_club ||
-                                0
-                            )
-                          : importeTotalAlumnos -
-                            Number(
-                              clase.coste_pista ||
-                                0
-                            )
-                      ) +
-                      Number(
-                        clase.ingreso_extra ||
-                          0
-                      );
+                    : (clase.tipo ===
+                      "club"
+                        ? importeBase
+                        : importeBase -
+                          costePistaClase) +
+                      ingresoExtraClase;
+
+                const textoEstado =
+                  clase.estado ===
+                  "cancelada"
+                    ? "Cancelada"
+                    : clase.estado ===
+                      "realizada"
+                    ? "Realizada"
+                    : "Programada";
+
+                const estadoEconomico =
+                  estadoEconomicoClase(
+                    clase,
+                    pagosClase
+                  );
+
+                const textoEstadoEconomico =
+                  estadoEconomico ===
+                  "cobrada"
+                    ? "Cobrada"
+                    : estadoEconomico ===
+                      "no_facturable"
+                    ? "No facturable"
+                    : "Pendiente";
 
                 return (
-
                   <article
                     key={clase.id}
                     className={
-                      clase.estado === "cancelada"
-                        ? "rounded-2xl border border-red-200 bg-white p-4 shadow-sm"
-                        : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300"
+                      clase.estado ===
+                      "cancelada"
+                        ? "overflow-hidden rounded-2xl border border-red-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]"
+                        : "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] transition hover:border-slate-300"
                     }
                   >
-
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[0.8fr_1fr_1.55fr_1.45fr_auto] xl:items-center">
-
-                      <div className="flex items-center gap-3">
-
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    {/* CABECERA DE LA CLASE */}
+                    <div
+                      className={
+                        clase.estado ===
+                        "cancelada"
+                          ? "flex flex-col gap-3 border-b border-red-100 bg-red-50/60 px-3 py-3.5 sm:px-4 lg:flex-row lg:items-center lg:justify-between"
+                          : "flex flex-col gap-3 border-b border-slate-100 bg-[#FBFCFD] px-3 py-3.5 sm:px-4 lg:flex-row lg:items-center lg:justify-between"
+                      }
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00A79C]/10 text-[#00A79C]">
                           <IconoCalendario />
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                            Fecha
-                          </p>
-
-                          <p className="mt-0.5 text-sm font-bold text-slate-900">
-                            {dia}/{mes}/{anio}
-                          </p>
-                        </div>
-
-                      </div>
-
-                      <div className="flex items-center gap-3">
-
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-500">
-                          <IconoReloj />
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                            Horario
-                          </p>
-
-                          <p className="mt-0.5 whitespace-nowrap text-sm font-bold text-slate-900">
-                            {horaInicio} - {horaFin}
-                          </p>
-                        </div>
-
-                      </div>
-
-                      <div className="flex min-w-0 items-center gap-3">
-
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[#09a9a3]">
-                          <IconoPersonas />
-                        </div>
+                        </span>
 
                         <div className="min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                            Alumnos
-                          </p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <p className="text-sm font-bold text-[#17324D]">
+                              {dia}/{mes}/{anio}
+                            </p>
+                            <span className="text-slate-300">
+                              â€¢
+                            </span>
+                            <p className="text-sm font-bold text-[#17324D]">
+                              {horaInicio} h a {horaFin} h
+                            </p>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                              {clase.duracion_minutos} min
+                            </span>
+                          </div>
 
-                          <p className="mt-0.5 text-sm font-semibold leading-tight text-slate-900">
-                            {clase.clase_alumnos.length > 0
-                              ? clase.clase_alumnos
-                                  .map(
-                                    (
-                                      participante
-                                    ) =>
-                                      nombreCompletoAlumno(
-                                        participante.alumnos
-                                      )
-                                  )
-                                  .join(", ")
-                              : "Sin alumnos"}
-                          </p>
+                          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
+                            <IconoUbicacion />
+                            <span className="truncate">
+                              {clase.ubicaciones?.nombre ||
+                                "Sin ubicaciÃ³n"}
+                            </span>
+                          </div>
                         </div>
-
                       </div>
 
-                      <div className="flex min-w-0 items-center gap-3">
-
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-50 text-purple-600">
-                          <IconoUbicacion />
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                            Ubicación
-                          </p>
-
-                          <p className="mt-0.5 text-sm font-semibold leading-tight text-slate-900">
-                            {clase.ubicaciones?.nombre ||
-                              "Sin ubicación"}
-                          </p>
-                        </div>
-
-                      </div>
-
-                      <div className="flex xl:justify-end">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 lg:justify-end">
+                        {clase.serie_id && (
+                          <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">
+                            Serie
+                          </span>
+                        )}
 
                         <span
                           className={
-                            clase.estado === "cancelada"
-                              ? "rounded-full bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700"
-                              : clase.estado === "realizada"
-                              ? "rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-700"
-                              : "rounded-full bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700"
+                            clase.estado ===
+                            "cancelada"
+                              ? "rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700"
+                              : clase.estado ===
+                                "realizada"
+                              ? "rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700"
+                              : "rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600"
                           }
                         >
-                          {clase.serie_id && (
-                      <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
-                        Serie
-                      </span>
-                    )}
+                          {textoEstado}
+                        </span>
 
-                    {clase.estado === "cancelada"
-                            ? "Cancelada"
-                            : clase.estado === "realizada"
-                            ? "Realizada"
-                            : "Programada"}
+                        {clase.estado === "cancelada" && (
+                          <span
+                            className={
+                              clase.facturable === false
+                                ? "rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600"
+                                : "rounded-full border border-[#00A79C]/25 bg-[#E8F7F5] px-2.5 py-1 text-[10px] font-bold text-[#008C83]"
+                            }
+                            title={
+                              clase.facturable === false
+                                ? "Esta cancelaciÃ³n no se cobra"
+                                : "Esta cancelaciÃ³n se cobra"
+                            }
+                          >
+                            {clase.facturable === false
+                              ? "No se cobra"
+                              : "Se cobra"}
+                          </span>
+                        )}
+
+                        <span
+                          className={
+                            estadoEconomico === "cobrada"
+                              ? "rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700"
+                              : estadoEconomico === "no_facturable"
+                              ? "rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-500"
+                              : "rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700"
+                          }
+                          title={`Cobro: ${textoEstadoEconomico}`}
+                        >
+                          <span className="mr-1 text-[11px] font-black">
+                            â‚¬
+                          </span>
+                          {textoEstadoEconomico}
                         </span>
 
                       </div>
-
                     </div>
 
-                    <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2 lg:grid-cols-5">
-
-                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                          Tipo
-                        </p>
-
-                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                          {textoTipo(
-                            clase.tipo
-                          )}
-                        </p>
-
-                      </div>
-
-                      <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                          Duración
-                        </p>
-
-                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                          {clase.duracion_minutos} min
-                        </p>
-
-                      </div>
-
-                      {clase.tipo === "club" ? (
-
-                        <div className="rounded-xl bg-green-50 px-3 py-2.5">
-
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-green-700">
-                            Pago del club
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-green-700">
-                            {Number(
-                              clase.importe_club ||
-                                0
-                            ).toFixed(2)} €
-                          </p>
-
+                    {/* CONTENIDO: misma jerarquÃ­a visual que las fichas de Alumnos */}
+                    <div className="grid xl:grid-cols-[1.4fr_0.9fr_1.05fr]">
+                      {/* ALUMNOS */}
+                      <section className="p-3.5 sm:p-4 xl:border-r xl:border-slate-100">
+                        <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                          <span className="text-[#00A79C]">
+                            <IconoAlumno />
+                          </span>
+                          <div>
+                            <h3 className="text-sm font-bold text-[#17324D]">
+                              Alumnos
+                            </h3>
+                            <p className="mt-0.5 text-[10px] text-slate-400">
+                              Participantes y situaciÃ³n de cobro
+                            </p>
+                          </div>
                         </div>
 
-                      ) : (
+                        {clase.clase_alumnos.length >
+                        0 ? (
+                          <div className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-[#FBFCFD]">
+                            {clase.clase_alumnos.map(
+                              (
+                                participante
+                              ) => {
+                                const pago =
+                                  pagoDeAlumno(
+                                    clase.id,
+                                    participante.alumno_id
+                                  );
 
-                        <div className="rounded-xl bg-blue-50 px-3 py-2.5">
+                                return (
+                                  <div
+                                    key={
+                                      participante.alumno_id
+                                    }
+                                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5"
+                                  >
+                                    <span className="text-xs font-semibold text-[#17324D]">
+                                      {nombreCompletoAlumno(
+                                        participante.alumnos
+                                      )}
+                                    </span>
 
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-blue-700">
-                            Valor alumnos
+                                    {clase.tipo ===
+                                    "club" ? (
+                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00A79C]/20 bg-[#E8F7F5] px-2.5 py-1 text-[10px] font-bold text-[#008C83] [&_svg]:h-3.5 [&_svg]:w-3.5">
+                                        <IconoAlumno />
+                                        Alumno club
+                                      </span>
+                                    ) : participante.usa_bono ? (
+                                      <span className="rounded-full bg-[#E8F7F5] px-2.5 py-1 text-[10px] font-bold text-[#008C83]">
+                                        Bono
+                                      </span>
+                                    ) : clase.estado !==
+                                      "realizada" ? (
+                                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
+                                        {Number(
+                                          participante.importe ||
+                                            0
+                                        ).toFixed(2)} â‚¬
+                                      </span>
+                                    ) : pago?.estado ===
+                                      "pagado" ? (
+                                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                                        Pagado Â· {Number(
+                                          participante.importe ||
+                                            0
+                                        ).toFixed(2)} â‚¬
+                                      </span>
+                                    ) : (
+                                      <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700">
+                                        Pendiente Â· {Number(
+                                          participante.importe ||
+                                            0
+                                        ).toFixed(2)} â‚¬
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+                            )}
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-xs font-medium text-slate-400">
+                            Sin alumnos asignados.
                           </p>
-
-                          <p className="mt-1 text-sm font-bold text-blue-700">
-                            {importeTotalAlumnos.toFixed(
-                              2
-                            )} €
-                          </p>
-
-                        </div>
-
-                      )}
-
-                      {clase.tipo === "propia" ? (
-
-                        <div className="rounded-xl bg-red-50 px-3 py-2.5">
-
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
-                            Coste de pista
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-red-600">
-                            {Number(
-                              clase.coste_pista ||
-                                0
-                            ).toFixed(2)} €
-                          </p>
-
-                        </div>
-
-                      ) : clase.tipo === "privada" ? (
-
-                        <div className="rounded-xl bg-teal-50 px-3 py-2.5">
-
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-teal-700">
-                            Pista
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-teal-700">
-                            Sin coste
-                          </p>
-
-                        </div>
-
-                      ) : (
-
-                        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
-
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                            Coste de pista
-                          </p>
-
-                          <p className="mt-1 text-sm font-semibold text-slate-500">
-                            0,00 €
-                          </p>
-
-                        </div>
-
-                      )}
-
-                      {Number(
-                        clase.ingreso_extra ||
-                          0
-                      ) > 0 && (
-
-                        <div className="rounded-xl bg-purple-50 px-3 py-2.5">
-
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-purple-600">
-                            Ingreso extra
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-purple-700">
-                            +{" "}
-                            {Number(
-                              clase.ingreso_extra ||
-                                0
-                            ).toFixed(2)} €
-                          </p>
-
-                        </div>
-
-                      )}
-
-                      <div
-                        className={
-                          resultadoClase > 0
-                            ? "rounded-xl border border-green-200 bg-green-50 px-3 py-2.5"
-                            : resultadoClase < 0
-                            ? "rounded-xl border border-red-200 bg-red-50 px-3 py-2.5"
-                            : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5"
-                        }
-                      >
-
-                        <p
-                          className={
-                            resultadoClase > 0
-                              ? "text-[10px] font-bold uppercase tracking-wide text-green-700"
-                              : resultadoClase < 0
-                              ? "text-[10px] font-bold uppercase tracking-wide text-red-600"
-                              : "text-[10px] font-bold uppercase tracking-wide text-slate-500"
-                          }
-                        >
-                          Resultado
-                        </p>
-
-                        <p
-                          className={
-                            resultadoClase > 0
-                              ? "mt-1 text-lg font-bold text-green-700"
-                              : resultadoClase < 0
-                              ? "mt-1 text-lg font-bold text-red-600"
-                              : "mt-1 text-lg font-bold text-slate-700"
-                          }
-                        >
-                          {resultadoClase.toFixed(
-                            2
-                          )} €
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    {clase.clase_alumnos.length > 0 && (
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-
-                        {clase.clase_alumnos.map(
-                          (
-                            participante
-                          ) => {
-
-                            const pago =
-                              pagoDeAlumno(
-                                clase.id,
-                                participante.alumno_id
-                              );
-
-                            return (
-
-                              <div
-                                key={
-                                  participante.alumno_id
-                                }
-                                className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
-                              >
-
-                                <span className="text-xs font-semibold text-slate-700">
-                                  {nombreCompletoAlumno(
-                                    participante.alumnos
-                                  )}
-                                </span>
-
-                                {clase.tipo === "club" ? (
-
-                                  <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-700">
-                                    Alumno del club
-                                  </span>
-
-                                ) : participante.usa_bono ? (
-
-                                  <span className="rounded-full bg-teal-100 px-2.5 py-1 text-[11px] font-bold text-teal-700">
-                                    Bono
-                                  </span>
-
-                                ) : clase.estado !== "realizada" ? (
-
-                                  <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                                    Pago normal ·{" "}
-                                    {Number(
-                                      participante.importe ||
-                                        0
-                                    ).toFixed(2)} €
-                                  </span>
-
-                                ) : pago?.estado === "pagado" ? (
-
-                                  <span className="rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-bold text-green-700">
-                                    Pagado ·{" "}
-                                    {Number(
-                                      participante.importe ||
-                                        0
-                                    ).toFixed(2)} € ·{" "}
-                                    {pago.metodo
-                                      .charAt(0)
-                                      .toUpperCase() +
-                                      pago.metodo.slice(1)}
-                                  </span>
-
-                                ) : (
-
-                                  <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-bold text-red-700">
-                                    Pendiente ·{" "}
-                                    {Number(
-                                      participante.importe ||
-                                        0
-                                    ).toFixed(2)} €
-                                  </span>
-
-                                )}
-
-                              </div>
-
-                            );
-                          }
                         )}
+                      </section>
 
-                      </div>
+                      {/* DATOS DE LA CLASE */}
+                      <section className="p-4 xl:border-r xl:border-slate-100">
+                        <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                          <span className="text-[#00A79C]">
+                            <IconoClase />
+                          </span>
+                          <div>
+                            <h3 className="text-sm font-bold text-[#17324D]">
+                              Detalles
+                            </h3>
+                            <p className="mt-0.5 text-[10px] text-slate-400">
+                              ConfiguraciÃ³n de la clase
+                            </p>
+                          </div>
+                        </div>
 
-                    )}
+                        <div className="mt-1 divide-y divide-slate-100">
+                          <div className="flex items-start gap-3 py-3">
+                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#00A79C]/10 text-[#00A79C]">
+                              <IconoClase />
+                            </span>
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
+                                Tipo
+                              </p>
+                              <p className="mt-0.5 text-xs font-semibold text-[#17324D]">
+                                {textoTipo(
+                                  clase.tipo
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3 py-3">
+                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#00A79C]/10 text-[#00A79C]">
+                              <IconoReloj />
+                            </span>
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
+                                DuraciÃ³n
+                              </p>
+                              <p className="mt-0.5 text-xs font-semibold text-[#17324D]">
+                                {clase.duracion_minutos} minutos
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3 py-3">
+                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#00A79C]/10 text-[#00A79C]">
+                              <IconoCalendario />
+                            </span>
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
+                                ProgramaciÃ³n
+                              </p>
+                              <p className="mt-0.5 text-xs font-semibold text-[#17324D]">
+                                {clase.serie_id
+                                  ? "Serie recurrente"
+                                  : "Clase individual"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* ECONOMÃA */}
+                      <section className="p-3.5 sm:p-4">
+                        <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                          <span className="text-[#00A79C]">
+                            <IconoEuro />
+                          </span>
+                          <div>
+                            <h3 className="text-sm font-bold text-[#17324D]">
+                              EconomÃ­a
+                            </h3>
+                            <p className="mt-0.5 text-[10px] text-slate-400">
+                              Ingresos, costes y resultado
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 space-y-2">
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-[#FBFCFD] px-3 py-2.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                              {clase.tipo ===
+                              "club"
+                                ? "A cobrar al club"
+                                : "Valor alumnos"}
+                            </span>
+                            <span className="text-sm font-bold text-[#17324D]">
+                              {importeBase.toFixed(
+                                2
+                              )} â‚¬
+                              {clase.tipo === "club" &&
+                                importeBase === 0 && (
+                                  <span className="ml-2 text-[9px] font-bold text-amber-600">
+                                    Sin tarifa coincidente
+                                  </span>
+                                )}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-[#FBFCFD] px-3 py-2.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                              Pista
+                            </span>
+                            <span
+                              className={
+                                costePistaClase >
+                                0
+                                  ? "text-sm font-bold text-red-600"
+                                  : "text-sm font-semibold text-slate-500"
+                              }
+                            >
+                              {costePistaClase > 0
+                                ? `-${costePistaClase.toFixed(
+                                    2
+                                  )} â‚¬`
+                                : "Sin coste"}
+                            </span>
+                          </div>
+
+                          {ingresoExtraClase >
+                            0 && (
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-[#FBFCFD] px-3 py-2.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                Extra
+                              </span>
+                              <span className="text-sm font-bold text-violet-700">
+                                +{ingresoExtraClase.toFixed(
+                                  2
+                                )} â‚¬
+                              </span>
+                            </div>
+                          )}
+
+                          <div
+                            className={
+                              resultadoClase > 0
+                                ? "flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3"
+                                : resultadoClase < 0
+                                ? "flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-3"
+                                : "flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                            }
+                          >
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                              Resultado
+                            </span>
+                            <span
+                              className={
+                                resultadoClase > 0
+                                  ? "text-lg font-bold text-emerald-700"
+                                  : resultadoClase < 0
+                                  ? "text-lg font-bold text-red-600"
+                                  : "text-lg font-bold text-slate-700"
+                              }
+                            >
+                              {resultadoClase.toFixed(
+                                2
+                              )} â‚¬
+                            </span>
+                          </div>
+                        </div>
+                      </section>
+                    </div>
 
                     {clase.observaciones && (
-
                       <div
                         className={
-                          clase.estado === "cancelada"
-                            ? "mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5"
-                            : "mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5"
+                          clase.estado ===
+                          "cancelada"
+                            ? "border-t border-red-100 bg-red-50/60 px-4 py-3"
+                            : "border-t border-slate-100 bg-[#FBFCFD] px-4 py-3"
                         }
                       >
-
                         <p
                           className={
-                            clase.estado === "cancelada"
-                              ? "text-[10px] font-bold uppercase tracking-wide text-red-700"
-                              : "text-[10px] font-bold uppercase tracking-wide text-slate-500"
+                            clase.estado ===
+                            "cancelada"
+                              ? "text-[9px] font-bold uppercase tracking-wide text-red-600"
+                              : "text-[9px] font-bold uppercase tracking-wide text-slate-400"
                           }
                         >
-                          {clase.estado === "cancelada"
-                            ? "Motivo de cancelación / anotación"
-                            : "Anotación"}
+                          {clase.estado ===
+                          "cancelada"
+                            ? "Motivo de cancelaciÃ³n / anotaciÃ³n"
+                            : "AnotaciÃ³n"}
                         </p>
-
                         <p
                           className={
-                            clase.estado === "cancelada"
-                              ? "mt-1 text-sm text-red-900"
-                              : "mt-1 text-sm text-slate-700"
+                            clase.estado ===
+                            "cancelada"
+                              ? "mt-1 text-xs text-red-900"
+                              : "mt-1 text-xs text-slate-600"
                           }
                         >
                           {clase.observaciones}
                         </p>
-
                       </div>
-
                     )}
 
-                    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-
-                      {!claseEditandoId && (
+                    <div className="border-t border-slate-100 bg-[#0F2742] px-3 py-3 sm:px-4">
+                      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+                        {!claseEditandoId && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              editarClase(
+                                clase
+                              )
+                            }
+                            className="inline-flex h-10 w-full min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15 sm:w-auto"
+                          >
+                            <IconoEditar />
+                            <span className="truncate">
+                              Editar
+                            </span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
                           onClick={() =>
-                            editarClase(
+                            borrarClase(
                               clase
                             )
                           }
-                          className="rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700"
+                          className="inline-flex h-10 w-full min-w-0 items-center justify-center gap-1.5 rounded-xl border border-red-300/40 bg-red-400/10 px-3 text-[11px] font-bold text-red-200 transition hover:bg-red-400/20 sm:w-auto"
                         >
-                          Editar
+                          <IconoBorrar />
+                          <span className="truncate">
+                            Borrar
+                          </span>
                         </button>
-
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          borrarClase(
-                            clase
-                          )
-                        }
-                        className="rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-red-700"
-                      >
-                        Borrar
-                      </button>
-
+                      </div>
                     </div>
-
                   </article>
-
                 );
               }
             )}
 
           </div>
 
-        </section>
 
       </div>
 
@@ -6191,12 +7231,12 @@ export default function ClasesPage() {
 
           <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
 
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="text-xl font-bold text-[#17324D]">
               Guardar cambios de una serie
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Esta clase pertenece a una serie recurrente. Elige a qué clases quieres aplicar los cambios.
+              Esta clase pertenece a una serie recurrente. Elige a quÃ© clases quieres aplicar los cambios.
             </p>
 
             <div className="mt-6 grid gap-3">
@@ -6208,7 +7248,7 @@ export default function ClasesPage() {
                     "una"
                   )
                 }
-                className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-left font-semibold text-slate-800 transition hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-left font-semibold text-slate-800 transition hover:bg-slate-50"
               >
                 Solo esta clase
               </button>
@@ -6232,7 +7272,7 @@ export default function ClasesPage() {
                     "serie"
                   )
                 }
-                className="rounded-xl bg-[#09a9a3] px-5 py-3 text-left font-semibold text-white transition hover:bg-[#078b86]"
+                className="rounded-xl bg-[#00A79C] px-5 py-3 text-left font-semibold text-white transition hover:bg-[#008C83]"
               >
                 Toda la serie
               </button>
@@ -6266,12 +7306,12 @@ export default function ClasesPage() {
 
           <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
 
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="text-xl font-bold text-[#17324D]">
               Borrar clase de una serie
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Esta clase pertenece a una serie recurrente. Elige qué quieres borrar.
+              Esta clase pertenece a una serie recurrente. Elige quÃ© quieres borrar.
             </p>
 
             <div className="mt-6 grid gap-3">
@@ -6287,7 +7327,7 @@ export default function ClasesPage() {
                     "una"
                   )
                 }
-                className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-left font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-left font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 Solo esta clase
               </button>
@@ -6349,4 +7389,4 @@ export default function ClasesPage() {
 
     </main>
   );
-}                
+}

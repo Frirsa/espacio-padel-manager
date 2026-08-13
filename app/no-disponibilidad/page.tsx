@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type NoDisponibilidad = {
@@ -11,9 +11,274 @@ type NoDisponibilidad = {
   created_at: string;
 };
 
-function formatearFecha(fecha: string) {
-  const [anio, mes, dia] = fecha.split("-");
+type FiltroPeriodo =
+  | "todos"
+  | "vigentes"
+  | "finalizados";
+
+function fechaLocalISO(
+  fecha: Date
+) {
+  const anio =
+    fecha.getFullYear();
+  const mes =
+    String(
+      fecha.getMonth() + 1
+    ).padStart(2, "0");
+  const dia =
+    String(
+      fecha.getDate()
+    ).padStart(2, "0");
+
+  return `${anio}-${mes}-${dia}`;
+}
+
+function formatearFecha(
+  fecha: string
+) {
+  const [anio, mes, dia] =
+    fecha.split("-");
+
   return `${dia}/${mes}/${anio}`;
+}
+
+function formatearFechaControl(
+  valor: string
+) {
+  if (!valor) {
+    return "Seleccionar";
+  }
+
+  const [anio, mes, dia] =
+    valor.split("-").map(Number);
+
+  const fecha =
+    new Date(
+      anio,
+      mes - 1,
+      dia
+    );
+
+  return new Intl.DateTimeFormat(
+    "es-ES",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  ).format(fecha);
+}
+
+function diasEntre(
+  inicio: string,
+  fin: string
+) {
+  const fechaInicio =
+    new Date(
+      `${inicio}T12:00:00`
+    );
+
+  const fechaFin =
+    new Date(
+      `${fin}T12:00:00`
+    );
+
+  const diferencia =
+    fechaFin.getTime() -
+    fechaInicio.getTime();
+
+  return (
+    Math.floor(
+      diferencia /
+        (1000 * 60 * 60 * 24)
+    ) + 1
+  );
+}
+
+function IconoCalendario({
+  className = "h-4 w-4",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="16"
+        rx="2"
+      />
+      <path d="M8 3v4M16 3v4M3 10h18" />
+    </svg>
+  );
+}
+
+function IconoBloqueo({
+  className = "h-4 w-4",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+      />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
+function IconoEditar() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 20h4l11-11-4-4L4 16v4Z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+function IconoBorrar() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M7 7l1 13h8l1-13" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
+  );
+}
+
+function CampoFecha({
+  etiqueta,
+  valor,
+  onChange,
+  min,
+  required = false,
+}: {
+  etiqueta: string;
+  valor: string;
+  onChange: (valor: string) => void;
+  min?: string;
+  required?: boolean;
+}) {
+  const inputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
+  function abrirSelectorFecha() {
+    const input =
+      inputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    try {
+      if (
+        typeof input.showPicker ===
+        "function"
+      ) {
+        input.showPicker();
+        return;
+      }
+    } catch {
+      // Algunos navegadores no permiten showPicker en determinadas circunstancias.
+    }
+
+    input.focus();
+    input.click();
+  }
+
+  return (
+    <div className="block min-w-0">
+      <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+        {etiqueta}
+      </span>
+
+      <div className="relative">
+        <button
+          type="button"
+          onClick={
+            abrirSelectorFecha
+          }
+          className="flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold capitalize text-[#17324D] transition hover:bg-slate-50 focus:border-[#00A79C]/60 focus:outline-none focus:ring-2 focus:ring-[#00A79C]/10 sm:px-3.5 sm:text-sm"
+          aria-label={`Seleccionar ${etiqueta.toLowerCase()}`}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-[#00A79C]">
+              <IconoCalendario />
+            </span>
+
+            <span className="truncate">
+              {formatearFechaControl(
+                valor
+              )}
+            </span>
+          </span>
+
+          <span className="shrink-0 text-xs text-slate-400">
+            ⌄
+          </span>
+        </button>
+
+        <input
+          ref={inputRef}
+          type="date"
+          value={valor}
+          min={min}
+          required={required}
+          onChange={(e) =>
+            onChange(
+              e.target.value
+            )
+          }
+          className="pointer-events-none absolute h-px w-px opacity-0"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function NoDisponibilidadPage() {
@@ -40,6 +305,14 @@ export default function NoDisponibilidadPage() {
     setPeriodoEditandoId,
   ] = useState<string | null>(null);
 
+  const [
+    filtroPeriodo,
+    setFiltroPeriodo,
+  ] =
+    useState<FiltroPeriodo>(
+      "vigentes"
+    );
+
   useEffect(() => {
     cargarPeriodos();
   }, []);
@@ -47,7 +320,9 @@ export default function NoDisponibilidadPage() {
   async function cargarPeriodos() {
     const { data, error } =
       await supabase
-        .from("no_disponibilidades")
+        .from(
+          "no_disponibilidades"
+        )
         .select("*")
         .order("fecha_inicio", {
           ascending: true,
@@ -61,7 +336,8 @@ export default function NoDisponibilidadPage() {
     }
 
     setPeriodos(
-      (data || []) as NoDisponibilidad[]
+      (data ||
+        []) as NoDisponibilidad[]
     );
   }
 
@@ -95,12 +371,16 @@ export default function NoDisponibilidadPage() {
     if (periodoEditandoId) {
       const resultado =
         await supabase
-          .from("no_disponibilidades")
+          .from(
+            "no_disponibilidades"
+          )
           .update({
-            fecha_inicio: fechaInicio,
+            fecha_inicio:
+              fechaInicio,
             fecha_fin: final,
             motivo:
-              motivo.trim() || null,
+              motivo.trim() ||
+              null,
           })
           .eq(
             "id",
@@ -112,12 +392,16 @@ export default function NoDisponibilidadPage() {
     } else {
       const resultado =
         await supabase
-          .from("no_disponibilidades")
+          .from(
+            "no_disponibilidades"
+          )
           .insert({
-            fecha_inicio: fechaInicio,
+            fecha_inicio:
+              fechaInicio,
             fecha_fin: final,
             motivo:
-              motivo.trim() || null,
+              motivo.trim() ||
+              null,
           });
 
       error =
@@ -200,7 +484,9 @@ export default function NoDisponibilidadPage() {
 
     const { error } =
       await supabase
-        .from("no_disponibilidades")
+        .from(
+          "no_disponibilidades"
+        )
         .delete()
         .eq("id", id);
 
@@ -218,80 +504,206 @@ export default function NoDisponibilidadPage() {
     await cargarPeriodos();
   }
 
+  const hoy =
+    fechaLocalISO(
+      new Date()
+    );
+
+  function estadoPeriodo(
+    periodo: NoDisponibilidad
+  ) {
+    if (
+      periodo.fecha_fin < hoy
+    ) {
+      return "finalizado" as const;
+    }
+
+    if (
+      periodo.fecha_inicio <=
+        hoy &&
+      periodo.fecha_fin >=
+        hoy
+    ) {
+      return "en_curso" as const;
+    }
+
+    return "proximo" as const;
+  }
+
+  const periodosEnCurso =
+    periodos.filter(
+      (periodo) =>
+        estadoPeriodo(
+          periodo
+        ) === "en_curso"
+    ).length;
+
+  const periodosProximos =
+    periodos.filter(
+      (periodo) =>
+        estadoPeriodo(
+          periodo
+        ) === "proximo"
+    ).length;
+
+  const periodosFiltrados =
+    periodos.filter(
+      (periodo) => {
+        const estado =
+          estadoPeriodo(
+            periodo
+          );
+
+        if (
+          filtroPeriodo ===
+          "vigentes"
+        ) {
+          return (
+            estado ===
+              "en_curso" ||
+            estado ===
+              "proximo"
+          );
+        }
+
+        if (
+          filtroPeriodo ===
+          "finalizados"
+        ) {
+          return (
+            estado ===
+            "finalizado"
+          );
+        }
+
+        return true;
+      }
+    );
+
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#F6F8FA] px-3 py-4 sm:px-7 sm:py-7 lg:px-9">
+      <div className="mx-auto w-full max-w-[1540px]">
 
-      <div className="mx-auto max-w-6xl">
+        {/* CABECERA */}
+        <section className="overflow-hidden rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-5 lg:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#4DD4CA]">
+                Gestión
+              </p>
 
-        <div>
-          <h1 className="text-4xl font-bold text-slate-900">
-            No disponibilidad
-          </h1>
+              <h1 className="mt-1 text-[28px] font-bold tracking-tight text-white sm:text-4xl">
+                No disponibilidad
+              </h1>
 
-          <p className="mt-2 text-slate-600">
-            Vacaciones, viajes o días en los que no puedes impartir clases
-          </p>
-        </div>
+              <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-white/60 sm:mt-2 sm:text-sm">
+                Bloquea vacaciones, viajes o cualquier periodo en el que no puedas impartir clases.
+              </p>
+            </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[360px_1fr]">
+            <div className="grid grid-cols-3 gap-2 lg:min-w-[430px]">
+              <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/45">
+                  Total
+                </p>
+                <p className="mt-1 text-xl font-bold text-white">
+                  {periodos.length}
+                </p>
+              </div>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="rounded-xl border border-red-300/20 bg-red-400/10 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-red-200/80">
+                  En curso
+                </p>
+                <p className="mt-1 text-xl font-bold text-white">
+                  {periodosEnCurso}
+                </p>
+              </div>
 
-            <h2 className="text-xl font-bold text-slate-900">
-              {periodoEditandoId
-                ? "Editar periodo"
-                : "Nuevo periodo"}
-            </h2>
+              <div className="rounded-xl border border-[#4DD4CA]/20 bg-[#00A79C]/15 px-3 py-3 sm:px-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#85E6DF]">
+                  Próximos
+                </p>
+                <p className="mt-1 text-xl font-bold text-white">
+                  {periodosProximos}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-4 grid gap-4 sm:mt-5 sm:gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">
+
+          {/* FORMULARIO */}
+          <section className="self-start overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)] xl:sticky xl:top-5">
+            <div className="bg-[#0F2742] px-4 py-4 text-white sm:px-5 sm:py-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+                    {periodoEditandoId
+                      ? "Edición"
+                      : "Nuevo bloqueo"}
+                  </p>
+
+                  <h2 className="mt-1 text-lg font-bold text-white">
+                    {periodoEditandoId
+                      ? "Editar periodo"
+                      : "Añadir no disponibilidad"}
+                  </h2>
+
+                  <p className="mt-1 text-xs leading-relaxed text-white/50">
+                    El periodo quedará bloqueado en Agenda y al crear nuevas clases o series.
+                  </p>
+                </div>
+
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-red-200">
+                  <IconoBloqueo
+                    className="h-5 w-5"
+                  />
+                </span>
+              </div>
+            </div>
 
             <form
-              onSubmit={guardarPeriodo}
-              className="mt-6 space-y-4"
+              onSubmit={
+                guardarPeriodo
+              }
+              className="space-y-4 p-4 sm:p-5"
             >
-
-              <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Fecha inicio
-                </label>
-
-                <input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => {
+              <div className="grid grid-cols-2 gap-2.5">
+                <CampoFecha
+                  etiqueta="Fecha inicio"
+                  valor={fechaInicio}
+                  required
+                  onChange={(
+                    valor
+                  ) => {
                     setFechaInicio(
-                      e.target.value
+                      valor
                     );
 
-                    if (!fechaFin) {
+                    if (
+                      !fechaFin
+                    ) {
                       setFechaFin(
-                        e.target.value
+                        valor
                       );
                     }
                   }}
-                  required
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
                 />
-              </div>
 
-              <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Fecha final
-                </label>
-
-                <input
-                  type="date"
+                <CampoFecha
+                  etiqueta="Fecha final"
+                  valor={fechaFin}
                   min={fechaInicio}
-                  value={fechaFin}
-                  onChange={(e) =>
-                    setFechaFin(
-                      e.target.value
-                    )
+                  onChange={
+                    setFechaFin
                   }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
                   Motivo
                 </label>
 
@@ -304,133 +716,303 @@ export default function NoDisponibilidadPage() {
                     )
                   }
                   placeholder="Ej. Vacaciones"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-[#17324D] outline-none transition placeholder:text-slate-300 focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={guardando}
-                className="w-full rounded-xl bg-[#09a9a3] px-5 py-3 font-semibold text-white transition hover:bg-[#078b86] disabled:opacity-60"
-              >
-                {guardando
-                  ? "Guardando..."
-                  : periodoEditandoId
-                  ? "Guardar cambios"
-                  : "Guardar periodo"}
-              </button>
+              {fechaInicio && (
+                <div className="rounded-xl border border-red-100 bg-red-50/70 px-3.5 py-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 text-red-500">
+                      <IconoCalendario />
+                    </span>
 
-              {periodoEditandoId && (
-                <button
-                  type="button"
-                  onClick={
-                    cancelarEdicion
-                  }
-                  className="w-full rounded-xl bg-slate-200 px-5 py-3 font-semibold text-slate-800 transition hover:bg-slate-300"
-                >
-                  Cancelar edición
-                </button>
-              )}
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-red-500">
+                        Periodo a bloquear
+                      </p>
 
-            </form>
+                      <p className="mt-1 text-xs font-bold text-red-800">
+                        {formatearFecha(
+                          fechaInicio
+                        )}
+                        {" → "}
+                        {formatearFecha(
+                          fechaFin ||
+                            fechaInicio
+                        )}
+                      </p>
 
-            {mensaje && (
-              <p className="mt-4 text-sm font-medium">
-                {mensaje}
-              </p>
-            )}
-
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Periodos registrados
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  {periodos.length} periodo(s)
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-3">
-
-              {periodos.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-slate-500">
-                  No tienes periodos de no disponibilidad.
+                      <p className="mt-1 text-[11px] text-red-700/70">
+                        {diasEntre(
+                          fechaInicio,
+                          fechaFin ||
+                            fechaInicio
+                        )}{" "}
+                        {diasEntre(
+                          fechaInicio,
+                          fechaFin ||
+                            fechaInicio
+                        ) === 1
+                          ? "día"
+                          : "días"}{" "}
+                        de no disponibilidad
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {periodos.map(
-                (periodo) => (
-                  <div
-                    key={periodo.id}
-                    className="flex flex-col gap-4 rounded-2xl border border-red-200 bg-red-50 p-5 sm:flex-row sm:items-center sm:justify-between"
+              <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2 xl:grid-cols-1">
+                <button
+                  type="submit"
+                  disabled={guardando}
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#00A79C] px-4 text-sm font-bold text-white transition hover:bg-[#008F86] disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  <IconoBloqueo />
+
+                  {guardando
+                    ? "Guardando..."
+                    : periodoEditandoId
+                    ? "Guardar cambios"
+                    : "Guardar periodo"}
+                </button>
+
+                {periodoEditandoId && (
+                  <button
+                    type="button"
+                    onClick={
+                      cancelarEdicion
+                    }
+                    className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-600 transition hover:bg-slate-100"
                   >
+                    Cancelar edición
+                  </button>
+                )}
+              </div>
 
-                    <div>
-                      <p className="font-bold text-slate-900">
-                        {periodo.fecha_inicio ===
-                        periodo.fecha_fin
-                          ? formatearFecha(
-                              periodo.fecha_inicio
-                            )
-                          : `${formatearFecha(
-                              periodo.fecha_inicio
-                            )} → ${formatearFecha(
-                              periodo.fecha_fin
-                            )}`}
-                      </p>
-
-                      <p className="mt-1 text-sm font-medium text-red-700">
-                        {periodo.motivo ||
-                          "No disponible"}
-                      </p>
-                    </div>
-
-                    <div className="flex gap-2">
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          editarPeriodo(
-                            periodo
-                          )
-                        }
-                        className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700"
-                      >
-                        Editar
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          borrarPeriodo(
-                            periodo.id
-                          )
-                        }
-                        className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
-                      >
-                        Borrar
-                      </button>
-
-                    </div>
-
-                  </div>
-                )
+              {mensaje && (
+                <p className="rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-3 text-xs font-medium leading-relaxed text-[#17324D]">
+                  {mensaje}
+                </p>
               )}
-
-            </div>
-
+            </form>
           </section>
 
+          {/* LISTADO */}
+          <div className="min-w-0">
+            <section className="rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+                    Calendario
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-bold text-white">
+                    Periodos registrados
+                  </h2>
+
+                  <p className="mt-1 text-xs text-white/50">
+                    Consulta bloqueos vigentes, próximos y ya finalizados.
+                  </p>
+                </div>
+
+                <div className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold text-white/80 sm:px-4 sm:py-2 sm:text-sm">
+                  {periodosFiltrados.length} de {periodos.length}
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
+                {[
+                  {
+                    valor: "todos",
+                    etiqueta: "Todos",
+                  },
+                  {
+                    valor: "vigentes",
+                    etiqueta: "Vigentes",
+                  },
+                  {
+                    valor: "finalizados",
+                    etiqueta: "Finalizados",
+                  },
+                ].map(
+                  (opcion) => (
+                    <button
+                      key={
+                        opcion.valor
+                      }
+                      type="button"
+                      onClick={() =>
+                        setFiltroPeriodo(
+                          opcion.valor as FiltroPeriodo
+                        )
+                      }
+                      className={
+                        filtroPeriodo ===
+                        opcion.valor
+                          ? "h-10 rounded-xl bg-[#00A79C] px-2 text-[11px] font-bold text-white"
+                          : "h-10 rounded-xl border border-white/15 bg-white/10 px-2 text-[11px] font-bold text-white/70 transition hover:bg-white/15"
+                      }
+                    >
+                      {opcion.etiqueta}
+                    </button>
+                  )
+                )}
+              </div>
+            </section>
+
+            <div className="mt-3 space-y-3 sm:mt-4">
+              {periodosFiltrados.length ===
+                0 && (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center">
+                  <p className="font-semibold text-slate-500">
+                    No hay periodos para mostrar.
+                  </p>
+                </div>
+              )}
+
+              {periodosFiltrados.map(
+                (periodo) => {
+                  const estado =
+                    estadoPeriodo(
+                      periodo
+                    );
+
+                  const mismoDia =
+                    periodo.fecha_inicio ===
+                    periodo.fecha_fin;
+
+                  const numeroDias =
+                    diasEntre(
+                      periodo.fecha_inicio,
+                      periodo.fecha_fin
+                    );
+
+                  return (
+                    <article
+                      key={
+                        periodo.id
+                      }
+                      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]"
+                    >
+                      <span
+                        className={
+                          estado ===
+                          "finalizado"
+                            ? "pointer-events-none absolute inset-y-0 left-0 w-1 bg-slate-300"
+                            : estado ===
+                              "en_curso"
+                            ? "pointer-events-none absolute inset-y-0 left-0 w-1 bg-red-500"
+                            : "pointer-events-none absolute inset-y-0 left-0 w-1 bg-amber-400"
+                        }
+                      />
+
+                      <div className="flex flex-col gap-3 px-4 py-4 sm:px-5 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <span
+                            className={
+                              estado ===
+                              "finalizado"
+                                ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500"
+                                : estado ===
+                                  "en_curso"
+                                ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500"
+                                : "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600"
+                            }
+                          >
+                            <IconoCalendario />
+                          </span>
+
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-bold text-[#17324D] sm:text-base">
+                                {mismoDia
+                                  ? formatearFecha(
+                                      periodo.fecha_inicio
+                                    )
+                                  : `${formatearFecha(
+                                      periodo.fecha_inicio
+                                    )} → ${formatearFecha(
+                                      periodo.fecha_fin
+                                    )}`}
+                              </p>
+
+                              <span
+                                className={
+                                  estado ===
+                                  "finalizado"
+                                    ? "rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-500"
+                                    : estado ===
+                                      "en_curso"
+                                    ? "rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700"
+                                    : "rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700"
+                                }
+                              >
+                                {estado ===
+                                "finalizado"
+                                  ? "Finalizado"
+                                  : estado ===
+                                    "en_curso"
+                                  ? "En curso"
+                                  : "Próximo"}
+                              </span>
+                            </div>
+
+                            <p className="mt-1 text-xs font-semibold text-red-700">
+                              {periodo.motivo ||
+                                "No disponible"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 lg:justify-end">
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                            {numeroDias}{" "}
+                            {numeroDias === 1
+                              ? "día"
+                              : "días"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-100 bg-[#0F2742] px-3 py-3 sm:px-4">
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              editarPeriodo(
+                                periodo
+                              )
+                            }
+                            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15 sm:w-auto"
+                          >
+                            <IconoEditar />
+                            Editar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              borrarPeriodo(
+                                periodo.id
+                              )
+                            }
+                            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-red-300/40 bg-red-400/10 px-3 text-[11px] font-bold text-red-200 transition hover:bg-red-400/20 sm:w-auto"
+                          >
+                            <IconoBorrar />
+                            Borrar
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                }
+              )}
+            </div>
+          </div>
         </div>
-
       </div>
-
     </main>
   );
 }
