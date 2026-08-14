@@ -336,14 +336,37 @@ function CampoFechaAgenda({
   min?: string;
   required?: boolean;
 }) {
+  const inputRef =
+    useRef<HTMLInputElement | null>(null);
+
+  function abrirSelectorFecha() {
+    const input = inputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    try {
+      input.showPicker();
+    } catch {
+      input.focus();
+      input.click();
+    }
+  }
+
   return (
-    <label className="block">
+    <div className="block">
       <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
         {etiqueta}
       </span>
 
       <div className="relative">
-        <div className="flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-bold capitalize text-[#17324D] transition hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={abrirSelectorFecha}
+          className="flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-bold capitalize text-[#17324D] transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#00A79C]/10"
+          aria-label={`Elegir ${etiqueta.toLowerCase()}`}
+        >
           <span className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[#00A79C]">
               <IconoCalendario />
@@ -358,9 +381,10 @@ function CampoFechaAgenda({
           <span className="shrink-0 text-xs text-slate-400">
             ⌄
           </span>
-        </div>
+        </button>
 
         <input
+          ref={inputRef}
           type="date"
           value={valor}
           min={min}
@@ -370,11 +394,12 @@ function CampoFechaAgenda({
               e.target.value
             )
           }
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-          aria-label={etiqueta}
+          className="pointer-events-none absolute h-px w-px opacity-0"
+          tabIndex={-1}
+          aria-hidden="true"
         />
       </div>
-    </label>
+    </div>
   );
 }
 
@@ -986,6 +1011,22 @@ export default function ClasesPage() {
   ] =
     useState("");
 
+  const [
+    busquedaGrupo,
+    setBusquedaGrupo,
+  ] =
+    useState("");
+
+  const [
+    listaGruposAbierta,
+    setListaGruposAbierta,
+  ] = useState(false);
+
+  const [
+    mostrarTodosGrupos,
+    setMostrarTodosGrupos,
+  ] = useState(false);
+
   const [mensaje, setMensaje] =
     useState("");
 
@@ -1093,6 +1134,9 @@ export default function ClasesPage() {
     const horaDesdeAgenda =
       parametros.get("hora");
 
+    const modoDesdeAgenda =
+      parametros.get("modo");
+
     if (
       fechaDesdeAgenda &&
       !claseEditandoId
@@ -1107,6 +1151,21 @@ export default function ClasesPage() {
         setHora(
           horaDesdeAgenda
         );
+      }
+
+      if (modoDesdeAgenda === "serie") {
+        setModoCreacion("serie");
+
+        const fechaInicio =
+          new Date(
+            `${fechaDesdeAgenda}T12:00:00`
+          );
+
+        setDiasSerie([
+          fechaInicio.getDay(),
+        ]);
+      } else {
+        setModoCreacion("individual");
       }
 
       setFormularioAbierto(
@@ -1124,6 +1183,10 @@ export default function ClasesPage() {
 
       url.searchParams.delete(
         "hora"
+      );
+
+      url.searchParams.delete(
+        "modo"
       );
 
       window.history.replaceState(
@@ -1551,6 +1614,9 @@ export default function ClasesPage() {
     setCostePista("");
     setIngresoExtra("");
     setBusquedaAlumno("");
+    setBusquedaGrupo("");
+    setListaGruposAbierta(false);
+    setMostrarTodosGrupos(false);
     setFechaFinSerie("");
     setDiasSerie([]);
     setModoCreacion("individual");
@@ -4518,6 +4584,30 @@ export default function ClasesPage() {
           .filter(Boolean)
       : [];
 
+  const normalizarBusqueda = (valor: string) =>
+    valor
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+
+  const terminoGrupo =
+    normalizarBusqueda(busquedaGrupo);
+
+  const gruposFiltradosBusqueda =
+    terminoGrupo
+      ? grupos.filter((grupo) =>
+          normalizarBusqueda(
+            grupo.nombre
+          ).includes(terminoGrupo)
+        )
+      : [];
+
+  const resultadosGrupo =
+    mostrarTodosGrupos
+      ? gruposFiltradosBusqueda
+      : gruposFiltradosBusqueda.slice(0, 4);
+
   const alumnosFiltrados =
     alumnos.filter(
       (alumno) => {
@@ -4952,9 +5042,9 @@ export default function ClasesPage() {
           </div>
 
           {!claseEditandoId && (
-            <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
+            <section className="relative z-10 mt-4 overflow-visible rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
 
-              <div className="-mx-4 -mt-4 mb-4 flex flex-col gap-2 bg-[#0F2742] px-4 py-3.5 text-white sm:flex-row sm:items-center sm:justify-between">
+              <div className="-mx-4 -mt-4 mb-4 flex flex-col gap-2 rounded-t-2xl bg-[#0F2742] px-4 py-3.5 text-white sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
                     1. Participantes
@@ -4978,30 +5068,217 @@ export default function ClasesPage() {
                     Grupo
                   </label>
 
-                  <select
-                    value={grupoId}
-                    onChange={(e) =>
-                      seleccionarGrupoRapido(
-                        e.target.value
-                      )
-                    }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
-                  >
-                    <option value="">
-                      Sin grupo / elegir alumnos
-                    </option>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                      <IconoBuscar />
+                    </span>
 
-                    {grupos.map(
-                      (grupo) => (
-                        <option
-                          key={grupo.id}
-                          value={grupo.id}
-                        >
-                          {grupo.nombre}
-                        </option>
-                      )
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      placeholder="Buscar grupo..."
+                      value={busquedaGrupo}
+                      onChange={(e) => {
+                        setBusquedaGrupo(
+                          e.target.value
+                        );
+                        setMostrarTodosGrupos(
+                          false
+                        );
+                        setListaGruposAbierta(
+                          false
+                        );
+                      }}
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3.5 text-sm font-semibold text-[#17324D] outline-none transition placeholder:text-slate-300 focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
+                    />
+
+                    {terminoGrupo && (
+                      <div className="absolute left-0 right-0 top-[48px] z-30 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.16)]">
+                        {gruposFiltradosBusqueda.length === 0 ? (
+                          <div className="px-4 py-4 text-xs text-slate-400">
+                            No hay grupos que coincidan con “{busquedaGrupo}”.
+                          </div>
+                        ) : (
+                          <>
+                            <div
+                              className={
+                                mostrarTodosGrupos
+                                  ? "max-h-[260px] overflow-y-auto p-1.5"
+                                  : "p-1.5"
+                              }
+                            >
+                              {resultadosGrupo.map(
+                                (grupo) => (
+                                  <button
+                                    key={grupo.id}
+                                    type="button"
+                                    onClick={() => {
+                                      seleccionarGrupoRapido(
+                                        grupo.id
+                                      );
+                                      setBusquedaGrupo(
+                                        ""
+                                      );
+                                      setMostrarTodosGrupos(
+                                        false
+                                      );
+                                    }}
+                                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-[#EEF7F6]"
+                                  >
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E8F7F5] text-[#00A79C]">
+                                      <IconoPersonas />
+                                    </span>
+
+                                    <div className="min-w-0">
+                                      <p className="truncate text-xs font-bold text-[#17324D]">
+                                        {grupo.nombre}
+                                      </p>
+                                      <p className="mt-0.5 text-[10px] text-slate-400">
+                                        Seleccionar grupo
+                                      </p>
+                                    </div>
+                                  </button>
+                                )
+                              )}
+                            </div>
+
+                            {gruposFiltradosBusqueda.length > 4 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setMostrarTodosGrupos(
+                                    (actual) =>
+                                      !actual
+                                  )
+                                }
+                                className="flex h-10 w-full items-center justify-center border-t border-slate-100 bg-slate-50 px-3 text-[11px] font-bold text-[#17324D] transition hover:bg-slate-100"
+                              >
+                                {mostrarTodosGrupos
+                                  ? "Mostrar menos"
+                                  : `Ver las ${gruposFiltradosBusqueda.length} coincidencias`}
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     )}
-                  </select>
+                  </div>
+
+                  <div className="relative mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBusquedaGrupo("");
+                        setMostrarTodosGrupos(false);
+                        setListaGruposAbierta(
+                          (actual) => !actual
+                        );
+                      }}
+                      className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs font-bold text-[#17324D] transition hover:bg-slate-100"
+                    >
+                      <span className="flex items-center gap-2">
+                        <IconoPersonas />
+                        Seleccionar de la lista
+                      </span>
+                      <span className="text-slate-400">
+                        ⌄
+                      </span>
+                    </button>
+
+                    {listaGruposAbierta && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label="Cerrar lista de grupos"
+                          onClick={() =>
+                            setListaGruposAbierta(
+                              false
+                            )
+                          }
+                          className="fixed inset-0 z-20 cursor-default"
+                        />
+
+                        <div className="absolute left-0 right-0 top-[44px] z-30 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.16)]">
+                          <div className="border-b border-slate-100 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                              Todos los grupos
+                            </p>
+                          </div>
+
+                          <div className="max-h-[280px] overflow-y-auto p-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                seleccionarGrupoRapido(
+                                  ""
+                                );
+                                setListaGruposAbierta(
+                                  false
+                                );
+                              }}
+                              className={
+                                !grupoId
+                                  ? "flex w-full items-center gap-3 rounded-lg bg-[#E8F7F5] px-3 py-2.5 text-left"
+                                  : "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-slate-50"
+                              }
+                            >
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                                <IconoPersonas />
+                              </span>
+                              <p className="min-w-0 flex-1 truncate text-xs font-bold text-[#17324D]">
+                                Sin grupo / elegir alumnos
+                              </p>
+                              {!grupoId && (
+                                <span className="text-sm font-bold text-[#00A79C]">
+                                  ✓
+                                </span>
+                              )}
+                            </button>
+
+                            {grupos.map((grupo) => (
+                              <button
+                                key={grupo.id}
+                                type="button"
+                                onClick={() => {
+                                  seleccionarGrupoRapido(
+                                    grupo.id
+                                  );
+                                  setListaGruposAbierta(
+                                    false
+                                  );
+                                }}
+                                className={
+                                  grupo.id === grupoId
+                                    ? "flex w-full items-center gap-3 rounded-lg bg-[#E8F7F5] px-3 py-2.5 text-left"
+                                    : "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-slate-50"
+                                }
+                              >
+                                <span
+                                  className={
+                                    grupo.id === grupoId
+                                      ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#00A79C]"
+                                      : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400"
+                                  }
+                                >
+                                  <IconoPersonas />
+                                </span>
+
+                                <p className="min-w-0 flex-1 truncate text-xs font-bold text-[#17324D]">
+                                  {grupo.nombre}
+                                </p>
+
+                                {grupo.id === grupoId && (
+                                  <span className="text-sm font-bold text-[#00A79C]">
+                                    ✓
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
 
                   {grupoId &&
                     alumnosGrupoSeleccionado.length > 0 && (
@@ -7389,4 +7666,4 @@ export default function ClasesPage() {
 
     </main>
   );
-}
+}                

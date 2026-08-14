@@ -399,6 +399,15 @@ export default function VistaHorarioAgenda({
     fechaSeleccionada
   );
 
+  const [
+    creacionPendiente,
+    setCreacionPendiente,
+  ] = useState<{
+    fecha: string;
+    hora: number;
+    minuto: number;
+  } | null>(null);
+
   const hoy = fechaLocalISO(new Date());
 
   const inicio = inicioSemana(fechaSeleccionada);
@@ -1475,6 +1484,26 @@ export default function VistaHorarioAgenda({
       return;
     }
 
+    setCreacionPendiente({
+      fecha,
+      hora,
+      minuto,
+    });
+  }
+
+  function continuarCreacionDesdeAgenda(
+    modo: "individual" | "serie"
+  ) {
+    if (!creacionPendiente) {
+      return;
+    }
+
+    const {
+      fecha,
+      hora,
+      minuto,
+    } = creacionPendiente;
+
     const horaTexto =
       `${String(
         hora
@@ -1491,10 +1520,15 @@ export default function VistaHorarioAgenda({
     const volver =
       `/agenda?vista=horario&fecha=${fechaSeleccionada}`;
 
+    const parametroModo =
+      modo === "serie"
+        ? "&modo=serie"
+        : "";
+
     window.location.href =
       `/clases?fecha=${fecha}&hora=${encodeURIComponent(
         horaTexto
-      )}&volver=${encodeURIComponent(
+      )}${parametroModo}&volver=${encodeURIComponent(
         volver
       )}`;
   }
@@ -2578,6 +2612,68 @@ export default function VistaHorarioAgenda({
 
           </div>
 
+        </div>
+      )}
+
+      {creacionPendiente && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-[#17324D]">
+              Crear en este horario
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Elige si quieres programar una sola clase o iniciar una serie recurrente desde este día y hora.
+            </p>
+
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
+                Horario seleccionado
+              </p>
+              <p className="mt-1 text-sm font-bold text-[#17324D]">
+                {creacionPendiente.fecha
+                  .split("-")
+                  .reverse()
+                  .join("/")} · {String(creacionPendiente.hora).padStart(2, "0")}:{String(creacionPendiente.minuto).padStart(2, "0")}
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  continuarCreacionDesdeAgenda(
+                    "individual"
+                  )
+                }
+                className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-left font-semibold text-[#17324D] transition hover:bg-slate-50"
+              >
+                Clase individual
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  continuarCreacionDesdeAgenda(
+                    "serie"
+                  )
+                }
+                className="rounded-xl bg-[#00A79C] px-5 py-3 text-left font-semibold text-white transition hover:bg-[#008F86]"
+              >
+                Serie recurrente
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setCreacionPendiente(null)
+              }
+              className="mt-4 w-full rounded-xl bg-slate-200 px-5 py-3 font-semibold text-slate-800 transition hover:bg-slate-300"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
