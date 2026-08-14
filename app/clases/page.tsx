@@ -11,6 +11,7 @@ type Alumno = {
   id: string;
   nombre: string;
   apellidos: string | null;
+  apodo: string | null;
   precio_habitual: number | null;
   ubicacion_habitual_id: string | null;
   procedencia: string | null;
@@ -1107,6 +1108,11 @@ export default function ClasesPage() {
     setBorrandoSerie,
   ] = useState(false);
 
+  const [
+    creandoSerie,
+    setCreandoSerie,
+  ] = useState(false);
+
   const volverAgendaRef =
     useRef<string | null>(null);
 
@@ -1271,7 +1277,7 @@ export default function ClasesPage() {
       await supabase
         .from("alumnos")
         .select(
-          "id,nombre,apellidos,precio_habitual,ubicacion_habitual_id,procedencia,tipo_clase_habitual"
+          "id,nombre,apellidos,apodo,precio_habitual,ubicacion_habitual_id,procedencia,tipo_clase_habitual"
         )
         .eq(
           "activo",
@@ -3075,6 +3081,141 @@ export default function ClasesPage() {
     return data?.[0] || null;
   }
 
+  async function obtenerNoDisponibilidadSerie(
+    fechasSerie: string[]
+  ) {
+    if (fechasSerie.length === 0) {
+      return null;
+    }
+
+    const primeraFecha =
+      fechasSerie[0];
+
+    const ultimaFecha =
+      fechasSerie[
+        fechasSerie.length - 1
+      ];
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("no_disponibilidades")
+      .select("id,fecha_inicio,fecha_fin,motivo")
+      .lte(
+        "fecha_inicio",
+        ultimaFecha
+      )
+      .gte(
+        "fecha_fin",
+        primeraFecha
+      );
+
+    if (error) {
+      return null;
+    }
+
+    for (
+      const bloqueo of
+      data || []
+    ) {
+      const fechaCoincidente =
+        fechasSerie.find(
+          (fechaSerie) =>
+            fechaSerie >=
+              bloqueo.fecha_inicio &&
+            fechaSerie <=
+              bloqueo.fecha_fin
+        );
+
+      if (
+        fechaCoincidente
+      ) {
+        return {
+          ...bloqueo,
+          fechaCoincidente,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function nombresCompactosAlumnos(
+    alumnosEntrada: Array<
+      | {
+          nombre: string;
+          apellidos: string | null;
+          apodo: string | null;
+        }
+      | null
+      | undefined
+    >
+  ) {
+    const alumnosValidos =
+      alumnosEntrada.filter(
+        Boolean
+      ) as {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }[];
+
+    const nombresCompletos =
+      alumnosValidos.map(
+        (alumno) => {
+          const apodo =
+            (
+              alumno.apodo ||
+              ""
+            ).trim();
+
+          if (apodo) {
+            return apodo;
+          }
+
+          return `${alumno.nombre || ""} ${
+            alumno.apellidos || ""
+          }`.trim();
+        }
+      );
+
+    const textoCompleto =
+      nombresCompletos.join(
+        " · "
+      );
+
+    // Mantiene nombre + apellido mientras el conjunto cabe
+    // cómodamente en una tarjeta de Agenda.
+    const LIMITE_TEXTO =
+      34;
+
+    if (
+      textoCompleto.length <=
+      LIMITE_TEXTO
+    ) {
+      return nombresCompletos;
+    }
+
+    return alumnosValidos.map(
+      (alumno) => {
+        const apodo =
+          (
+            alumno.apodo ||
+            ""
+          ).trim();
+
+        if (apodo) {
+          return apodo;
+        }
+
+        return (
+          alumno.nombre || ""
+        ).trim();
+      }
+    );
+  }
+
   function datosGoogleDesdeFormulario(
     claseId: string,
     googleEventId: string | null | undefined,
@@ -3082,19 +3223,16 @@ export default function ClasesPage() {
     estadoClase: string
   ) {
     const nombres =
-      alumnosSeleccionados
-        .map((alumnoId) => {
-          const alumno = alumnos.find(
-            (item) => item.id === alumnoId
-          );
-
-          if (!alumno) {
-            return "";
-          }
-
-          return `${alumno.nombre} ${alumno.apellidos || ""}`.trim();
-        })
-        .filter(Boolean);
+      nombresCompactosAlumnos(
+        alumnosSeleccionados.map(
+          (alumnoId) =>
+            alumnos.find(
+              (item) =>
+                item.id ===
+                alumnoId
+            )
+        )
+      );
 
     const ubicacion =
       ubicaciones.find(
@@ -3116,6 +3254,10 @@ export default function ClasesPage() {
   }
 
   async function guardarSerie() {
+    if (creandoSerie) {
+      return;
+    }
+
     if (
       !fecha ||
       !fechaFinSerie
@@ -3147,22 +3289,26 @@ export default function ClasesPage() {
       return;
     }
 
-    for (const fechaSerie of fechas) {
-      const bloqueo =
-        await obtenerNoDisponibilidad(
-          fechaSerie
-        );
+    setCreandoSerie(true);
+    setMensaje(
+      `Creando serie de ${fechas.length} clase(s)...`
+    );
 
-      if (bloqueo) {
-        setMensaje(
-          `❌ No puedes crear la serie. El ${fechaSerie} está marcado como no disponible${
-            bloqueo.motivo
-              ? `: ${bloqueo.motivo}`
-              : "."
-          }`
-        );
-        return;
-      }
+    const bloqueoSerie =
+      await obtenerNoDisponibilidadSerie(
+        fechas
+      );
+
+    if (bloqueoSerie) {
+      setCreandoSerie(false);
+      setMensaje(
+        `❌ No puedes crear la serie. El ${bloqueoSerie.fechaCoincidente} está marcado como no disponible${
+          bloqueoSerie.motivo
+            ? `: ${bloqueoSerie.motivo}`
+            : "."
+        }`
+      );
+      return;
     }
 
     const participantes =
@@ -3272,6 +3418,7 @@ export default function ClasesPage() {
         )?.nombre ||
         "esta ubicación";
 
+      setCreandoSerie(false);
       setMensaje(
         `❌ No hay una tarifa de club configurada para ${nombreUbicacion}, ${duracion} minutos y ${alumnosSeleccionados.length} alumno${
           alumnosSeleccionados.length ===
@@ -3328,6 +3475,7 @@ export default function ClasesPage() {
       errorSerie ||
       !serieCreada
     ) {
+      setCreandoSerie(false);
       setMensaje(
         "❌ No se pudo crear la serie: " +
           (
@@ -3401,6 +3549,7 @@ export default function ClasesPage() {
           serieCreada.id
         );
 
+      setCreandoSerie(false);
       setMensaje(
         "❌ No se pudieron crear las clases de la serie: " +
           (
@@ -3441,49 +3590,105 @@ export default function ClasesPage() {
       if (
         errorParticipantes
       ) {
+        setCreandoSerie(false);
         setMensaje(
           "⚠️ La serie se creó, pero hubo un problema al añadir los alumnos."
         );
 
+        limpiarFormulario();
+        setFormularioAbierto(
+          false
+        );
         await cargarDatos();
         return;
       }
     }
 
-    let falloGoogleSerie = false;
-
-    for (let i = 0; i < clasesCreadas.length; i += 1) {
-      const claseCreada = clasesCreadas[i];
-      const fechaClase = fechas[i];
-
-      try {
-        await sincronizarClaseConGoogleCalendar(
+    const datosGoogleSerie =
+      clasesCreadas.map(
+        (
+          claseCreada,
+          indice
+        ) =>
           datosGoogleDesdeFormulario(
             claseCreada.id,
             null,
-            fechaClase,
+            fechas[indice],
             "programada"
           )
-        );
-      } catch {
-        falloGoogleSerie = true;
-      }
-    }
-
-    setMensaje(
-      `✅ Serie creada correctamente: ${fechas.length} clase(s) programada(s)${
-        falloGoogleSerie
-          ? " · ⚠️ Alguna clase no pudo sincronizarse con Google Calendar."
-          : ""
-      }`
-    );
+      );
 
     limpiarFormulario();
     setFormularioAbierto(
       false
     );
+    setCreandoSerie(false);
+    setMensaje(
+      `✅ Serie creada: ${fechas.length} clase(s). Sincronizando con Google Calendar...`
+    );
 
-    await cargarDatos();
+    const sincronizarEnLotes =
+      async () => {
+        let falloGoogleSerie =
+          false;
+
+        const TAMANO_LOTE =
+          8;
+
+        for (
+          let inicio = 0;
+          inicio <
+          datosGoogleSerie.length;
+          inicio +=
+            TAMANO_LOTE
+        ) {
+          const lote =
+            datosGoogleSerie.slice(
+              inicio,
+              inicio +
+                TAMANO_LOTE
+            );
+
+          const resultados =
+            await Promise.allSettled(
+              lote.map(
+                (datosGoogle) =>
+                  sincronizarClaseConGoogleCalendar(
+                    datosGoogle
+                  )
+              )
+            );
+
+          if (
+            resultados.some(
+              (resultado) =>
+                resultado.status ===
+                "rejected"
+            )
+          ) {
+            falloGoogleSerie =
+              true;
+          }
+        }
+
+        setMensaje(
+          `✅ Serie creada correctamente: ${fechas.length} clase(s) programada(s)${
+            falloGoogleSerie
+              ? " · ⚠️ Alguna clase no pudo sincronizarse con Google Calendar."
+              : " · Google Calendar sincronizado."
+          }`
+        );
+
+        if (
+          volverAlOrigenSiExiste()
+        ) {
+          return;
+        }
+
+        await cargarDatos();
+      };
+
+    void sincronizarEnLotes();
   }
 
   function acumularUsoBonos(
@@ -6764,13 +6969,20 @@ export default function ClasesPage() {
 
               <button
                 type="submit"
-                className="h-11 min-w-[180px] rounded-xl bg-[#00A79C] px-6 text-sm font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.12)] transition hover:bg-[#008C83]"
+                disabled={
+                  modoCreacion ===
+                    "serie" &&
+                  creandoSerie
+                }
+                className="h-11 min-w-[180px] rounded-xl bg-[#00A79C] px-6 text-sm font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.12)] transition hover:bg-[#008C83] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {claseEditandoId
                   ? "Guardar cambios"
                   : modoCreacion ===
                     "serie"
-                  ? "Crear serie"
+                  ? creandoSerie
+                    ? "Creando serie..."
+                    : "Crear serie"
                   : "Guardar clase"}
               </button>
 

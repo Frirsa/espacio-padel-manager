@@ -55,37 +55,77 @@ type Props = {
 };
 
 
-function nombreAlumnoAgenda(
-  alumno:
+function nombresAlumnosAgenda(
+  alumnosEntrada: Array<
     | {
         nombre: string;
         apellidos: string | null;
         apodo: string | null;
       }
     | null
-    | undefined,
-  unico: boolean
+    | undefined
+  >
 ) {
-  if (!alumno) {
-    return "";
+  const alumnosValidos =
+    alumnosEntrada.filter(
+      Boolean
+    ) as {
+      nombre: string;
+      apellidos: string | null;
+      apodo: string | null;
+    }[];
+
+  const nombresCompletos =
+    alumnosValidos.map(
+      (alumno) => {
+        const apodo =
+          (
+            alumno.apodo ||
+            ""
+          ).trim();
+
+        if (apodo) {
+          return apodo;
+        }
+
+        return `${alumno.nombre || ""} ${
+          alumno.apellidos || ""
+        }`.trim();
+      }
+    );
+
+  const textoCompleto =
+    nombresCompletos.join(
+      " · "
+    );
+
+  const LIMITE_TEXTO =
+    34;
+
+  if (
+    textoCompleto.length <=
+    LIMITE_TEXTO
+  ) {
+    return nombresCompletos;
   }
 
-  const apodo =
-    (alumno.apodo || "").trim();
+  return alumnosValidos.map(
+    (alumno) => {
+      const apodo =
+        (
+          alumno.apodo ||
+          ""
+        ).trim();
 
-  if (apodo) {
-    return apodo;
-  }
+      if (apodo) {
+        return apodo;
+      }
 
-  if (unico) {
-    return `${alumno.nombre || ""} ${
-      alumno.apellidos || ""
-    }`.trim();
-  }
-
-  return (
-    alumno.nombre || ""
-  ).trim();
+      return (
+        alumno.nombre || ""
+      ).trim();
+    }
+  );
 }
 
 function fechaLocalISO(fecha: Date) {
@@ -1860,13 +1900,9 @@ export default function VistaHorarioAgenda({
                     .filter(Boolean);
 
                 const alumnos =
-                  alumnosDatos
-                    .map((alumno) =>
-                      nombreAlumnoAgenda(
-                        alumno,
-                        alumnosDatos.length === 1
-                      )
-                    )
+                  nombresAlumnosAgenda(
+                    alumnosDatos
+                  )
                     .filter(Boolean)
                     .join(" · ");
 
@@ -2083,13 +2119,9 @@ export default function VistaHorarioAgenda({
                       .filter(Boolean);
 
                     const alumnos=
-                      alumnosDatos
-                        .map((alumno) =>
-                          nombreAlumnoAgenda(
-                            alumno,
-                            alumnosDatos.length === 1
-                          )
-                        )
+                      nombresAlumnosAgenda(
+                        alumnosDatos
+                      )
                         .filter(Boolean)
                         .join(" · ");
                     return (
