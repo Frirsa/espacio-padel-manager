@@ -410,6 +410,16 @@ export default function AlumnosPage() {
     setMensaje("");
   }
 
+  function quitarFoto() {
+    if (fotoUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(fotoUrl);
+    }
+
+    setFotoArchivo(null);
+    setFotoUrl("");
+    setMensaje("");
+  }
+
   async function subirFoto() {
     if (!fotoArchivo) {
       return fotoUrl || null;
@@ -1871,6 +1881,9 @@ export default function AlumnosPage() {
                 setActivo={setActivo}
                 onFotoSeleccionada={
                   seleccionarFoto
+                }
+                onQuitarFoto={
+                  quitarFoto
                 }
                 onGuardar={
                   guardarAlumno

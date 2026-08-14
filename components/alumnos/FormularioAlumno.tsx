@@ -39,6 +39,7 @@ type Props = {
   setActivo: (valor: boolean) => void;
 
   onFotoSeleccionada: (archivo: File | null) => void;
+  onQuitarFoto: () => void;
   onGuardar: (e: React.FormEvent) => void;
   onCancelar: () => void;
 };
@@ -57,6 +58,24 @@ function IconoCamara() {
     >
       <path d="M4 7h4l2-3h4l2 3h4v13H4V7Z" />
       <circle cx="12" cy="13" r="4" />
+    </svg>
+  );
+}
+
+function IconoX() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
     </svg>
   );
 }
@@ -117,6 +136,7 @@ export default function FormularioAlumno({
   setTipoClaseHabitual,
   setActivo,
   onFotoSeleccionada,
+  onQuitarFoto,
   onGuardar,
   onCancelar,
 }: Props) {
@@ -152,24 +172,37 @@ export default function FormularioAlumno({
               Datos personales, contacto y configuración habitual
             </p>
 
-            <label className="mt-2.5 inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-xs font-bold text-white transition hover:bg-white/15 sm:mt-3">
-              <IconoCamara />
-              {fotoUrl
-                ? "Cambiar foto"
-                : "Subir foto"}
+            <div className="mt-2.5 flex flex-wrap gap-2 sm:mt-3">
+              <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-xs font-bold text-white transition hover:bg-white/15">
+                <IconoCamara />
+                {fotoUrl
+                  ? "Cambiar foto"
+                  : "Subir foto"}
 
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) =>
-                  onFotoSeleccionada(
-                    e.target.files?.[0] ||
-                      null
-                  )
-                }
-                className="hidden"
-              />
-            </label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) =>
+                    onFotoSeleccionada(
+                      e.target.files?.[0] ||
+                        null
+                    )
+                  }
+                  className="hidden"
+                />
+              </label>
+
+              {fotoUrl && (
+                <button
+                  type="button"
+                  onClick={onQuitarFoto}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-red-300/35 bg-red-500/10 px-3 text-xs font-bold text-red-100 transition hover:bg-red-500/20"
+                >
+                  <IconoX />
+                  Quitar foto
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
