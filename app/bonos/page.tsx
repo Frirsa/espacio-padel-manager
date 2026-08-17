@@ -3651,11 +3651,16 @@ export default function BonosPage() {
                   return (
                     <article
                       key={bono.id}
-                      className={
+                      className={`${
                         bono.grupo_id
                           ? "overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-[0_10px_28px_rgba(109,40,217,0.08)]"
                           : "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]"
-                      }
+                      } ${
+                        estaFinalizado &&
+                        filtroEstado === "todos"
+                          ? "border-l-[3px] border-l-red-500"
+                          : ""
+                      }`}
                     >
                       <header className={
                         bono.grupo_id
@@ -3711,7 +3716,7 @@ export default function BonosPage() {
                           <span
                             className={
                               estaFinalizado
-                                ? "rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-500"
+                                ? "rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700"
                                 : porTerminar
                                 ? "rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-red-700"
                                 : estaActivo
@@ -3720,7 +3725,7 @@ export default function BonosPage() {
                             }
                           >
                             {estaFinalizado
-                              ? "Finalizado"
+                              ? "TERMINADO"
                               : porTerminar
                               ? "Por terminar"
                               : estaActivo
