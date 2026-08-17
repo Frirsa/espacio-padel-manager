@@ -214,6 +214,102 @@ function datosGoogleClase(
   };
 }
 
+// SolapamientoHorarioAgendaV1
+function calcularDisposicionClasesAgenda(clasesDia: Clase[]) {
+  function intervalo(clase: Clase) {
+    const [hora, minuto] = clase.hora_inicio
+      .slice(0, 5)
+      .split(":")
+      .map(Number);
+
+    const inicio = hora * 60 + minuto;
+
+    return {
+      inicio,
+      fin: inicio + clase.duracion_minutos,
+    };
+  }
+
+  const ordenadas = [...clasesDia].sort((a, b) => {
+    const intervaloA = intervalo(a);
+    const intervaloB = intervalo(b);
+
+    if (intervaloA.inicio !== intervaloB.inicio) {
+      return intervaloA.inicio - intervaloB.inicio;
+    }
+
+    if (a.estado !== b.estado) {
+      if (a.estado === "cancelada") return 1;
+      if (b.estado === "cancelada") return -1;
+    }
+
+    return a.id.localeCompare(b.id);
+  });
+
+  const resultado = new Map<
+    string,
+    { columna: number; totalColumnas: number }
+  >();
+
+  let grupo: Clase[] = [];
+  let finGrupo = -1;
+
+  function procesarGrupo() {
+    if (grupo.length === 0) {
+      return;
+    }
+
+    const finalesColumnas: number[] = [];
+    const asignaciones: Array<{ id: string; columna: number }> = [];
+
+    for (const clase of grupo) {
+      const { inicio, fin } = intervalo(clase);
+      let columna = finalesColumnas.findIndex(
+        (finAnterior) => finAnterior <= inicio
+      );
+
+      if (columna === -1) {
+        columna = finalesColumnas.length;
+        finalesColumnas.push(fin);
+      } else {
+        finalesColumnas[columna] = fin;
+      }
+
+      asignaciones.push({
+        id: clase.id,
+        columna,
+      });
+    }
+
+    const totalColumnas = Math.max(1, finalesColumnas.length);
+
+    for (const asignacion of asignaciones) {
+      resultado.set(asignacion.id, {
+        columna: asignacion.columna,
+        totalColumnas,
+      });
+    }
+  }
+
+  for (const clase of ordenadas) {
+    const { inicio, fin } = intervalo(clase);
+
+    if (grupo.length === 0 || inicio < finGrupo) {
+      grupo.push(clase);
+      finGrupo = Math.max(finGrupo, fin);
+      continue;
+    }
+
+    procesarGrupo();
+    grupo = [clase];
+    finGrupo = fin;
+  }
+
+  procesarGrupo();
+
+  return resultado;
+}
+
 function colorClase(clase: Clase) {
   if (clase.tipo === "club") {
     return "border-amber-300 bg-amber-50/90 text-amber-950";
@@ -500,6 +596,11 @@ export default function VistaHorarioAgenda({
       (clase) =>
         clase.fecha ===
         fechaMovil
+    );
+
+  const disposicionClasesDiaMovil =
+    calcularDisposicionClasesAgenda(
+      clasesDiaMovil
     );
 
   function noDisponible(fecha:string) {
@@ -1930,6 +2031,14 @@ export default function VistaHorarioAgenda({
                     .filter(Boolean)
                     .join(" · ");
 
+                const posicion =
+                  disposicionClasesDiaMovil.get(
+                    clase.id
+                  ) || {
+                    columna: 0,
+                    totalColumnas: 1,
+                  };
+
                 return (
                   <button
                     key={
@@ -1945,12 +2054,23 @@ export default function VistaHorarioAgenda({
                         clase
                       );
                     }}
-                    className={`absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-xl border border-l-[4px] px-2.5 py-2 text-left text-[10px] leading-tight shadow-[0_3px_10px_rgba(15,23,42,0.08)] active:scale-[0.995] ${colorClase(
+                    className={`absolute z-10 overflow-hidden rounded-xl border border-l-[4px] px-2.5 py-2 text-left text-[10px] leading-tight shadow-[0_3px_10px_rgba(15,23,42,0.08)] active:scale-[0.995] ${colorClase(
                       clase
                     )}`}
                     style={{
                       top,
                       height,
+                      left: `calc(${
+                        posicion.columna *
+                        (100 / posicion.totalColumnas)
+                      }% + ${
+                        posicion.totalColumnas > 1 ? 3 : 6
+                      }px)`,
+                      width: `calc(${
+                        100 / posicion.totalColumnas
+                      }% - ${
+                        posicion.totalColumnas > 1 ? 6 : 12
+                      }px)`,
                     }}
                     title="Abrir acciones rápidas"
                   >
@@ -2084,6 +2204,8 @@ export default function VistaHorarioAgenda({
               const fecha=fechaLocalISO(d);
               const nd=noDisponible(fecha);
               const clasesDia=clases.filter(c=>c.fecha===fecha);
+              const disposicionClasesDia=
+                calcularDisposicionClasesAgenda(clasesDia);
               return (
                 <div
                   key={fecha}
@@ -2148,6 +2270,11 @@ export default function VistaHorarioAgenda({
                       )
                         .filter(Boolean)
                         .join(" · ");
+                    const posicion=
+                      disposicionClasesDia.get(clase.id) || {
+                        columna: 0,
+                        totalColumnas: 1,
+                      };
                     return (
                       <button
                         key={clase.id}
@@ -2202,7 +2329,7 @@ export default function VistaHorarioAgenda({
                             clase
                           );
                         }}
-                        className={`absolute left-1 right-1 z-10 overflow-hidden rounded-xl border border-l-[3px] px-2 py-1.5 text-left text-[10px] leading-tight shadow-[0_2px_6px_rgba(15,23,42,0.06)] transition hover:z-20 hover:-translate-y-[1px] hover:shadow-md ${
+                        className={`absolute z-10 overflow-hidden rounded-xl border border-l-[3px] px-2 py-1.5 text-left text-[10px] leading-tight shadow-[0_2px_6px_rgba(15,23,42,0.06)] transition hover:z-20 hover:-translate-y-[1px] hover:shadow-md ${
                           clase.estado === "programada"
                             ? "cursor-grab active:cursor-grabbing"
                             : "cursor-pointer"
@@ -2210,6 +2337,17 @@ export default function VistaHorarioAgenda({
                         style={{
                           top,
                           height,
+                          left: `calc(${
+                            posicion.columna *
+                            (100 / posicion.totalColumnas)
+                          }% + ${
+                            posicion.totalColumnas > 1 ? 2 : 4
+                          }px)`,
+                          width: `calc(${
+                            100 / posicion.totalColumnas
+                          }% - ${
+                            posicion.totalColumnas > 1 ? 4 : 8
+                          }px)`,
                           opacity:
                             claseArrastrandoId ===
                             clase.id
