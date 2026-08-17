@@ -214,98 +214,129 @@ function datosGoogleClase(
   };
 }
 
-// SolapamientoHorarioAgendaV1
+// SolapamientoHorarioAgendaV2
+function intervaloClaseAgenda(clase: Clase) {
+  const [hora, minuto] = clase.hora_inicio
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
+
+  const inicio = hora * 60 + minuto;
+
+  return {
+    inicio,
+    fin: inicio + clase.duracion_minutos,
+  };
+}
+
+function clasesAgendaSeSolapan(primera: Clase, segunda: Clase) {
+  const intervaloPrimera = intervaloClaseAgenda(primera);
+  const intervaloSegunda = intervaloClaseAgenda(segunda);
+
+  return (
+    intervaloPrimera.inicio < intervaloSegunda.fin &&
+    intervaloPrimera.fin > intervaloSegunda.inicio
+  );
+}
+
+function esCanceladaSolapadaAgenda(
+  clase: Clase,
+  clasesDia: Clase[]
+) {
+  return (
+    clase.estado === "cancelada" &&
+    clasesDia.some(
+      (otraClase) =>
+        otraClase.id !== clase.id &&
+        otraClase.estado !== "cancelada" &&
+        clasesAgendaSeSolapan(clase, otraClase)
+    )
+  );
+}
+
 function calcularDisposicionClasesAgenda(clasesDia: Clase[]) {
-  function intervalo(clase: Clase) {
-    const [hora, minuto] = clase.hora_inicio
-      .slice(0, 5)
-      .split(":")
-      .map(Number);
-
-    const inicio = hora * 60 + minuto;
-
-    return {
-      inicio,
-      fin: inicio + clase.duracion_minutos,
-    };
-  }
-
-  const ordenadas = [...clasesDia].sort((a, b) => {
-    const intervaloA = intervalo(a);
-    const intervaloB = intervalo(b);
-
-    if (intervaloA.inicio !== intervaloB.inicio) {
-      return intervaloA.inicio - intervaloB.inicio;
-    }
-
-    if (a.estado !== b.estado) {
-      if (a.estado === "cancelada") return 1;
-      if (b.estado === "cancelada") return -1;
-    }
-
-    return a.id.localeCompare(b.id);
-  });
-
   const resultado = new Map<
     string,
     { columna: number; totalColumnas: number }
   >();
 
-  let grupo: Clase[] = [];
-  let finGrupo = -1;
+  function procesarLista(lista: Clase[]) {
+    const ordenadas = [...lista].sort((a, b) => {
+      const intervaloA = intervaloClaseAgenda(a);
+      const intervaloB = intervaloClaseAgenda(b);
 
-  function procesarGrupo() {
-    if (grupo.length === 0) {
-      return;
-    }
-
-    const finalesColumnas: number[] = [];
-    const asignaciones: Array<{ id: string; columna: number }> = [];
-
-    for (const clase of grupo) {
-      const { inicio, fin } = intervalo(clase);
-      let columna = finalesColumnas.findIndex(
-        (finAnterior) => finAnterior <= inicio
-      );
-
-      if (columna === -1) {
-        columna = finalesColumnas.length;
-        finalesColumnas.push(fin);
-      } else {
-        finalesColumnas[columna] = fin;
+      if (intervaloA.inicio !== intervaloB.inicio) {
+        return intervaloA.inicio - intervaloB.inicio;
       }
 
-      asignaciones.push({
-        id: clase.id,
-        columna,
-      });
+      return a.id.localeCompare(b.id);
+    });
+
+    let grupo: Clase[] = [];
+    let finGrupo = -1;
+
+    function procesarGrupo() {
+      if (grupo.length === 0) {
+        return;
+      }
+
+      const finalesColumnas: number[] = [];
+      const asignaciones: Array<{ id: string; columna: number }> = [];
+
+      for (const clase of grupo) {
+        const { inicio, fin } = intervaloClaseAgenda(clase);
+        let columna = finalesColumnas.findIndex(
+          (finAnterior) => finAnterior <= inicio
+        );
+
+        if (columna === -1) {
+          columna = finalesColumnas.length;
+          finalesColumnas.push(fin);
+        } else {
+          finalesColumnas[columna] = fin;
+        }
+
+        asignaciones.push({
+          id: clase.id,
+          columna,
+        });
+      }
+
+      const totalColumnas = Math.max(1, finalesColumnas.length);
+
+      for (const asignacion of asignaciones) {
+        resultado.set(asignacion.id, {
+          columna: asignacion.columna,
+          totalColumnas,
+        });
+      }
     }
 
-    const totalColumnas = Math.max(1, finalesColumnas.length);
+    for (const clase of ordenadas) {
+      const { inicio, fin } = intervaloClaseAgenda(clase);
 
-    for (const asignacion of asignaciones) {
-      resultado.set(asignacion.id, {
-        columna: asignacion.columna,
-        totalColumnas,
-      });
-    }
-  }
+      if (grupo.length === 0 || inicio < finGrupo) {
+        grupo.push(clase);
+        finGrupo = Math.max(finGrupo, fin);
+        continue;
+      }
 
-  for (const clase of ordenadas) {
-    const { inicio, fin } = intervalo(clase);
-
-    if (grupo.length === 0 || inicio < finGrupo) {
-      grupo.push(clase);
-      finGrupo = Math.max(finGrupo, fin);
-      continue;
+      procesarGrupo();
+      grupo = [clase];
+      finGrupo = fin;
     }
 
     procesarGrupo();
-    grupo = [clase];
-    finGrupo = fin;
   }
 
-  procesarGrupo();
+  // Las clases canceladas se distribuyen aparte. Así una cancelada
+  // nunca reduce el ancho disponible de una clase válida.
+  procesarLista(
+    clasesDia.filter((clase) => clase.estado !== "cancelada")
+  );
+  procesarLista(
+    clasesDia.filter((clase) => clase.estado === "cancelada")
+  );
 
   return resultado;
 }
@@ -2039,6 +2070,12 @@ export default function VistaHorarioAgenda({
                     totalColumnas: 1,
                   };
 
+                const canceladaSolapada =
+                  esCanceladaSolapadaAgenda(
+                    clase,
+                    clasesDiaMovil
+                  );
+
                 return (
                   <button
                     key={
@@ -2054,84 +2091,118 @@ export default function VistaHorarioAgenda({
                         clase
                       );
                     }}
-                    className={`absolute z-10 overflow-hidden rounded-xl border border-l-[4px] px-2.5 py-2 text-left text-[10px] leading-tight shadow-[0_3px_10px_rgba(15,23,42,0.08)] active:scale-[0.995] ${colorClase(
-                      clase
-                    )}`}
-                    style={{
-                      top,
-                      height,
-                      left: `calc(${
-                        posicion.columna *
-                        (100 / posicion.totalColumnas)
-                      }% + ${
-                        posicion.totalColumnas > 1 ? 3 : 6
-                      }px)`,
-                      width: `calc(${
-                        100 / posicion.totalColumnas
-                      }% - ${
-                        posicion.totalColumnas > 1 ? 6 : 12
-                      }px)`,
-                    }}
-                    title="Abrir acciones rápidas"
-                  >
-                    {clase.estado === "cancelada" && (
-                      <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
-                    )}
-
-                    <IndicadoresClase
-                      clase={clase}
-                    />
-
-                    <div className="pr-14 font-extrabold tracking-tight">
-                      {clase.hora_inicio.slice(
-                        0,
-                        5
-                      )}{" "}
-                      –{" "}
-                      {
-                        horaFinVisual
-                      }
-                      <span className="font-medium opacity-60">
-                        {" "}
-                        ·{" "}
-                        {
-                          clase.duracion_minutos
-                        }{" "}
-                        min
-                      </span>
-                    </div>
-
-                    <div
-                      className="mt-1 line-clamp-2 pr-1 text-xs font-extrabold leading-[1.15]"
-                      title={
-                        alumnos ||
-                        "Sin alumnos"
-                      }
-                    >
-                      {alumnos ||
-                        "Sin alumnos"}
-                    </div>
-
-                    {clase.duracion_minutos >=
-                      60 &&
-                      clase
-                        .ubicaciones
-                        ?.nombre && (
-                        <div
-                          className="mt-1 truncate text-[10px] font-semibold opacity-65"
-                          title={
+                    className={`absolute overflow-hidden rounded-xl border text-left text-[10px] leading-tight active:scale-[0.995] ${
+                      canceladaSolapada
+                        ? "z-30 border-red-500 bg-red-50 px-2 py-0 text-red-800 shadow-[0_3px_10px_rgba(239,68,68,0.16)]"
+                        : `z-10 border-l-[4px] px-2.5 py-2 shadow-[0_3px_10px_rgba(15,23,42,0.08)] ${colorClase(
                             clase
-                              .ubicaciones
-                              .nombre
+                          )}`
+                    }`}
+                    style={{
+                      top: canceladaSolapada
+                        ? top + Math.max(0, height - 24)
+                        : top,
+                      height: canceladaSolapada
+                        ? Math.min(24, height)
+                        : height,
+                      left: canceladaSolapada
+                        ? "6px"
+                        : `calc(${
+                            posicion.columna *
+                            (100 / posicion.totalColumnas)
+                          }% + ${
+                            posicion.totalColumnas > 1 ? 3 : 6
+                          }px)`,
+                      width: canceladaSolapada
+                        ? "calc(100% - 12px)"
+                        : `calc(${
+                            100 / posicion.totalColumnas
+                          }% - ${
+                            posicion.totalColumnas > 1 ? 6 : 12
+                          }px)`,
+                    }}
+                    title={
+                      canceladaSolapada
+                        ? `CANCELADA · ${alumnos || "Sin alumnos"} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                        : "Abrir acciones rápidas"
+                    }
+                  >
+                    {canceladaSolapada ? (
+                      <div className="flex h-full min-w-0 items-center gap-1 overflow-hidden text-[9px] font-extrabold leading-none">
+                        <span className="shrink-0 uppercase">
+                          Cancelada
+                        </span>
+                        <span className="shrink-0 opacity-50">·</span>
+                        <span className="min-w-0 truncate">
+                          {alumnos || "Sin alumnos"}
+                        </span>
+                        <span className="shrink-0 opacity-50">·</span>
+                        <span className="shrink-0">
+                          {clase.hora_inicio.slice(0, 5)}–{horaFinVisual}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        {clase.estado === "cancelada" && (
+                          <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                        )}
+
+                        <IndicadoresClase
+                          clase={clase}
+                        />
+
+                        <div className="pr-14 font-extrabold tracking-tight">
+                          {clase.hora_inicio.slice(
+                            0,
+                            5
+                          )}{" "}
+                          –{" "}
+                          {
+                            horaFinVisual
+                          }
+                          <span className="font-medium opacity-60">
+                            {" "}
+                            ·{" "}
+                            {
+                              clase.duracion_minutos
+                            }{" "}
+                            min
+                          </span>
+                        </div>
+
+                        <div
+                          className="mt-1 line-clamp-2 pr-1 text-xs font-extrabold leading-[1.15]"
+                          title={
+                            alumnos ||
+                            "Sin alumnos"
                           }
                         >
-                          {
-                            clase
-                              .ubicaciones
-                              .nombre
-                          }
+                          {alumnos ||
+                            "Sin alumnos"}
                         </div>
-                      )}
+
+                        {clase.duracion_minutos >=
+                          60 &&
+                          clase
+                            .ubicaciones
+                            ?.nombre && (
+                            <div
+                              className="mt-1 truncate text-[10px] font-semibold opacity-65"
+                              title={
+                                clase
+                                  .ubicaciones
+                                  .nombre
+                              }
+                            >
+                              {
+                                clase
+                                  .ubicaciones
+                                  .nombre
+                              }
+                            </div>
+                          )}
+                      </>
+                    )}
                   </button>
                 );
               }
@@ -2275,6 +2346,11 @@ export default function VistaHorarioAgenda({
                         columna: 0,
                         totalColumnas: 1,
                       };
+                    const canceladaSolapada=
+                      esCanceladaSolapadaAgenda(
+                        clase,
+                        clasesDia
+                      );
                     return (
                       <button
                         key={clase.id}
@@ -2329,25 +2405,37 @@ export default function VistaHorarioAgenda({
                             clase
                           );
                         }}
-                        className={`absolute z-10 overflow-hidden rounded-xl border border-l-[3px] px-2 py-1.5 text-left text-[10px] leading-tight shadow-[0_2px_6px_rgba(15,23,42,0.06)] transition hover:z-20 hover:-translate-y-[1px] hover:shadow-md ${
-                          clase.estado === "programada"
-                            ? "cursor-grab active:cursor-grabbing"
-                            : "cursor-pointer"
-                        } ${colorClase(clase)}`}
+                        className={`absolute overflow-hidden rounded-xl border text-left text-[10px] leading-tight transition ${
+                          canceladaSolapada
+                            ? "z-30 cursor-pointer border-red-500 bg-red-50 px-2 py-0 text-red-800 shadow-[0_2px_7px_rgba(239,68,68,0.16)] hover:z-40 hover:shadow-md"
+                            : `z-10 border-l-[3px] px-2 py-1.5 shadow-[0_2px_6px_rgba(15,23,42,0.06)] hover:z-20 hover:-translate-y-[1px] hover:shadow-md ${
+                                clase.estado === "programada"
+                                  ? "cursor-grab active:cursor-grabbing"
+                                  : "cursor-pointer"
+                              } ${colorClase(clase)}`
+                        }`}
                         style={{
-                          top,
-                          height,
-                          left: `calc(${
-                            posicion.columna *
-                            (100 / posicion.totalColumnas)
-                          }% + ${
-                            posicion.totalColumnas > 1 ? 2 : 4
-                          }px)`,
-                          width: `calc(${
-                            100 / posicion.totalColumnas
-                          }% - ${
-                            posicion.totalColumnas > 1 ? 4 : 8
-                          }px)`,
+                          top: canceladaSolapada
+                            ? top + Math.max(0, height - 22)
+                            : top,
+                          height: canceladaSolapada
+                            ? Math.min(22, height)
+                            : height,
+                          left: canceladaSolapada
+                            ? "4px"
+                            : `calc(${
+                                posicion.columna *
+                                (100 / posicion.totalColumnas)
+                              }% + ${
+                                posicion.totalColumnas > 1 ? 2 : 4
+                              }px)`,
+                          width: canceladaSolapada
+                            ? "calc(100% - 8px)"
+                            : `calc(${
+                                100 / posicion.totalColumnas
+                              }% - ${
+                                posicion.totalColumnas > 1 ? 4 : 8
+                              }px)`,
                           opacity:
                             claseArrastrandoId ===
                             clase.id
@@ -2355,38 +2443,58 @@ export default function VistaHorarioAgenda({
                               : 1,
                         }}
                         title={
-                          clase.estado === "programada"
+                          canceladaSolapada
+                            ? `CANCELADA · ${alumnos || "Sin alumnos"} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                            : clase.estado === "programada"
                             ? "Pulsa para acciones rápidas o arrastra para mover"
                             : "Abrir acciones rápidas"
                         }
                       >
-                        {clase.estado === "cancelada" && (
-                          <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
-                        )}
-
-                        <IndicadoresClase clase={clase} />
-
-                        <div className="pr-14 font-bold tracking-tight">
-                          {clase.hora_inicio.slice(0,5)} – {horaFinVisual}
-                          <span className="font-medium opacity-65">
-                            {" "}· {clase.duracion_minutos} min
-                          </span>
-                        </div>
-
-                        <div
-                          className="mt-1 line-clamp-2 text-[11px] font-bold leading-[1.2]"
-                          title={alumnos || "Sin alumnos"}
-                        >
-                          {alumnos || "Sin alumnos"}
-                        </div>
-
-                        {clase.ubicaciones?.nombre && (
-                          <div
-                            className="mt-1 truncate text-[9px] font-medium opacity-70"
-                            title={clase.ubicaciones.nombre}
-                          >
-                            {clase.ubicaciones.nombre}
+                        {canceladaSolapada ? (
+                          <div className="flex h-full min-w-0 items-center gap-1 overflow-hidden text-[8px] font-extrabold leading-none">
+                            <span className="shrink-0 uppercase">
+                              Cancelada
+                            </span>
+                            <span className="shrink-0 opacity-50">·</span>
+                            <span className="min-w-0 truncate">
+                              {alumnos || "Sin alumnos"}
+                            </span>
+                            <span className="shrink-0 opacity-50">·</span>
+                            <span className="shrink-0">
+                              {clase.hora_inicio.slice(0,5)}–{horaFinVisual}
+                            </span>
                           </div>
+                        ) : (
+                          <>
+                            {clase.estado === "cancelada" && (
+                              <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                            )}
+
+                            <IndicadoresClase clase={clase} />
+
+                            <div className="pr-14 font-bold tracking-tight">
+                              {clase.hora_inicio.slice(0,5)} – {horaFinVisual}
+                              <span className="font-medium opacity-65">
+                                {" "}· {clase.duracion_minutos} min
+                              </span>
+                            </div>
+
+                            <div
+                              className="mt-1 line-clamp-2 text-[11px] font-bold leading-[1.2]"
+                              title={alumnos || "Sin alumnos"}
+                            >
+                              {alumnos || "Sin alumnos"}
+                            </div>
+
+                            {clase.ubicaciones?.nombre && (
+                              <div
+                                className="mt-1 truncate text-[9px] font-medium opacity-70"
+                                title={clase.ubicaciones.nombre}
+                              >
+                                {clase.ubicaciones.nombre}
+                              </div>
+                            )}
+                          </>
                         )}
                       </button>
                     );
