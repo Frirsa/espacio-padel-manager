@@ -36,6 +36,7 @@ type Grupo = {
 type Bono = {
   id: string;
   alumno_id: string;
+  grupo_id: string | null;
   numero_clases: number;
   clases_restantes: number;
   importe_pagado: number;
@@ -1348,7 +1349,7 @@ export default function ClasesPage() {
       await supabase
         .from("bonos")
         .select(
-          "id,alumno_id,numero_clases,clases_restantes,importe_pagado,activo"
+          "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,activo"
         )
         .order(
           "fecha_compra",
@@ -2425,15 +2426,33 @@ export default function ClasesPage() {
           participante.usa_bono &&
           participante.bono_id
         ) {
-          resultado[
-            participante.bono_id
-          ] =
-            (
-              resultado[
-                participante
-                  .bono_id
-              ] || 0
-            ) + 1;
+          const bono =
+            bonos.find(
+              (item) =>
+                item.id ===
+                participante.bono_id
+            );
+
+          if (bono?.grupo_id) {
+            // Un bono de grupo representa clases del grupo completo:
+            // aunque varios integrantes usen el mismo bono en la clase,
+            // solo se descuenta una clase del bono.
+            resultado[
+              participante.bono_id
+            ] = 1;
+          } else {
+            // Bonos individuales/compartidos mantienen la lógica histórica:
+            // cada participante que usa el bono consume una clase.
+            resultado[
+              participante.bono_id
+            ] =
+              (
+                resultado[
+                  participante
+                    .bono_id
+                ] || 0
+              ) + 1;
+          }
         }
       }
     );
@@ -3373,15 +3392,35 @@ export default function ClasesPage() {
                           return 0;
                         }
 
-                        return (
+                        const importeClaseBono =
                           Number(
                             bono.importe_pagado ||
                               0
                           ) /
                           Number(
                             bono.numero_clases
-                          )
-                        );
+                          );
+
+                        if (!bono.grupo_id) {
+                          return importeClaseBono;
+                        }
+
+                        const usuariosMismoBonoGrupo =
+                          alumnosSeleccionados.filter(
+                            (id) =>
+                              modoPagoAlumnos[
+                                id
+                              ] === "bono" &&
+                              bonosSeleccionados[
+                                id
+                              ] === bono.id
+                          ).length;
+
+                        return usuariosMismoBonoGrupo >
+                          0
+                          ? importeClaseBono /
+                              usuariosMismoBonoGrupo
+                          : importeClaseBono;
                       })()
                     : importesAlumnos[
                         alumnoId
@@ -4227,15 +4266,35 @@ export default function ClasesPage() {
                           return 0;
                         }
 
-                        return (
+                        const importeClaseBono =
                           Number(
                             bono.importe_pagado ||
                               0
                           ) /
                           Number(
                             bono.numero_clases
-                          )
-                        );
+                          );
+
+                        if (!bono.grupo_id) {
+                          return importeClaseBono;
+                        }
+
+                        const usuariosMismoBonoGrupo =
+                          alumnosSeleccionados.filter(
+                            (id) =>
+                              modoPagoAlumnos[
+                                id
+                              ] === "bono" &&
+                              bonosSeleccionados[
+                                id
+                              ] === bono.id
+                          ).length;
+
+                        return usuariosMismoBonoGrupo >
+                          0
+                          ? importeClaseBono /
+                              usuariosMismoBonoGrupo
+                          : importeClaseBono;
                       })()
                     : importesAlumnos[
                         alumnoId

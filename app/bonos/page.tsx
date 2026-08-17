@@ -37,6 +37,7 @@ type UsoBono = {
   } | null;
 
   clases: {
+    id: string;
     fecha: string;
     hora_inicio: string;
     duracion_minutos: number;
@@ -906,6 +907,7 @@ export default function BonosPage() {
           ),
 
           clases (
+            id,
             fecha,
             hora_inicio,
             duracion_minutos,
@@ -3605,7 +3607,7 @@ export default function BonosPage() {
                           )
                       : [];
 
-                  const usos =
+                  const usosBrutos =
                     (
                       bono.clase_alumnos ||
                       []
@@ -3625,6 +3627,18 @@ export default function BonosPage() {
                             `${a.clases?.fecha || ""} ${a.clases?.hora_inicio || ""}`
                           )
                       );
+                  const usos =
+                    bono.grupo_id
+                      ? usosBrutos.filter(
+                          (uso, indice, lista) =>
+                            !!uso.clases?.id &&
+                            lista.findIndex(
+                              (otro) =>
+                                otro.clases?.id ===
+                                uso.clases?.id
+                            ) === indice
+                        )
+                      : usosBrutos;
 
                   const usadas =
                     usos.length;
