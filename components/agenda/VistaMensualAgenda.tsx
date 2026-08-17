@@ -269,6 +269,25 @@ function IconoEstadoClase({
   );
 }
 
+function IconoNota() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3.5 w-3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 3.75h8.5L19 8.25V20.25H6Z" />
+      <path d="M14.5 3.75v4.5H19" />
+      <path d="M9 12h6M9 15.5h4.5" />
+    </svg>
+  );
+}
+
 function IndicadoresClase({
   clase,
 }: {
@@ -342,6 +361,15 @@ function IndicadoresClase({
       >
         €
       </span>
+
+      {clase.observaciones?.trim() && (
+        <span
+          title="Esta clase tiene una anotación"
+          className="inline-flex h-[14px] w-[14px] items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
+        >
+          <IconoNota />
+        </span>
+      )}
     </span>
   );
 }
@@ -840,13 +868,7 @@ export default function VistaMensualAgenda({
                     )}`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <p
-                        className={
-                          clase.estado === "cancelada"
-                            ? "min-w-0 text-sm font-extrabold tracking-tight text-red-700"
-                            : "min-w-0 text-sm font-extrabold tracking-tight text-[#17324D]"
-                        }
-                      >
+                      <p className="min-w-0 text-sm font-extrabold tracking-tight text-[#17324D]">
                         {clase.hora_inicio.slice(
                           0,
                           5
@@ -864,7 +886,7 @@ export default function VistaMensualAgenda({
                         </span>
                       </p>
 
-                      <div className="relative h-4 w-9 shrink-0">
+                      <div className="relative h-4 w-14 shrink-0">
                         <IndicadoresClase
                           clase={
                             clase
@@ -874,11 +896,7 @@ export default function VistaMensualAgenda({
                     </div>
 
                     <p
-                      className={
-                        clase.estado === "cancelada"
-                          ? "mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-red-700"
-                          : "mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-[#17324D]"
-                      }
+                      className="mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-[#17324D]"
                       title={
                         alumnos ||
                         "Sin alumnos"
@@ -1119,7 +1137,7 @@ export default function VistaMensualAgenda({
                               )
                             }
                             title="Abrir esta clase para editar"
-                            className={`relative block w-full cursor-pointer rounded-lg border border-l-[3px] px-1.5 py-1.5 pr-9 text-left text-[9px] leading-tight shadow-[0_1px_4px_rgba(15,23,42,0.03)] transition hover:shadow-sm ${claseColor(
+                            className={`relative block w-full cursor-pointer rounded-lg border border-l-[3px] px-1.5 py-1.5 pr-12 text-left text-[9px] leading-tight shadow-[0_1px_4px_rgba(15,23,42,0.03)] transition hover:shadow-sm ${claseColor(
                               clase.tipo
                             )}`}
                           >
@@ -1132,26 +1150,14 @@ export default function VistaMensualAgenda({
 
                             <div className="flex min-w-0 items-center gap-1.5">
 
-                              <span
-                                className={
-                                  clase.estado === "cancelada"
-                                    ? "shrink-0 font-bold text-red-700"
-                                    : "shrink-0 font-bold"
-                                }
-                              >
+                              <span className="shrink-0 font-bold">
                                 {clase.hora_inicio.slice(
                                   0,
                                   5
                                 )}
                               </span>
 
-                              <span
-                                className={
-                                  clase.estado === "cancelada"
-                                    ? "min-w-0 truncate font-medium text-red-700"
-                                    : "min-w-0 truncate font-medium"
-                                }
-                              >
+                              <span className="min-w-0 truncate font-medium">
                                 {nombres ||
                                   "Sin alumnos"}
                               </span>

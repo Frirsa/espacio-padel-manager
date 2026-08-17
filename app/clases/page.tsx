@@ -271,6 +271,25 @@ function IconoClase() {
 }
 
 
+function IconoNota() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3.5 w-3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 3.75h8.5L19 8.25V20.25H6Z" />
+      <path d="M14.5 3.75v4.5H19" />
+      <path d="M9 12h6M9 15.5h4.5" />
+    </svg>
+  );
+}
+
 function formatearFechaControl(
   valor: string
 ) {
@@ -7322,6 +7341,16 @@ export default function ClasesPage() {
                         {clase.serie_id && (
                           <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">
                             Serie
+                          </span>
+                        )}
+
+                        {clase.observaciones?.trim() && (
+                          <span
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white"
+                            title="Esta clase tiene una anotación"
+                            aria-label="Esta clase tiene una anotación"
+                          >
+                            <IconoNota />
                           </span>
                         )}
 

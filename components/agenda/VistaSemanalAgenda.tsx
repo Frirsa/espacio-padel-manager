@@ -282,7 +282,7 @@ function IconoEstadoClase({
     return (
       <svg
         viewBox="0 0 20 20"
-        className="h-3.5 w-3.5"
+        className="h-[11px] w-[11px]"
         fill="none"
         aria-hidden="true"
       >
@@ -317,6 +317,25 @@ function IconoEstadoClase({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function IconoNota() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3.5 w-3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 3.75h8.5L19 8.25V20.25H6Z" />
+      <path d="M14.5 3.75v4.5H19" />
+      <path d="M9 12h6M9 15.5h4.5" />
     </svg>
   );
 }
@@ -379,11 +398,7 @@ function IndicadoresClase({
         title={
           estadoVisual.titulo
         }
-        className={
-          clase.estado === "cancelada"
-            ? `inline-flex h-5 w-5 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
-            : `inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
-        }
+        className={`inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`}
       >
         <IconoEstadoClase
           estado={clase.estado}
@@ -398,6 +413,15 @@ function IndicadoresClase({
       >
         €
       </span>
+
+      {clase.observaciones?.trim() && (
+        <span
+          title="Esta clase tiene una anotación"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
+        >
+          <IconoNota />
+        </span>
+      )}
     </span>
   );
 }
@@ -759,14 +783,10 @@ export default function VistaSemanalAgenda({
                         clase.id
                       )
                     }
-                    className={`relative block w-full overflow-hidden rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(
+                    className={`block w-full rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(
                       clase.tipo
                     )}`}
                   >
-                    {clase.estado === "cancelada" && (
-                      <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
-                    )}
-
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-extrabold tracking-tight text-[#17324D]">
@@ -1030,13 +1050,10 @@ export default function VistaSemanalAgenda({
                                 )
                               }
                               title="Abrir esta clase para editar"
-                              className={`relative block w-full cursor-pointer overflow-hidden rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(
+                              className={`block w-full cursor-pointer rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(
                                 clase.tipo
                               )}`}
                             >
-                              {clase.estado === "cancelada" && (
-                                <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
-                              )}
 
                               <div className="flex items-start justify-between gap-2">
 
