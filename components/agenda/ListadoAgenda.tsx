@@ -551,10 +551,15 @@ export default function ListadoAgenda({
                               volver
                             )}`;
                         }}
-                        className={`block w-full border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
+                        className={`relative block w-full overflow-hidden border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
                           clase.tipo
                         )}`}
                       >
+                        {/* ListaAgendaLineaCanceladaV1 */}
+                        {clase.estado === "cancelada" && (
+                          <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                        )}
+
                         <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
                           <div className="min-w-0">
                             <p className="whitespace-nowrap text-sm font-extrabold tracking-tight text-[#17324D]">

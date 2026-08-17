@@ -783,10 +783,15 @@ export default function VistaSemanalAgenda({
                         clase.id
                       )
                     }
-                    className={`block w-full rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(
+                    className={`relative block w-full overflow-hidden rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(
                       clase.tipo
                     )}`}
                   >
+                    {/* SemanaAgendaLineaCanceladaMovilV1 */}
+                    {clase.estado === "cancelada" && (
+                      <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                    )}
+
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-extrabold tracking-tight text-[#17324D]">
@@ -1050,10 +1055,14 @@ export default function VistaSemanalAgenda({
                                 )
                               }
                               title="Abrir esta clase para editar"
-                              className={`block w-full cursor-pointer rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(
+                              className={`relative block w-full cursor-pointer overflow-hidden rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(
                                 clase.tipo
                               )}`}
                             >
+                              {/* SemanaAgendaLineaCanceladaDesktopV1 */}
+                              {clase.estado === "cancelada" && (
+                                <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
+                              )}
 
                               <div className="flex items-start justify-between gap-2">
 

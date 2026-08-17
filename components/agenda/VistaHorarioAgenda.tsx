@@ -317,11 +317,7 @@ function IndicadoresClase({ clase }: { clase: Clase }) {
     <span className="pointer-events-none absolute right-1.5 top-1.5 flex items-center gap-1">
       <span
         title={estadoVisual.titulo}
-        className={
-          clase.estado === "cancelada"
-            ? `inline-flex h-5 w-5 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
-            : `inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`
-        }
+        className={`inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.08)] ${estadoVisual.clase}`}
       >
         <IconoEstadoClase estado={clase.estado} />
       </span>
