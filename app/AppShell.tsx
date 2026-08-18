@@ -13,6 +13,7 @@ type IconoNombre =
   | "grupos"
   | "ubicaciones"
   | "nodisponibilidad"
+  | "disponibilidad"
   | "bonos"
   | "pagos"
   | "tarifas"
@@ -35,6 +36,7 @@ const menu: Array<{
   { nombre: "Grupos", ruta: "/grupos", icono: "grupos" },
   { nombre: "Ubicaciones", ruta: "/ubicaciones", icono: "ubicaciones" },
   { nombre: "No disponibilidad", ruta: "/no-disponibilidad", icono: "nodisponibilidad" },
+  { nombre: "Disponibilidad", ruta: "/disponibilidad", icono: "disponibilidad" },
   { nombre: "Bonos", ruta: "/bonos", icono: "bonos" },
   { nombre: "Pagos", ruta: "/pagos", icono: "pagos" },
   { nombre: "Tarifas", ruta: "/tarifas", icono: "tarifas" },
@@ -82,6 +84,8 @@ function Icono({
       return <svg {...comunes}><path d="M12 21s6-5.55 6-11a6 6 0 1 0-12 0c0 5.45 6 11 6 11Z" /><circle cx="12" cy="10" r="2.25" /></svg>;
     case "nodisponibilidad":
       return <svg {...comunes}><circle cx="12" cy="12" r="8.25" /><path d="m6.25 17.75 11.5-11.5" /></svg>;
+      case "disponibilidad":
+  return <svg {...comunes}><circle cx="12" cy="12" r="8.25" /><path d="M12 7.5v5l3 1.75" /><path d="m8.2 12.3 2.1 2.1 4-4.2" /></svg>;
     case "bonos":
       return <svg {...comunes}><path d="M4 7.25h16v9.5H4z" /><path d="M8 7.25v9.5M16 7.25v9.5" /><path d="M4 10.25a2 2 0 0 1 0 4M20 10.25a2 2 0 0 0 0 4" /></svg>;
     case "pagos":
