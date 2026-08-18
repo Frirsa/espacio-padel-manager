@@ -1,9 +1,14 @@
 type ValoresTarifas = Record<string, string>;
 
+type TipoImagenTarifas =
+  | "comerciales"
+  | "escuela";
+
 type OpcionesImagenTarifas = {
   valores: ValoresTarifas;
-  anio?: number;
+  anio?: number | string;
   nombreTarifa?: string;
+  tipo?: TipoImagenTarifas;
 };
 
 const ANCHO = 1200;
@@ -12,7 +17,6 @@ const NAVY = "#0F2742";
 const NAVY_TEXTO = "#17324D";
 const TEAL = "#00A79C";
 const TEAL_CLARO = "#4DD4CA";
-const FONDO = "#F6F8FA";
 const BORDE = "#DDE5EC";
 const BLANCO = "#FFFFFF";
 const GRIS = "#6B7C8E";
@@ -175,62 +179,30 @@ function euro(valor: number) {
   )} €`;
 }
 
-function dibujarBolaMarca(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radio: number
+function descargarCanvas(
+  canvas: HTMLCanvasElement,
+  nombreArchivo: string
 ) {
-  ctx.save();
-  ctx.strokeStyle = TEAL_CLARO;
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(
-    x,
-    y,
-    radio,
-    0,
-    Math.PI * 2
+  const enlace =
+    document.createElement("a");
+  enlace.download = nombreArchivo;
+  enlace.href = canvas.toDataURL(
+    "image/png",
+    1
   );
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(
-    x - radio * 0.22,
-    y - radio * 0.1,
-    radio * 0.82,
-    -0.9,
-    1.15
-  );
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(
-    x + radio * 0.22,
-    y + radio * 0.1,
-    radio * 0.82,
-    2.25,
-    4.3
-  );
-  ctx.stroke();
-  ctx.restore();
+  enlace.click();
 }
 
-export async function generarImagenTarifas({
-  valores,
-  anio = new Date().getFullYear(),
-}: OpcionesImagenTarifas) {
-  const [
-    cabecera,
-    footer,
-  ] = await Promise.all([
-    cargarImagen(
-      "/cabecera-bono.png"
-    ),
-    cargarImagen(
-      "/bloque-inferior-bono.png"
-    ),
-  ]);
+async function cargarBase() {
+  const [cabecera, footer] =
+    await Promise.all([
+      cargarImagen(
+        "/cabecera-bono.png"
+      ),
+      cargarImagen(
+        "/bloque-inferior-bono.png"
+      ),
+    ]);
 
   const altoFooter = Math.round(
     (footer.naturalHeight /
@@ -238,28 +210,20 @@ export async function generarImagenTarifas({
       ANCHO
   );
 
-  // La misma cabecera aprobada de Bonos:
-  // ancho completo de 1200 px, igual que el footer.
-  const cabeceraH = 300;
-  const tablaY = 328;
-  const cabeceraGrupoH = 92;
-  const subcabeceraH = 62;
-  const filaH = 102;
-  const tablaH =
-    cabeceraGrupoH +
-    subcabeceraH +
-    filaH * 4;
-  const footerY =
-    tablaY + tablaH + 28;
-  const ALTO =
-    footerY + altoFooter;
+  return {
+    cabecera,
+    footer,
+    altoFooter,
+  };
+}
 
+function crearCanvas(alto: number) {
   const canvas =
     document.createElement(
       "canvas"
     );
   canvas.width = ANCHO;
-  canvas.height = ALTO;
+  canvas.height = alto;
 
   const ctx = canvas.getContext(
     "2d"
@@ -276,12 +240,23 @@ export async function generarImagenTarifas({
     0,
     0,
     ANCHO,
-    ALTO
+    alto
   );
 
-  // CABECERA
-  // Se reutiliza EXACTAMENTE la misma imagen aprobada en Bonos.
-  // No se dibuja ninguna línea vertical adicional.
+  return { canvas, ctx };
+}
+
+function dibujarHeader(
+  ctx: CanvasRenderingContext2D,
+  cabecera: HTMLImageElement,
+  titulo: string,
+  subtitulo: string,
+  valorDerecha: string
+) {
+  const cabeceraH = 300;
+  const textoX = 410;
+  const textoDerecha = ANCHO - 54;
+
   ctx.drawImage(
     cabecera,
     0,
@@ -289,11 +264,6 @@ export async function generarImagenTarifas({
     ANCHO,
     cabeceraH
   );
-
-  // Texto a la derecha del logo.
-  // Se elimina por completo la tarjeta "1 HORA / 1 HOUR".
-  const textoX = 410;
-  const textoDerecha = ANCHO - 54;
 
   ctx.save();
   ctx.textBaseline = "alphabetic";
@@ -310,24 +280,58 @@ export async function generarImagenTarifas({
   ctx.fillStyle = TEAL_CLARO;
   ctx.font = "700 22px Arial";
   ctx.fillText(
-    "CLASES Y BONOS / CLASSES & PACKS",
+    subtitulo,
     textoX,
     142
   );
 
-  // Año mucho más grande, como elemento gráfico principal del header.
   ctx.textAlign = "right";
   ctx.fillStyle = BLANCO;
   ctx.font = "800 78px Arial";
   ctx.fillText(
-    String(anio),
+    valorDerecha,
     textoDerecha,
     238
   );
 
   ctx.restore();
+}
 
-  // TABLA: anchuras perfectamente cerradas dentro de los 1132 px útiles.
+async function generarImagenComerciales({
+  valores,
+  anio = new Date().getFullYear(),
+}: OpcionesImagenTarifas) {
+  const {
+    cabecera,
+    footer,
+    altoFooter,
+  } = await cargarBase();
+
+  const cabeceraH = 300;
+  const tablaY = 328;
+  const cabeceraGrupoH = 92;
+  const subcabeceraH = 62;
+  const filaH = 102;
+  const tablaH =
+    cabeceraGrupoH +
+    subcabeceraH +
+    filaH * 4;
+  const footerY =
+    tablaY + tablaH + 28;
+  const ALTO =
+    footerY + altoFooter;
+
+  const { canvas, ctx } =
+    crearCanvas(ALTO);
+
+  dibujarHeader(
+    ctx,
+    cabecera,
+    "TARIFAS / RATES",
+    "CLASES Y BONOS / CLASSES & PACKS",
+    String(anio)
+  );
+
   const x0 = MARGEN;
   const wAlumnos = 220;
   const wSuelta = 240;
@@ -341,7 +345,6 @@ export async function generarImagenTarifas({
   const xPack10 =
     xPack5 + wPack5;
 
-  // Primera celda superior: etiqueta de filas.
   dibujarPanel(
     ctx,
     x0,
@@ -375,7 +378,6 @@ export async function generarImagenTarifas({
     700
   );
 
-  // Grupos superiores.
   dibujarPanel(
     ctx,
     xSuelta,
@@ -469,7 +471,6 @@ export async function generarImagenTarifas({
   const subY =
     tablaY + cabeceraGrupoH + 8;
 
-  // Subcabecera clase suelta.
   dibujarPanel(
     ctx,
     xSuelta,
@@ -582,7 +583,6 @@ export async function generarImagenTarifas({
       const altura =
         filaH - 8;
 
-      // Etiqueta alumnos.
       dibujarPanel(
         ctx,
         x0,
@@ -746,7 +746,6 @@ export async function generarImagenTarifas({
     }
   );
 
-  // FOOTER EXACTO APROBADO EN BONOS.
   ctx.drawImage(
     footer,
     0,
@@ -755,13 +754,331 @@ export async function generarImagenTarifas({
     altoFooter
   );
 
-  const enlace =
-    document.createElement("a");
-  enlace.download =
-    `Tarifas_Espacio_Padel_${anio}.png`;
-  enlace.href = canvas.toDataURL(
-    "image/png",
-    1
+  descargarCanvas(
+    canvas,
+    `Tarifas_Espacio_Padel_${anio}.png`
   );
-  enlace.click();
+}
+
+async function generarImagenEscuela({
+  valores,
+  anio = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+}: OpcionesImagenTarifas) {
+  const {
+    cabecera,
+    footer,
+    altoFooter,
+  } = await cargarBase();
+
+  const cabeceraH = 300;
+  const tablaY = 332;
+  const encabezadoH = 92;
+  const filaH = 118;
+  const filas = 3;
+  const tablaH =
+    encabezadoH +
+    filaH * filas;
+  const footerY =
+    tablaY + tablaH + 28;
+  const ALTO =
+    footerY + altoFooter;
+
+  const { canvas, ctx } =
+    crearCanvas(ALTO);
+
+  dibujarHeader(
+    ctx,
+    cabecera,
+    "TARIFAS / RATES",
+    "ESCUELA / SCHOOL",
+    String(anio)
+  );
+
+  const x0 = MARGEN;
+  const wHoras = 300;
+  const wMensual = 410;
+  const wTrimestral = 422;
+
+  const xMensual =
+    x0 + wHoras;
+  const xTrimestral =
+    xMensual + wMensual;
+
+  dibujarPanel(
+    ctx,
+    x0,
+    tablaY,
+    wHoras - 8,
+    encabezadoH,
+    NAVY,
+    18
+  );
+  dibujarTextoCentrado(
+    ctx,
+    "HORAS SEMANALES",
+    x0 +
+      (wHoras - 8) / 2,
+    tablaY + 36,
+    21,
+    BLANCO,
+    800
+  );
+  dibujarTextoCentrado(
+    ctx,
+    "HOURS PER WEEK",
+    x0 +
+      (wHoras - 8) / 2,
+    tablaY + 64,
+    14,
+    TEAL_CLARO,
+    700
+  );
+
+  dibujarPanel(
+    ctx,
+    xMensual,
+    tablaY,
+    wMensual - 8,
+    encabezadoH,
+    TEAL,
+    18
+  );
+  dibujarTextoCentrado(
+    ctx,
+    "MENSUAL",
+    xMensual +
+      (wMensual - 8) / 2,
+    tablaY + 36,
+    25,
+    BLANCO,
+    800
+  );
+  dibujarTextoCentrado(
+    ctx,
+    "MONTHLY",
+    xMensual +
+      (wMensual - 8) / 2,
+    tablaY + 66,
+    14,
+    "rgba(255,255,255,0.82)",
+    700
+  );
+
+  dibujarPanel(
+    ctx,
+    xTrimestral,
+    tablaY,
+    wTrimestral,
+    encabezadoH,
+    NAVY,
+    18
+  );
+  dibujarTextoCentrado(
+    ctx,
+    "TRIMESTRAL",
+    xTrimestral +
+      wTrimestral / 2,
+    tablaY + 36,
+    25,
+    BLANCO,
+    800
+  );
+  dibujarTextoCentrado(
+    ctx,
+    "QUARTERLY",
+    xTrimestral +
+      wTrimestral / 2,
+    tablaY + 66,
+    14,
+    TEAL_CLARO,
+    700
+  );
+
+  const horasLista = [1, 2, 3];
+  const baseY =
+    tablaY + encabezadoH + 8;
+
+  horasLista.forEach(
+    (horas, indice) => {
+      const y =
+        baseY +
+        indice * filaH;
+      const altura =
+        filaH - 8;
+      const fondoFila =
+        indice % 2 === 0
+          ? BLANCO
+          : "#FAFCFD";
+
+      dibujarPanel(
+        ctx,
+        x0,
+        y,
+        wHoras - 8,
+        altura,
+        indice % 2 === 0
+          ? BLANCO
+          : "#F0F5F8",
+        14,
+        BORDE
+      );
+
+      dibujarPanel(
+        ctx,
+        x0 + 16,
+        y + 20,
+        58,
+        58,
+        "#E8F7F5",
+        29
+      );
+
+      dibujarTextoCentrado(
+        ctx,
+        String(horas),
+        x0 + 45,
+        y + 49,
+        24,
+        TEAL,
+        800
+      );
+
+      dibujarTextoIzquierda(
+        ctx,
+        `${horas} ${
+          horas === 1
+            ? "HORA"
+            : "HORAS"
+        }`,
+        x0 + 92,
+        y + 38,
+        19,
+        NAVY_TEXTO,
+        800
+      );
+
+      dibujarTextoIzquierda(
+        ctx,
+        "por semana · per week",
+        x0 + 92,
+        y + 66,
+        12,
+        GRIS,
+        700
+      );
+
+      const mensual = numero(
+        valores,
+        `escuela_mensual-${horas}`
+      );
+      const trimestral = numero(
+        valores,
+        `escuela_trimestral-${horas}`
+      );
+
+      [
+        {
+          x: xMensual,
+          w: wMensual - 8,
+          valor: mensual,
+          color: TEAL,
+          ayuda:
+            "Pago mensual",
+        },
+        {
+          x: xTrimestral,
+          w: wTrimestral,
+          valor: trimestral,
+          color: NAVY_TEXTO,
+          ayuda:
+            "Pago trimestral",
+        },
+      ].forEach((celda) => {
+        dibujarPanel(
+          ctx,
+          celda.x,
+          y,
+          celda.w,
+          altura,
+          fondoFila,
+          14,
+          BORDE
+        );
+
+        dibujarTextoCentrado(
+          ctx,
+          celda.valor > 0
+            ? euro(celda.valor)
+            : "—",
+          celda.x +
+            celda.w / 2,
+          y + 42,
+          31,
+          celda.color,
+          800
+        );
+
+        dibujarTextoCentrado(
+          ctx,
+          celda.ayuda,
+          celda.x +
+            celda.w / 2,
+          y + 76,
+          12,
+          GRIS,
+          700
+        );
+      });
+    }
+  );
+
+  dibujarPanel(
+    ctx,
+    MARGEN,
+    footerY - 64,
+    ANCHO - MARGEN * 2,
+    44,
+    "#E8F7F5",
+    14,
+    "#CDEDE9"
+  );
+  dibujarTextoCentrado(
+    ctx,
+    "GRUPOS DE 3–4 ALUMNOS / GROUPS OF 3–4 STUDENTS",
+    ANCHO / 2,
+    footerY - 42,
+    16,
+    NAVY_TEXTO,
+    800
+  );
+
+  ctx.drawImage(
+    footer,
+    0,
+    footerY,
+    ANCHO,
+    altoFooter
+  );
+
+  descargarCanvas(
+    canvas,
+    `Tarifa_Escuela_${anio}.png`
+  );
+}
+
+export async function generarImagenTarifas(
+  opciones: OpcionesImagenTarifas
+) {
+  if (
+    opciones.tipo ===
+    "escuela"
+  ) {
+    return generarImagenEscuela(
+      opciones
+    );
+  }
+
+  return generarImagenComerciales(
+    opciones
+  );
 }

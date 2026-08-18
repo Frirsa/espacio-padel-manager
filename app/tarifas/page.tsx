@@ -27,10 +27,36 @@ type Tarifa = {
 
 type SeccionTarifas =
   | "comerciales"
+  | "escuela"
   | "clubs";
 
 const ALUMNOS = [1, 2, 3, 4];
 const DURACIONES_CLUB = [60, 90, 120];
+const HORAS_ESCUELA = [1, 2, 3] as const;
+const PERIODOS_ESCUELA = [
+  {
+    clave: "mensual",
+    titulo: "Mensual",
+    subtitulo: "Monthly",
+  },
+  {
+    clave: "trimestral",
+    titulo: "Trimestral",
+    subtitulo: "Quarterly",
+  },
+] as const;
+
+const VALORES_INICIALES_ESCUELA: Record<
+  string,
+  number
+> = {
+  "escuela_mensual-1": 45,
+  "escuela_trimestral-1": 125,
+  "escuela_mensual-2": 85,
+  "escuela_trimestral-2": 240,
+  "escuela_mensual-3": 120,
+  "escuela_trimestral-3": 335,
+};
 
 const TARIFAS_COMERCIALES = [
   {
@@ -141,6 +167,19 @@ function conceptoComercialReal(
         tarifaSeleccionada,
         conceptoBase
       );
+}
+
+function claveEscuela(
+  periodo: "mensual" | "trimestral",
+  horas: number
+) {
+  return `escuela_${periodo}-${horas}`;
+}
+
+function conceptoEscuela(
+  periodo: "mensual" | "trimestral"
+) {
+  return `escuela_${periodo}`;
 }
 
 function Icono({
@@ -340,6 +379,13 @@ export default function TarifasPage() {
   >({});
 
   const [
+    valoresEscuela,
+    setValoresEscuela,
+  ] = useState<
+    Record<string, string>
+  >({});
+
+  const [
     guardandoComerciales,
     setGuardandoComerciales,
   ] = useState(false);
@@ -350,8 +396,18 @@ export default function TarifasPage() {
   ] = useState(false);
 
   const [
+    guardandoEscuela,
+    setGuardandoEscuela,
+  ] = useState(false);
+
+  const [
     generandoImagen,
     setGenerandoImagen,
+  ] = useState(false);
+
+  const [
+    generandoImagenEscuela,
+    setGenerandoImagenEscuela,
   ] = useState(false);
 
   const [
@@ -376,6 +432,10 @@ export default function TarifasPage() {
     tarifas,
     ubicacionId,
   ]);
+
+  useEffect(() => {
+    cargarValoresEscuela();
+  }, [tarifas]);
 
   async function cargarDatos() {
     const {
@@ -551,6 +611,60 @@ export default function TarifasPage() {
     setValoresClub(nuevos);
   }
 
+  function cargarValoresEscuela() {
+    const nuevos:
+      Record<string, string> =
+      {};
+
+    for (const horas of HORAS_ESCUELA) {
+      for (const periodo of PERIODOS_ESCUELA) {
+        const concepto =
+          conceptoEscuela(
+            periodo.clave
+          );
+        const clave =
+          claveEscuela(
+            periodo.clave,
+            horas
+          );
+
+        const existente =
+          tarifas.find(
+            (tarifa) =>
+              tarifa.ubicacion_id ===
+                null &&
+              tarifa.concepto ===
+                concepto &&
+              tarifa.duracion_minutos ===
+                horas &&
+              tarifa.numero_alumnos ===
+                0 &&
+              tarifa.activa
+          );
+
+        if (existente) {
+          nuevos[clave] =
+            String(
+              existente.importe
+            );
+        } else if (
+          VALORES_INICIALES_ESCUELA[
+            clave
+          ] !== undefined
+        ) {
+          nuevos[clave] =
+            String(
+              VALORES_INICIALES_ESCUELA[
+                clave
+              ]
+            );
+        }
+      }
+    }
+
+    setValoresEscuela(nuevos);
+  }
+
   function cambiarComercial(
     concepto: string,
     alumnos: number,
@@ -581,6 +695,22 @@ export default function TarifasPage() {
           concepto,
           duracion,
           alumnos
+        )]: valor,
+      })
+    );
+  }
+
+  function cambiarEscuela(
+    periodo: "mensual" | "trimestral",
+    horas: number,
+    valor: string
+  ) {
+    setValoresEscuela(
+      (actuales) => ({
+        ...actuales,
+        [claveEscuela(
+          periodo,
+          horas
         )]: valor,
       })
     );
@@ -775,6 +905,179 @@ export default function TarifasPage() {
     }
   }
 
+
+  async function generarImagenTarifaEscuela() {
+    setGenerandoImagenEscuela(
+      true
+    );
+    setMensaje("");
+
+    try {
+      await generarImagenTarifas({
+        valores: valoresEscuela,
+        anio: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+        tipo: "escuela",
+      });
+
+      setMensaje(
+        "✅ Imagen de Tarifa Escuela generada correctamente"
+      );
+    } catch (error) {
+      const texto =
+        error instanceof Error
+          ? error.message
+          : "Error desconocido";
+
+      setMensaje(
+        "❌ No se pudo generar la imagen de Tarifa Escuela: " +
+          texto
+      );
+    } finally {
+      setGenerandoImagenEscuela(
+        false
+      );
+    }
+  }
+
+  async function guardarTarifasEscuela() {
+    setGuardandoEscuela(true);
+    setMensaje("");
+
+    try {
+      const existentes =
+        tarifas.filter(
+          (tarifa) =>
+            tarifa.ubicacion_id ===
+            null &&
+            [
+              "escuela_mensual",
+              "escuela_trimestral",
+            ].includes(
+              tarifa.concepto
+            )
+        );
+
+      for (const horas of HORAS_ESCUELA) {
+        for (const periodo of PERIODOS_ESCUELA) {
+          const clave =
+            claveEscuela(
+              periodo.clave,
+              horas
+            );
+          const valor =
+            (
+              valoresEscuela[
+                clave
+              ] || ""
+            ).trim();
+          const concepto =
+            conceptoEscuela(
+              periodo.clave
+            );
+
+          const existente =
+            existentes.find(
+              (tarifa) =>
+                tarifa.concepto ===
+                  concepto &&
+                tarifa.duracion_minutos ===
+                  horas &&
+                tarifa.numero_alumnos ===
+                  0
+            );
+
+          if (valor === "") {
+            if (existente) {
+              const {
+                error,
+              } =
+                await supabase
+                  .from("tarifas")
+                  .delete()
+                  .eq(
+                    "id",
+                    existente.id
+                  );
+
+              if (error) {
+                throw error;
+              }
+            }
+
+            continue;
+          }
+
+          const importe =
+            Number(valor);
+
+          if (
+            Number.isNaN(
+              importe
+            )
+          ) {
+            continue;
+          }
+
+          if (existente) {
+            const {
+              error,
+            } =
+              await supabase
+                .from("tarifas")
+                .update({
+                  importe,
+                  activa: true,
+                })
+                .eq(
+                  "id",
+                  existente.id
+                );
+
+            if (error) {
+              throw error;
+            }
+          } else {
+            const {
+              error,
+            } =
+              await supabase
+                .from("tarifas")
+                .insert({
+                  ubicacion_id: null,
+                  concepto,
+                  duracion_minutos:
+                    horas,
+                  numero_alumnos: 0,
+                  importe,
+                  activa: true,
+                });
+
+            if (error) {
+              throw error;
+            }
+          }
+        }
+      }
+
+      setMensaje(
+        "✅ Tarifa Escuela guardada correctamente"
+      );
+
+      await cargarDatos();
+    } catch (error) {
+      const texto =
+        error instanceof Error
+          ? error.message
+          : "Error desconocido";
+
+      setMensaje(
+        "❌ No se pudo guardar la Tarifa Escuela: " +
+          texto
+      );
+    } finally {
+      setGuardandoEscuela(false);
+    }
+  }
 
   async function crearTarifaPersonalizada() {
     const nombre =
@@ -1201,6 +1504,10 @@ export default function TarifasPage() {
     TARIFAS_COMERCIALES.length *
     ALUMNOS.length;
 
+  const totalTarifasEscuela =
+    HORAS_ESCUELA.length *
+    PERIODOS_ESCUELA.length;
+
   const comercialesConfiguradas =
     TARIFAS_COMERCIALES.reduce(
       (total, configuracion) =>
@@ -1213,6 +1520,24 @@ export default function TarifasPage() {
                   configuracion.concepto,
                   60,
                   alumnos
+                )
+              ]
+            )
+        ).length,
+      0
+    );
+
+  const escuelaConfiguradas =
+    HORAS_ESCUELA.reduce(
+      (total, horas) =>
+        total +
+        PERIODOS_ESCUELA.filter(
+          (periodo) =>
+            Boolean(
+              valoresEscuela[
+                claveEscuela(
+                  periodo.clave,
+                  horas
                 )
               ]
             )
@@ -1495,7 +1820,7 @@ export default function TarifasPage() {
           </div>
 
           <div className="mt-5 border-t border-white/10 pt-4">
-            <div className="grid w-full grid-cols-2 rounded-xl border border-white/10 bg-white/10 p-1 sm:inline-flex sm:w-auto">
+            <div className="grid w-full grid-cols-3 rounded-xl border border-white/10 bg-white/10 p-1 sm:inline-flex sm:w-auto">
               <button
                 type="button"
                 onClick={() => {
@@ -1512,6 +1837,24 @@ export default function TarifasPage() {
                 }
               >
                 Clases y bonos
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSeccionActiva(
+                    "escuela"
+                  );
+                  setMensaje("");
+                }}
+                className={
+                  seccionActiva ===
+                  "escuela"
+                    ? "h-9 rounded-lg bg-[#00A79C] px-4 text-[11px] font-bold text-white shadow-sm"
+                    : "h-9 rounded-lg px-4 text-[11px] font-bold text-white/60 transition hover:bg-white/10 hover:text-white"
+                }
+              >
+                Escuela
               </button>
 
               <button
@@ -2062,6 +2405,263 @@ export default function TarifasPage() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </section>
+          </>
+        ) : seccionActiva ===
+        "escuela" ? (
+          <>
+            <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
+              <div className="flex flex-col gap-3 bg-[#0F2742] px-4 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#4DD4CA]">
+                    <Icono nombre="tarifas" />
+                  </span>
+
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#4DD4CA]">
+                      Tarifa Escuela
+                    </p>
+
+                    <h2 className="mt-0.5 text-lg font-bold">
+                      Escuela · grupos de 3 a 4 alumnos
+                    </h2>
+
+                    <p className="mt-0.5 text-[11px] text-white/55">
+                      Configura precios para 1, 2 o 3 horas semanales con pago mensual o trimestral.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid w-full gap-2 sm:flex sm:w-auto sm:items-center">
+                  <button
+                    type="button"
+                    disabled={
+                      generandoImagenEscuela
+                    }
+                    onClick={
+                      generarImagenTarifaEscuela
+                    }
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    <Icono
+                      nombre="imagen"
+                      className="h-4 w-4"
+                    />
+                    {generandoImagenEscuela
+                      ? "Generando..."
+                      : "Generar imagen"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      guardandoEscuela
+                    }
+                    onClick={
+                      guardarTarifasEscuela
+                    }
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#00A79C] px-4 text-xs font-bold text-white transition hover:bg-[#008F86] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    <Icono
+                      nombre="guardar"
+                      className="h-4 w-4"
+                    />
+                    {guardandoEscuela
+                      ? "Guardando..."
+                      : "Guardar tarifa Escuela"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-5">
+                <div className="rounded-2xl border border-slate-200 bg-[#FBFCFD] p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                        Configuración actual
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-[#17324D]">
+                        Curso {new Date().getFullYear()}-{new Date().getFullYear() + 1}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Tarifa pensada para grupos de escuela de 3-4 alumnos.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
+                        Mínimo 3 alumnos
+                      </span>
+                      <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[10px] font-bold text-sky-700">
+                        Máximo 4 alumnos
+                      </span>
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold text-[#17324D]">
+                        {escuelaConfiguradas}/{totalTarifasEscuela} importes
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:hidden">
+                    {HORAS_ESCUELA.map(
+                      (horas) => (
+                        <article
+                          key={horas}
+                          className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                        >
+                          <div className="flex items-center justify-between gap-3 bg-[#FBFCFD] px-3.5 py-3">
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                                Horas semanales
+                              </p>
+                              <p className="mt-0.5 text-sm font-bold text-[#17324D]">
+                                {horas} {horas === 1 ? "hora" : "horas"} / semana
+                              </p>
+                            </div>
+
+                            <span className="rounded-full border border-[#00A79C]/20 bg-[#E8F7F5] px-2.5 py-1 text-[10px] font-bold text-[#008F86]">
+                              Escuela
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2.5 border-t border-slate-100 p-3">
+                            {PERIODOS_ESCUELA.map(
+                              (periodo) => {
+                                const clave =
+                                  claveEscuela(
+                                    periodo.clave,
+                                    horas
+                                  );
+
+                                return (
+                                  <div
+                                    key={clave}
+                                    className="rounded-xl border border-slate-200 bg-[#FBFCFD] p-2.5"
+                                  >
+                                    <p className="mb-1.5 text-center text-[9px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                                      {periodo.titulo}
+                                    </p>
+
+                                    <CampoImporte
+                                      valor={
+                                        valoresEscuela[
+                                          clave
+                                        ] || ""
+                                      }
+                                      onChange={(
+                                        valor
+                                      ) =>
+                                        cambiarEscuela(
+                                          periodo.clave,
+                                          horas,
+                                          valor
+                                        )
+                                      }
+                                      secundario={
+                                        periodo.clave ===
+                                        "mensual"
+                                          ? "Pago mensual"
+                                          : "Pago trimestral"
+                                      }
+                                    />
+                                  </div>
+                                );
+                              }
+                            )}
+                          </div>
+                        </article>
+                      )
+                    )}
+                  </div>
+
+                  <div className="mt-4 hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[760px] border-collapse">
+                      <thead className="bg-[#0F2742] text-white">
+                        <tr>
+                          <th className="border-r border-white/10 px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-white/55">
+                            Horas semanales
+                          </th>
+
+                          {PERIODOS_ESCUELA.map(
+                            (periodo) => (
+                              <th
+                                key={periodo.clave}
+                                className="border-r border-white/10 px-4 py-3 text-center last:border-r-0"
+                              >
+                                <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-white/55">
+                                  {periodo.titulo}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-semibold text-[#4DD4CA]">
+                                  {periodo.subtitulo}
+                                </p>
+                              </th>
+                            )
+                          )}
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {HORAS_ESCUELA.map(
+                          (horas) => (
+                            <tr
+                              key={horas}
+                              className="border-t border-slate-100"
+                            >
+                              <td className="border-r border-slate-100 bg-[#FBFCFD] px-4 py-4">
+                                <p className="font-bold text-[#17324D]">
+                                  {horas} {horas === 1 ? "hora" : "horas"}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
+                                  por semana
+                                </p>
+                              </td>
+
+                              {PERIODOS_ESCUELA.map(
+                                (periodo) => {
+                                  const clave =
+                                    claveEscuela(
+                                      periodo.clave,
+                                      horas
+                                    );
+
+                                  return (
+                                    <td
+                                      key={clave}
+                                      className="border-r border-slate-100 p-3 last:border-r-0"
+                                    >
+                                      <CampoImporte
+                                        valor={
+                                          valoresEscuela[
+                                            clave
+                                          ] || ""
+                                        }
+                                        onChange={(
+                                          valor
+                                        ) =>
+                                          cambiarEscuela(
+                                            periodo.clave,
+                                            horas,
+                                            valor
+                                          )
+                                        }
+                                        secundario={
+                                          periodo.clave ===
+                                          "mensual"
+                                            ? "Pago mensual"
+                                            : "Pago trimestral"
+                                        }
+                                      />
+                                    </td>
+                                  );
+                                }
+                              )}
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </section>
