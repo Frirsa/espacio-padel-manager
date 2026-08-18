@@ -293,6 +293,11 @@ export default function Home() {
   const [bonosAviso, setBonosAviso] =
     useState<any[]>([]);
 
+  const [
+    cumpleanosHoy,
+    setCumpleanosHoy,
+  ] = useState<any[]>([]);
+
   const [clasesPasadasProgramadas, setClasesPasadasProgramadas] =
     useState<any[]>([]);
 
@@ -1152,6 +1157,84 @@ export default function Home() {
     setBonosAviso(
       bonosAvisoData || []
     );
+
+    const {
+      data: alumnosCumpleanosData,
+    } = await supabase
+      .from("alumnos")
+      .select(`
+        id,
+        nombre,
+        apellidos,
+        apodo,
+        fecha_nacimiento
+      `)
+      .eq("activo", true)
+      .not(
+        "fecha_nacimiento",
+        "is",
+        null
+      );
+
+    const mesDiaHoy =
+      hoy.slice(5);
+
+    const cumpleanos =
+      (
+        alumnosCumpleanosData ||
+        []
+      )
+        .filter(
+          (alumno: any) =>
+            alumno.fecha_nacimiento &&
+            String(
+              alumno.fecha_nacimiento
+            ).slice(5) ===
+              mesDiaHoy
+        )
+        .map((alumno: any) => {
+          const anioNacimiento =
+            Number(
+              String(
+                alumno.fecha_nacimiento
+              ).slice(0, 4)
+            );
+
+          return {
+            ...alumno,
+            edad:
+              ahora.getFullYear() -
+              anioNacimiento,
+          };
+        })
+        .sort(
+          (a: any, b: any) =>
+            `${a.nombre || ""} ${
+              a.apellidos || ""
+            }`.localeCompare(
+              `${b.nombre || ""} ${
+                b.apellidos || ""
+              }`,
+              "es"
+            )
+        );
+
+    setCumpleanosHoy(
+      cumpleanos
+    );
+  }
+
+  function nombreCumpleanos(
+    alumno: any
+  ) {
+    const nombreCompleto =
+      `${alumno?.nombre || ""} ${
+        alumno?.apellidos || ""
+      }`.trim();
+
+    return alumno?.apodo
+      ? `${nombreCompleto} (${alumno.apodo})`
+      : nombreCompleto;
   }
 
   function nombresClase(clase: any) {
@@ -1495,7 +1578,8 @@ export default function Home() {
           {clasesPasadasProgramadas.length === 0 &&
           numeroPagosPendientes === 0 &&
           bonosPendientesCobro.length === 0 &&
-          bonosAviso.length === 0 ? (
+          bonosAviso.length === 0 &&
+          cumpleanosHoy.length === 0 ? (
             <div className="m-3 flex items-start gap-3 rounded-xl border border-[#00A79C]/20 bg-[#E8F7F5] px-3.5 py-3.5 sm:m-5 sm:px-4 sm:py-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#00A79C] shadow-sm">
                 <IconoResultado />
@@ -1509,6 +1593,75 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid gap-2.5 p-3 sm:grid-cols-2 sm:gap-3 sm:p-5 xl:grid-cols-4">
+              {cumpleanosHoy.length > 0 && (
+                <a
+                  href="/alumnos"
+                  className="rounded-xl border border-[#00A79C]/25 bg-[#E8F7F5] p-3.5 transition hover:border-[#00A79C]/40 hover:bg-[#DDF3F0] sm:p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#00A79C] shadow-sm">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M5 10h14v10H5Z" />
+                        <path d="M4 10h16M12 10v10" />
+                        <path d="M7.5 6.5C7.5 4.6 9 4 10 5.2L12 8l2-2.8c1-1.2 2.5-.6 2.5 1.3 0 1.5-1.2 2.5-3 2.5h-3c-1.8 0-3-1-3-2.5Z" />
+                      </svg>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#008C83]">
+                        Cumpleaños hoy
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold text-[#17324D]">
+                        {cumpleanosHoy.length}
+                      </p>
+
+                      <div className="mt-1 space-y-1 text-xs text-slate-700">
+                        {cumpleanosHoy.map(
+                          (alumno: any) => (
+                            <p
+                              key={alumno.id}
+                              className="leading-relaxed"
+                            >
+                              <span className="font-bold text-[#17324D]">
+                                {nombreCumpleanos(
+                                  alumno
+                                )}
+                              </span>
+                              {Number.isFinite(
+                                alumno.edad
+                              ) &&
+                                alumno.edad >=
+                                  0 && (
+                                  <>
+                                    {" "}
+                                    · cumple{" "}
+                                    {alumno.edad}{" "}
+                                    años
+                                  </>
+                                )}
+                            </p>
+                          )
+                        )}
+                      </div>
+
+                      <p className="mt-2 text-xs font-bold text-[#008C83]">
+                        Ver alumnos →
+                      </p>
+                    </div>
+                  </div>
+                </a>
+              )}
+
               {numeroPagosPendientes > 0 && (
                 <a
                   href={
