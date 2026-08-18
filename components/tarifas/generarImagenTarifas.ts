@@ -775,11 +775,15 @@ async function generarImagenEscuela({
   const encabezadoH = 92;
   const filaH = 118;
   const filas = 3;
-  const tablaH =
-    encabezadoH +
-    filaH * filas;
+  const baseY =
+    tablaY + encabezadoH + 8;
+  const filasFinY =
+    baseY + filaH * filas - 8;
+  const bannerY =
+    filasFinY + 20;
+  const bannerH = 44;
   const footerY =
-    tablaY + tablaH + 28;
+    bannerY + bannerH + 20;
   const ALTO =
     footerY + altoFooter;
 
@@ -895,8 +899,6 @@ async function generarImagenEscuela({
   );
 
   const horasLista = [1, 2, 3];
-  const baseY =
-    tablaY + encabezadoH + 8;
 
   horasLista.forEach(
     (horas, indice) => {
@@ -945,14 +947,12 @@ async function generarImagenEscuela({
 
       dibujarTextoIzquierda(
         ctx,
-        `${horas} ${
-          horas === 1
-            ? "HORA"
-            : "HORAS"
-        }`,
+        horas === 1
+          ? "1 HORA / 1 HOUR"
+          : `${horas} HORAS / ${horas} HOURS`,
         x0 + 92,
         y + 38,
-        19,
+        17,
         NAVY_TEXTO,
         800
       );
@@ -983,7 +983,7 @@ async function generarImagenEscuela({
           valor: mensual,
           color: TEAL,
           ayuda:
-            "Pago mensual",
+            "Pago mensual / Monthly payment",
         },
         {
           x: xTrimestral,
@@ -991,7 +991,7 @@ async function generarImagenEscuela({
           valor: trimestral,
           color: NAVY_TEXTO,
           ayuda:
-            "Pago trimestral",
+            "Pago trimestral / Quarterly payment",
         },
       ].forEach((celda) => {
         dibujarPanel(
@@ -1035,9 +1035,9 @@ async function generarImagenEscuela({
   dibujarPanel(
     ctx,
     MARGEN,
-    footerY - 64,
+    bannerY,
     ANCHO - MARGEN * 2,
-    44,
+    bannerH,
     "#E8F7F5",
     14,
     "#CDEDE9"
@@ -1046,7 +1046,7 @@ async function generarImagenEscuela({
     ctx,
     "GRUPOS DE 3–4 ALUMNOS / GROUPS OF 3–4 STUDENTS",
     ANCHO / 2,
-    footerY - 42,
+    bannerY + bannerH / 2,
     16,
     NAVY_TEXTO,
     800
