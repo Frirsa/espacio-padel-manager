@@ -450,6 +450,19 @@ export default function Home() {
       clasesMesData ||
       [];
 
+    const mesHoy =
+      hoy.slice(0, 7);
+
+    const clasesMesHastaHoy =
+      mesClave > mesHoy
+        ? []
+        : mesClave === mesHoy
+        ? clasesMes.filter(
+            (clase: any) =>
+              clase.fecha <= hoy
+          )
+        : clasesMes;
+
     const clasesRealizadas =
       clasesMes.filter(
         (clase) =>
@@ -469,7 +482,7 @@ export default function Home() {
 
     const porDia = new Map<string, any>();
 
-    clasesMes
+    clasesMesHastaHoy
       .filter(
         (clase: any) =>
           clase.estado === "realizada" ||
