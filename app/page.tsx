@@ -1926,7 +1926,15 @@ export default function Home() {
               icono={<IconoCalendario />}
               etiqueta="Clases"
               valor={String(totalClasesMes)}
-              detalle="Realizadas"
+              detalle={
+                totalClasesFacturables > totalClasesMes
+                  ? `Realizadas · +${totalClasesFacturables - totalClasesMes} ${
+                      totalClasesFacturables - totalClasesMes === 1
+                        ? "cancelada facturable"
+                        : "canceladas facturables"
+                    }`
+                  : "Realizadas"
+              }
               tono="azul"
             />
             <TarjetaMetrica
