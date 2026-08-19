@@ -3119,11 +3119,11 @@ export default function ClasesPage() {
     return data?.[0] || null;
   }
 
-  async function obtenerNoDisponibilidadSerie(
+  async function obtenerNoDisponibilidadesSerie(
     fechasSerie: string[]
   ) {
     if (fechasSerie.length === 0) {
-      return null;
+      return [];
     }
 
     const primeraFecha =
@@ -3150,33 +3150,33 @@ export default function ClasesPage() {
       );
 
     if (error) {
-      return null;
+      return [];
     }
 
-    for (
-      const bloqueo of
-      data || []
-    ) {
-      const fechaCoincidente =
-        fechasSerie.find(
-          (fechaSerie) =>
-            fechaSerie >=
-              bloqueo.fecha_inicio &&
-            fechaSerie <=
-              bloqueo.fecha_fin
-        );
+    return fechasSerie.flatMap(
+      (fechaSerie) => {
+        const bloqueo =
+          (data || []).find(
+            (item) =>
+              fechaSerie >=
+                item.fecha_inicio &&
+              fechaSerie <=
+                item.fecha_fin
+          );
 
-      if (
-        fechaCoincidente
-      ) {
-        return {
-          ...bloqueo,
-          fechaCoincidente,
-        };
+        if (!bloqueo) {
+          return [];
+        }
+
+        return [
+          {
+            ...bloqueo,
+            fechaCoincidente:
+              fechaSerie,
+          },
+        ];
       }
-    }
-
-    return null;
+    );
   }
 
   function nombresCompactosAlumnos(
@@ -3328,26 +3328,77 @@ export default function ClasesPage() {
     }
 
     setCreandoSerie(true);
-    setMensaje(
-      `Creando serie de ${fechas.length} clase(s)...`
-    );
 
-    const bloqueoSerie =
-      await obtenerNoDisponibilidadSerie(
+    const bloqueosSerie =
+      await obtenerNoDisponibilidadesSerie(
         fechas
       );
 
-    if (bloqueoSerie) {
+    const fechasBloqueadas =
+      new Set(
+        bloqueosSerie.map(
+          (bloqueo) =>
+            bloqueo.fechaCoincidente
+        )
+      );
+
+    const fechasDisponibles =
+      fechas.filter(
+        (fechaSerie) =>
+          !fechasBloqueadas.has(
+            fechaSerie
+          )
+      );
+
+    const detalleFechasOmitidas =
+      bloqueosSerie
+        .map((bloqueo) => {
+          const [
+            anio,
+            mes,
+            dia,
+          ] =
+            bloqueo.fechaCoincidente.split(
+              "-"
+            );
+
+          return `${dia}/${mes}/${anio}${
+            bloqueo.motivo
+              ? ` (${bloqueo.motivo})`
+              : ""
+          }`;
+        })
+        .join(", ");
+
+    const avisoFechasOmitidas =
+      bloqueosSerie.length > 0
+        ? ` · ⚠️ ${
+            bloqueosSerie.length === 1
+              ? "Se omitió 1 fecha no disponible"
+              : `Se omitieron ${bloqueosSerie.length} fechas no disponibles`
+          }: ${detalleFechasOmitidas}`
+        : "";
+
+    if (
+      fechasDisponibles.length ===
+      0
+    ) {
       setCreandoSerie(false);
       setMensaje(
-        `❌ No puedes crear la serie. El ${bloqueoSerie.fechaCoincidente} está marcado como no disponible${
-          bloqueoSerie.motivo
-            ? `: ${bloqueoSerie.motivo}`
+        `❌ No se puede crear la serie porque todas sus fechas están marcadas como no disponibles${
+          detalleFechasOmitidas
+            ? `: ${detalleFechasOmitidas}`
             : "."
         }`
       );
       return;
     }
+
+    setMensaje(
+      bloqueosSerie.length > 0
+        ? `Creando serie de ${fechasDisponibles.length} clase(s). Se omitirán ${bloqueosSerie.length} fecha(s) no disponible(s)...`
+        : `Creando serie de ${fechasDisponibles.length} clase(s)...`
+    );
 
     const participantes =
       tipo === "club"
@@ -3545,7 +3596,7 @@ export default function ClasesPage() {
     }
 
     const registrosClases =
-      fechas.map(
+      fechasDisponibles.map(
         (fechaClase) => ({
           serie_id:
             serieCreada.id,
@@ -3650,7 +3701,7 @@ export default function ClasesPage() {
       ) {
         setCreandoSerie(false);
         setMensaje(
-          "⚠️ La serie se creó, pero hubo un problema al añadir los alumnos."
+          `⚠️ La serie se creó, pero hubo un problema al añadir los alumnos.${avisoFechasOmitidas}`
         );
 
         limpiarFormulario();
@@ -3671,7 +3722,7 @@ export default function ClasesPage() {
           datosGoogleDesdeFormulario(
             claseCreada.id,
             null,
-            fechas[indice],
+            fechasDisponibles[indice],
             "programada"
           )
       );
@@ -3682,7 +3733,7 @@ export default function ClasesPage() {
     );
     setCreandoSerie(false);
     setMensaje(
-      `✅ Serie creada: ${fechas.length} clase(s). Sincronizando con Google Calendar...`
+      `✅ Serie creada: ${fechasDisponibles.length} clase(s)${avisoFechasOmitidas}. Sincronizando con Google Calendar...`
     );
 
     const sincronizarEnLotes =
@@ -3730,7 +3781,7 @@ export default function ClasesPage() {
         }
 
         setMensaje(
-          `✅ Serie creada correctamente: ${fechas.length} clase(s) programada(s)${
+          `✅ Serie creada correctamente: ${fechasDisponibles.length} clase(s) programada(s)${avisoFechasOmitidas}${
             falloGoogleSerie
               ? " · ⚠️ Alguna clase no pudo sincronizarse con Google Calendar."
               : " · Google Calendar sincronizado."
@@ -4106,6 +4157,15 @@ export default function ClasesPage() {
 
     setMensaje("");
 
+    if (
+      modoCreacion ===
+        "serie" &&
+      !claseEditandoId
+    ) {
+      await guardarSerie();
+      return;
+    }
+
     if (!claseEditandoId) {
       const bloqueo =
         await obtenerNoDisponibilidad(
@@ -4122,15 +4182,6 @@ export default function ClasesPage() {
         );
         return;
       }
-    }
-
-    if (
-      modoCreacion ===
-        "serie" &&
-      !claseEditandoId
-    ) {
-      await guardarSerie();
-      return;
     }
 
     if (
