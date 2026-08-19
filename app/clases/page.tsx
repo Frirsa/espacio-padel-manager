@@ -7160,6 +7160,21 @@ export default function ClasesPage() {
 
         </form>
         )}
+
+        {!formularioAbierto && mensaje && (
+          <div
+            className={
+              mensaje.startsWith("❌")
+                ? "mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 sm:mt-5"
+                : mensaje.startsWith("⚠️") || mensaje.includes("⚠️")
+                ? "mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 sm:mt-5"
+                : "mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 sm:mt-5"
+            }
+          >
+            {mensaje}
+          </div>
+        )}
+
         <section className="relative mt-4 rounded-2xl bg-[#0F2742] p-4 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:mt-5 sm:p-5">
 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
