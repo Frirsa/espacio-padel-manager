@@ -248,6 +248,11 @@ export default function Home() {
   const [totalClasesMes, setTotalClasesMes] =
     useState(0);
 
+  const [
+    totalClasesFacturables,
+    setTotalClasesFacturables,
+  ] = useState(0);
+
   const [horasMes, setHorasMes] =
     useState(0);
 
@@ -688,6 +693,10 @@ export default function Home() {
 
     setTotalClasesMes(
       clasesRealizadas.length
+    );
+
+    setTotalClasesFacturables(
+      clasesEconomicas.length
     );
 
     const clasesHoyRealizadas =
@@ -1929,10 +1938,10 @@ export default function Home() {
             />
             <TarjetaMetrica
               icono={<IconoEuro />}
-              etiqueta="Ingreso medio"
-              valor={`${totalClasesMes > 0 ? (ingresosMes / totalClasesMes).toFixed(2) : "0.00"} €`}
-              detalle="Por clase realizada"
-              tono="azul"
+              etiqueta="Resultado medio"
+              valor={`${totalClasesFacturables > 0 ? (resultadoMes / totalClasesFacturables).toFixed(2) : "0.00"} €`}
+              detalle="Por clase facturable"
+              tono={resultadoMes >= 0 ? "marca" : "rojo"}
             />
           </div>
         </section>
