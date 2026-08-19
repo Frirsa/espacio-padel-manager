@@ -1565,7 +1565,7 @@ export default function Home() {
             </div>
 
             <a
-              href="/clases"
+              href={`/clases?fecha=${hoyDashboard}&modo=individual&volver=%2F`}
               className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#00A79C] px-5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.16)] transition hover:bg-[#008F86] sm:h-12 sm:w-auto"
             >
               + Nueva clase

@@ -4914,8 +4914,19 @@ export default function ClasesPage() {
         )
     );
 
+  const ahoraOrdenClases =
+    new Date();
+
+  const hoyOrdenClases =
+    `${ahoraOrdenClases.getFullYear()}-${String(
+      ahoraOrdenClases.getMonth() + 1
+    ).padStart(2, "0")}-${String(
+      ahoraOrdenClases.getDate()
+    ).padStart(2, "0")}`;
+
   const clasesFiltradas =
-    clases.filter(
+    clases
+      .filter(
       (clase) => {
         const nombres =
           clase.clase_alumnos
@@ -4983,7 +4994,35 @@ export default function ClasesPage() {
           )
         );
       }
-    );
+    )
+      .sort((a, b) => {
+        const aEsHoyOFutura =
+          a.fecha >= hoyOrdenClases;
+        const bEsHoyOFutura =
+          b.fecha >= hoyOrdenClases;
+
+        if (
+          aEsHoyOFutura !==
+          bEsHoyOFutura
+        ) {
+          return aEsHoyOFutura
+            ? -1
+            : 1;
+        }
+
+        const claveA =
+          `${a.fecha} ${a.hora_inicio}`;
+        const claveB =
+          `${b.fecha} ${b.hora_inicio}`;
+
+        return aEsHoyOFutura
+          ? claveA.localeCompare(
+              claveB
+            )
+          : claveB.localeCompare(
+              claveA
+            );
+      });
 
   const clasesMostradas =
     claseEditandoId
