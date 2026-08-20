@@ -33,6 +33,14 @@ type Pago = {
     hora_inicio: string;
     duracion_minutos: number;
     tipo: string;
+    modo_cobro: "por_alumno" | "total" | string | null;
+    importe_total: number | null;
+    clase_alumnos: {
+      alumnos: {
+        nombre: string;
+        apellidos: string | null;
+      } | null;
+    }[];
     ubicaciones: {
       nombre: string;
     } | null;
@@ -539,6 +547,42 @@ function SelectorMesPagos({
   );
 }
 
+function nombreVisiblePago(
+  pago: Pago
+) {
+  if (pago.alumnos) {
+    return `${pago.alumnos.nombre} ${
+      pago.alumnos.apellidos || ""
+    }`.trim();
+  }
+
+  if (
+    pago.clases?.modo_cobro ===
+    "total"
+  ) {
+    const nombres =
+      (
+        pago.clases.clase_alumnos ||
+        []
+      )
+        .map(
+          (item) =>
+            item.alumnos
+              ? `${item.alumnos.nombre} ${
+                  item.alumnos.apellidos || ""
+                }`.trim()
+              : ""
+        )
+        .filter(Boolean);
+
+    return nombres.length > 0
+      ? `Clase completa · ${nombres.join(" + ")}`
+      : "Clase completa";
+  }
+
+  return "Sin alumno";
+}
+
 export default function PagosPage() {
   const searchParams =
     useSearchParams();
@@ -696,6 +740,14 @@ export default function PagosPage() {
           hora_inicio,
           duracion_minutos,
           tipo,
+          modo_cobro,
+          importe_total,
+          clase_alumnos (
+            alumnos (
+              nombre,
+              apellidos
+            )
+          ),
           ubicaciones (
             nombre
           )
@@ -766,9 +818,25 @@ export default function PagosPage() {
       return;
     }
 
+    const pagoActual =
+      pagoEditandoId
+        ? pagos.find(
+            (pago) =>
+              pago.id ===
+              pagoEditandoId
+          ) || null
+        : null;
+
+    const esPagoTotalClase =
+      pagoActual?.clases
+        ?.modo_cobro === "total" &&
+      pagoActual.alumno_id === null;
+
     const datos = {
       alumno_id:
-        alumnoId || null,
+        esPagoTotalClase
+          ? null
+          : alumnoId || null,
       importe:
         Number(importe),
       metodo,
@@ -810,6 +878,82 @@ export default function PagosPage() {
       );
 
       return;
+    }
+
+    if (
+      pagoActual?.clases?.id
+    ) {
+      if (esPagoTotalClase) {
+        const { error: errorImporteClase } =
+          await supabase
+            .from("clases")
+            .update({
+              importe_total:
+                Number(importe),
+            })
+            .eq(
+              "id",
+              pagoActual.clases.id
+            );
+
+        if (errorImporteClase) {
+          setMensaje(
+            "⚠️ El pago se actualizó, pero no se pudo sincronizar el precio total de la clase."
+          );
+          await cargarDatos();
+          return;
+        }
+
+        const { error: errorParticipantes } =
+          await supabase
+            .from("clase_alumnos")
+            .update({
+              pagado:
+                estado === "pagado",
+            })
+            .eq(
+              "clase_id",
+              pagoActual.clases.id
+            )
+            .eq(
+              "usa_bono",
+              false
+            );
+
+        if (errorParticipantes) {
+          setMensaje(
+            "⚠️ El pago se actualizó, pero no se pudo sincronizar su estado con la clase."
+          );
+          await cargarDatos();
+          return;
+        }
+      } else if (
+        pagoActual.alumno_id
+      ) {
+        const { error: errorParticipante } =
+          await supabase
+            .from("clase_alumnos")
+            .update({
+              pagado:
+                estado === "pagado",
+            })
+            .eq(
+              "clase_id",
+              pagoActual.clases.id
+            )
+            .eq(
+              "alumno_id",
+              pagoActual.alumno_id
+            );
+
+        if (errorParticipante) {
+          setMensaje(
+            "⚠️ El pago se actualizó, pero no se pudo sincronizar su estado con la clase."
+          );
+          await cargarDatos();
+          return;
+        }
+      }
     }
 
     setMensaje(
@@ -913,6 +1057,59 @@ export default function PagosPage() {
       return;
     }
 
+    if (pago.clases?.id) {
+      if (
+        pago.clases.modo_cobro ===
+        "total"
+      ) {
+        const { error: errorParticipantes } =
+          await supabase
+            .from("clase_alumnos")
+            .update({
+              pagado: true,
+            })
+            .eq(
+              "clase_id",
+              pago.clases.id
+            )
+            .eq(
+              "usa_bono",
+              false
+            );
+
+        if (errorParticipantes) {
+          setMensaje(
+            "⚠️ El cobro se registró, pero no se pudo sincronizar su estado con la clase."
+          );
+          await cargarDatos();
+          return;
+        }
+      } else if (pago.alumno_id) {
+        const { error: errorParticipante } =
+          await supabase
+            .from("clase_alumnos")
+            .update({
+              pagado: true,
+            })
+            .eq(
+              "clase_id",
+              pago.clases.id
+            )
+            .eq(
+              "alumno_id",
+              pago.alumno_id
+            );
+
+        if (errorParticipante) {
+          setMensaje(
+            "⚠️ El cobro se registró, pero no se pudo sincronizar su estado con la clase."
+          );
+          await cargarDatos();
+          return;
+        }
+      }
+    }
+
     setMensaje(
       "✅ Cobro registrado correctamente"
     );
@@ -923,6 +1120,12 @@ export default function PagosPage() {
   async function borrarPago(
     id: string
   ) {
+    const pagoBorrado =
+      pagos.find(
+        (pago) =>
+          pago.id === id
+      ) || null;
+
     const confirmar =
       window.confirm(
         "¿Seguro que quieres borrar este pago?"
@@ -946,6 +1149,61 @@ export default function PagosPage() {
       );
 
       return;
+    }
+
+    if (pagoBorrado?.clases?.id) {
+      if (
+        pagoBorrado.clases.modo_cobro ===
+        "total"
+      ) {
+        const { error: errorParticipantes } =
+          await supabase
+            .from("clase_alumnos")
+            .update({
+              pagado: false,
+            })
+            .eq(
+              "clase_id",
+              pagoBorrado.clases.id
+            )
+            .eq(
+              "usa_bono",
+              false
+            );
+
+        if (errorParticipantes) {
+          setMensaje(
+            "⚠️ El pago se borró, pero no se pudo sincronizar su estado con la clase."
+          );
+          await cargarDatos();
+          return;
+        }
+      } else if (
+        pagoBorrado.alumno_id
+      ) {
+        const { error: errorParticipante } =
+          await supabase
+            .from("clase_alumnos")
+            .update({
+              pagado: false,
+            })
+            .eq(
+              "clase_id",
+              pagoBorrado.clases.id
+            )
+            .eq(
+              "alumno_id",
+              pagoBorrado.alumno_id
+            );
+
+        if (errorParticipante) {
+          setMensaje(
+            "⚠️ El pago se borró, pero no se pudo sincronizar su estado con la clase."
+          );
+          await cargarDatos();
+          return;
+        }
+      }
     }
 
     if (
@@ -1011,12 +1269,9 @@ export default function PagosPage() {
   const pagosFiltrados =
     pagos.filter((pago) => {
       const nombreAlumno =
-        pago.alumnos
-          ? `${pago.alumnos.nombre} ${
-              pago.alumnos
-                .apellidos || ""
-            }`.toLowerCase()
-          : "sin alumno";
+        nombreVisiblePago(
+          pago
+        ).toLowerCase();
 
       const coincideBusqueda =
         nombreAlumno.includes(
@@ -1082,12 +1337,17 @@ export default function PagosPage() {
         ) => {
           const clave =
             pago.alumno_id ||
-            "sin-alumno";
+            (
+              pago.clases?.modo_cobro ===
+              "total"
+                ? `clase:${pago.clases.id}`
+                : "sin-alumno"
+            );
 
           const nombre =
-            pago.alumnos
-              ? `${pago.alumnos.nombre} ${pago.alumnos.apellidos || ""}`.trim()
-              : "Sin alumno";
+            nombreVisiblePago(
+              pago
+            );
 
           if (
             !acumulado[
@@ -1225,6 +1485,21 @@ export default function PagosPage() {
       (alumno) =>
         alumno.id === alumnoId
     ) || null;
+
+  const pagoEditandoActual =
+    pagoEditandoId
+      ? pagos.find(
+          (pago) =>
+            pago.id ===
+            pagoEditandoId
+        ) || null
+      : null;
+
+  const pagoEditandoEsClaseTotal =
+    pagoEditandoActual?.clases
+      ?.modo_cobro === "total" &&
+    pagoEditandoActual.alumno_id ===
+      null;
 
   const filtrosActivos =
     Boolean(busquedaPagos) ||
@@ -1473,9 +1748,9 @@ export default function PagosPage() {
                     {pagosPendientesRapidos.map(
                       (pago) => {
                         const nombre =
-                          pago.alumnos
-                            ? `${pago.alumnos.nombre} ${pago.alumnos.apellidos || ""}`.trim()
-                            : "Sin alumno";
+                          nombreVisiblePago(
+                            pago
+                          );
 
                         return (
                           <article
@@ -1705,6 +1980,12 @@ export default function PagosPage() {
                       Alumno
                     </label>
 
+                    {pagoEditandoEsClaseTotal && (
+                      <div className="mb-2 rounded-lg border border-[#BDE7DA] bg-[#F6FCFB] px-3 py-2 text-[11px] font-semibold text-[#008C83]">
+                        Pago de clase completa · no se asigna a un alumno individual.
+                      </div>
+                    )}
+
                     <div className="relative">
                       <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
                         <IconoPago
@@ -1716,6 +1997,9 @@ export default function PagosPage() {
                       <input
                         type="text"
                         autoComplete="off"
+                        disabled={
+                          pagoEditandoEsClaseTotal
+                        }
                         placeholder={
                           alumnoSeleccionadoPago
                             ? "Buscar otro alumno..."
@@ -1820,10 +2104,13 @@ export default function PagosPage() {
                     </div>
 
                     <div className="relative mt-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setListaAlumnosPagoAbierta(
+                        <button
+                          type="button"
+                          disabled={
+                            pagoEditandoEsClaseTotal
+                          }
+                          onClick={() =>
+                            setListaAlumnosPagoAbierta(
                             (actual) => !actual
                           )
                         }
@@ -2285,9 +2572,9 @@ export default function PagosPage() {
                   {pagosFiltrados.map(
                     (pago) => {
                       const nombre =
-                        pago.alumnos
-                          ? `${pago.alumnos.nombre} ${pago.alumnos.apellidos || ""}`.trim()
-                          : "Sin alumno";
+                        nombreVisiblePago(
+                          pago
+                        );
 
                       return (
                         <article

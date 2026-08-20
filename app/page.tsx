@@ -227,6 +227,33 @@ function colorProximaClase(
   return "border-[#00A79C]/60 bg-[#00A79C]/10";
 }
 
+function ingresoClaseNoClub(
+  clase: any
+) {
+  if (
+    clase.modo_cobro ===
+    "total"
+  ) {
+    return Number(
+      clase.importe_total || 0
+    );
+  }
+
+  return (
+    clase.clase_alumnos || []
+  ).reduce(
+    (
+      total: number,
+      participante: any
+    ) =>
+      total +
+      Number(
+        participante.importe || 0
+      ),
+    0
+  );
+}
+
 export default function Home() {
   const ahoraInicial = new Date();
   const mesInicial = `${ahoraInicial.getFullYear()}-${String(
@@ -433,6 +460,8 @@ export default function Home() {
           importe_club,
           coste_pista,
           ingreso_extra,
+          modo_cobro,
+          importe_total,
           ubicaciones (
             nombre
           ),
@@ -549,18 +578,8 @@ export default function Home() {
               ? Number(
                   clase.importe_club || 0
                 )
-              : (
-                  clase.clase_alumnos || []
-                ).reduce(
-                  (
-                    total: number,
-                    participante: any
-                  ) =>
-                    total +
-                    Number(
-                      participante.importe || 0
-                    ),
-                  0
+              : ingresoClaseNoClub(
+                  clase
                 );
 
           const extra =
@@ -854,20 +873,8 @@ export default function Home() {
           }
 
           const ingresosAlumnos =
-            (
-              clase.clase_alumnos ||
-              []
-            ).reduce(
-              (
-                subtotal,
-                participante
-              ) =>
-                subtotal +
-                Number(
-                  participante.importe ||
-                    0
-                ),
-              0
+            ingresoClaseNoClub(
+              clase
             );
 
           return (

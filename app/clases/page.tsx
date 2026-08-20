@@ -74,6 +74,8 @@ type Clase = {
   importe_club: number;
   coste_pista: number;
   ingreso_extra: number;
+  modo_cobro: "por_alumno" | "total" | string | null;
+  importe_total: number | null;
   tipo: string;
   estado: string;
   facturable: boolean;
@@ -132,6 +134,33 @@ function estadoEconomicoClase(
       (participante) =>
         !participante.usa_bono
     );
+
+  if (
+    clase.modo_cobro ===
+      "total"
+  ) {
+    if (pagosNormales.length === 0) {
+      return "cobrada" as const;
+    }
+
+    const pagoTotal =
+      pagos.find(
+        (item) =>
+          item.clase_id === clase.id &&
+          item.alumno_id === null
+      );
+
+    const totalPagado =
+      pagoTotal?.estado === "pagado" ||
+      pagosNormales.every(
+        (participante) =>
+          participante.pagado === true
+      );
+
+    return totalPagado
+      ? "cobrada" as const
+      : "pendiente" as const;
+  }
 
   if (pagosNormales.length === 0) {
     return "cobrada" as const;
@@ -975,6 +1004,45 @@ export default function ClasesPage() {
     useState<Record<string, string>>({});
 
   const [
+    modoCobroClase,
+    setModoCobroClase,
+  ] = useState<
+    "por_alumno" | "total"
+  >("por_alumno");
+
+  const [
+    modoCobroManual,
+    setModoCobroManual,
+  ] = useState(false);
+
+  const [
+    importeTotalClase,
+    setImporteTotalClase,
+  ] = useState("");
+
+  const [
+    importeTotalManual,
+    setImporteTotalManual,
+  ] = useState(false);
+
+  const [
+    importePorAlumnoManual,
+    setImportePorAlumnoManual,
+  ] = useState(false);
+
+  const [
+    estadoPagoTotal,
+    setEstadoPagoTotal,
+  ] = useState<
+    "pagado" | "pendiente"
+  >("pendiente");
+
+  const [
+    metodoPagoTotal,
+    setMetodoPagoTotal,
+  ] = useState("efectivo");
+
+  const [
     modoPagoAlumnos,
     setModoPagoAlumnos,
   ] =
@@ -1392,6 +1460,8 @@ export default function ClasesPage() {
           importe_club,
           coste_pista,
           ingreso_extra,
+          modo_cobro,
+          importe_total,
           ubicaciones (
             nombre
           ),
@@ -1620,6 +1690,28 @@ export default function ClasesPage() {
       {}
     );
 
+    setModoCobroClase(
+      "por_alumno"
+    );
+    setModoCobroManual(
+      false
+    );
+    setImporteTotalClase(
+      ""
+    );
+    setImporteTotalManual(
+      false
+    );
+    setImportePorAlumnoManual(
+      false
+    );
+    setEstadoPagoTotal(
+      "pendiente"
+    );
+    setMetodoPagoTotal(
+      "efectivo"
+    );
+
     setModoPagoAlumnos(
       {}
     );
@@ -1758,6 +1850,54 @@ export default function ClasesPage() {
     );
   }
 
+  function buscarTarifaClaseSuelta(
+    numeroAlumnos: number
+  ) {
+    return tarifas.find(
+      (tarifa) =>
+        tarifa.activa !== false &&
+        tarifa.ubicacion_id === null &&
+        normalizarTextoTarifa(
+          tarifa.concepto
+        ) === "clase_suelta" &&
+        Number(
+          tarifa.duracion_minutos
+        ) === 60 &&
+        Number(
+          tarifa.numero_alumnos
+        ) === Number(numeroAlumnos)
+    );
+  }
+
+  function calcularPrecioTotalAutomatico(
+    numeroAlumnos: number,
+    duracionMinutos: number
+  ) {
+    if (
+      numeroAlumnos <= 0 ||
+      duracionMinutos <= 0
+    ) {
+      return "";
+    }
+
+    const tarifa =
+      buscarTarifaClaseSuelta(
+        numeroAlumnos
+      );
+
+    if (!tarifa) {
+      return "";
+    }
+
+    const total =
+      Math.floor(
+        Number(tarifa.importe || 0) *
+          (duracionMinutos / 60)
+      );
+
+    return String(total);
+  }
+
   function actualizarImportesAutomaticos(
     tipoClase: string,
     nuevaUbicacionId: string,
@@ -1862,6 +2002,157 @@ export default function ClasesPage() {
   }
 
 
+  const hayBonoSeleccionado =
+    alumnosSeleccionados.some(
+      (alumnoId) =>
+        modoPagoAlumnos[alumnoId] ===
+        "bono"
+    );
+
+  useEffect(() => {
+    if (
+      tipo === "club" ||
+      hayBonoSeleccionado
+    ) {
+      if (
+        modoCobroClase !==
+        "por_alumno"
+      ) {
+        setModoCobroClase(
+          "por_alumno"
+        );
+      }
+      return;
+    }
+
+    if (
+      claseEditandoId ||
+      modoCobroManual
+    ) {
+      return;
+    }
+
+    const modoAutomatico =
+      alumnosSeleccionados.length >= 2
+        ? "total"
+        : "por_alumno";
+
+    if (
+      modoCobroClase !==
+      modoAutomatico
+    ) {
+      setModoCobroClase(
+        modoAutomatico
+      );
+    }
+  }, [
+    tipo,
+    hayBonoSeleccionado,
+    alumnosSeleccionados.length,
+    claseEditandoId,
+    modoCobroManual,
+    modoCobroClase,
+  ]);
+
+  useEffect(() => {
+    if (
+      modoCobroClase !== "total" ||
+      importeTotalManual
+    ) {
+      return;
+    }
+
+    setImporteTotalClase(
+      calcularPrecioTotalAutomatico(
+        alumnosSeleccionados.length,
+        Number(duracion)
+      )
+    );
+  }, [
+    modoCobroClase,
+    importeTotalManual,
+    alumnosSeleccionados.length,
+    duracion,
+    tarifas,
+  ]);
+
+  useEffect(() => {
+    if (
+      claseEditandoId ||
+      modoCobroClase !== "por_alumno" ||
+      importePorAlumnoManual ||
+      alumnosSeleccionados.length !== 1
+    ) {
+      return;
+    }
+
+    const alumnoId =
+      alumnosSeleccionados[0];
+
+    if (
+      modoPagoAlumnos[alumnoId] ===
+      "bono"
+    ) {
+      return;
+    }
+
+    const alumno =
+      alumnos.find(
+        (item) =>
+          item.id === alumnoId
+      );
+
+    const precioBase60 =
+      alumno?.precio_habitual !== null &&
+      alumno?.precio_habitual !== undefined
+        ? Number(
+            alumno.precio_habitual
+          )
+        : (() => {
+            const tarifa =
+              buscarTarifaClaseSuelta(1);
+
+            return tarifa
+              ? Number(
+                  tarifa.importe || 0
+                )
+              : null;
+          })();
+
+    if (
+      precioBase60 === null ||
+      !Number.isFinite(
+        precioBase60
+      )
+    ) {
+      return;
+    }
+
+    const importeAutomatico =
+      Math.floor(
+        precioBase60 *
+          (Number(duracion) / 60)
+      );
+
+    setImportesAlumnos(
+      (actuales) => ({
+        ...actuales,
+        [alumnoId]: String(
+          importeAutomatico
+        ),
+      })
+    );
+  }, [
+    claseEditandoId,
+    modoCobroClase,
+    importePorAlumnoManual,
+    alumnosSeleccionados,
+    modoPagoAlumnos,
+    duracion,
+    tarifas,
+    alumnos,
+  ]);
+
   useEffect(() => {
     if (
       claseEditandoId ||
@@ -1887,6 +2178,10 @@ export default function ClasesPage() {
   function seleccionarGrupoRapido(
     nuevoGrupoId: string
   ) {
+    setModoCobroManual(false);
+    setImporteTotalManual(false);
+    setImportePorAlumnoManual(false);
+
     setGrupoId(
       nuevoGrupoId
     );
@@ -2162,6 +2457,10 @@ export default function ClasesPage() {
   function cambiarAlumno(
     alumno: Alumno
   ) {
+    setImportePorAlumnoManual(
+      false
+    );
+
     const seleccionado =
       alumnosSeleccionados.includes(
         alumno.id
@@ -2598,20 +2897,22 @@ export default function ClasesPage() {
     participantes: {
       alumno_id: string;
       importe: number;
+      pagado: boolean;
       usa_bono: boolean;
     }[],
     tipoClase: string,
-    facturableClase: boolean
+    facturableClase: boolean,
+    modoCobro: "por_alumno" | "total",
+    importeTotal: number | null
   ) {
     const {
-      data:
-        existentes,
+      data: existentes,
       error,
     } =
       await supabase
         .from("pagos")
         .select(
-          "id,alumno_id"
+          "id,alumno_id,metodo,estado"
         )
         .eq(
           "clase_id",
@@ -2625,8 +2926,7 @@ export default function ClasesPage() {
     }
 
     const pagosExistentes =
-      existentes ||
-      [];
+      existentes || [];
 
     const generaCobro =
       estadoClase === "realizada" ||
@@ -2637,26 +2937,18 @@ export default function ClasesPage() {
 
     if (
       !generaCobro ||
-      tipoClase ===
-        "club"
+      tipoClase === "club"
     ) {
-      const {
-        error:
-          errorBorrar,
-      } =
+      const { error: errorBorrar } =
         await supabase
-          .from(
-            "pagos"
-          )
+          .from("pagos")
           .delete()
           .eq(
             "clase_id",
             claseId
           );
 
-      if (
-        errorBorrar
-      ) {
+      if (errorBorrar) {
         throw new Error(
           "No se pudieron actualizar los pagos."
         );
@@ -2665,20 +2957,114 @@ export default function ClasesPage() {
       return;
     }
 
+    if (modoCobro === "total") {
+      const pagosTotales =
+        pagosExistentes.filter(
+          (pago) =>
+            pago.alumno_id === null
+        );
+
+      const pagoTotalExistente =
+        pagosTotales[0];
+
+      for (const pago of pagosExistentes) {
+        if (
+          pago.alumno_id !== null ||
+          (
+            pagoTotalExistente &&
+            pago.id !==
+              pagoTotalExistente.id
+          )
+        ) {
+          const { error: errorBorrar } =
+            await supabase
+              .from("pagos")
+              .delete()
+              .eq("id", pago.id);
+
+          if (errorBorrar) {
+            throw new Error(
+              "No se pudieron limpiar los pagos anteriores de la clase."
+            );
+          }
+        }
+      }
+
+      const normales =
+        participantes.filter(
+          (participante) =>
+            !participante.usa_bono
+        );
+
+      const totalPagado =
+        normales.length > 0 &&
+        normales.every(
+          (participante) =>
+            participante.pagado
+        );
+
+      const datosPago = {
+        alumno_id: null,
+        clase_id: claseId,
+        importe: Number(
+          importeTotal || 0
+        ),
+        metodo:
+          metodoPagoTotal ||
+          pagoTotalExistente?.metodo ||
+          "efectivo",
+        estado: totalPagado
+          ? "pagado"
+          : "pendiente",
+        fecha_pago: fecha,
+        notas:
+          estadoClase === "cancelada"
+            ? "Clase completa cancelada facturable · generado desde Clases"
+            : "Clase completa · generado automáticamente desde Clases",
+      };
+
+      if (pagoTotalExistente) {
+        const { error: errorActualizar } =
+          await supabase
+            .from("pagos")
+            .update(datosPago)
+            .eq(
+              "id",
+              pagoTotalExistente.id
+            );
+
+        if (errorActualizar) {
+          throw new Error(
+            "No se pudo actualizar el pago total de la clase."
+          );
+        }
+      } else {
+        const { error: errorInsertar } =
+          await supabase
+            .from("pagos")
+            .insert(datosPago);
+
+        if (errorInsertar) {
+          throw new Error(
+            "No se pudo crear el pago total de la clase."
+          );
+        }
+      }
+
+      return;
+    }
+
     const alumnosPagoNormal =
       participantes
         .filter(
-          (p) =>
-            !p.usa_bono
+          (p) => !p.usa_bono
         )
         .map(
-          (p) =>
-            p.alumno_id
+          (p) => p.alumno_id
         );
 
     for (
-      const pago of
-      pagosExistentes
+      const pago of pagosExistentes
     ) {
       if (
         !pago.alumno_id ||
@@ -2687,24 +3073,16 @@ export default function ClasesPage() {
         )
       ) {
         await supabase
-          .from(
-            "pagos"
-          )
+          .from("pagos")
           .delete()
-          .eq(
-            "id",
-            pago.id
-          );
+          .eq("id", pago.id);
       }
     }
 
     for (
-      const participante of
-      participantes
+      const participante of participantes
     ) {
-      if (
-        participante.usa_bono
-      ) {
+      if (participante.usa_bono) {
         continue;
       }
 
@@ -2718,79 +3096,46 @@ export default function ClasesPage() {
       const datosPago = {
         alumno_id:
           participante.alumno_id,
-
-        clase_id:
-          claseId,
-
+        clase_id: claseId,
         importe:
           participante.importe,
-
         metodo:
           metodoPagoAlumnos[
-            participante
-              .alumno_id
-          ] ||
-          "efectivo",
-
+            participante.alumno_id
+          ] || "efectivo",
         estado:
           estadoPagoAlumnos[
-            participante
-              .alumno_id
-          ] ||
-          "pendiente",
-
-        fecha_pago:
-          fecha,
-
+            participante.alumno_id
+          ] || "pendiente",
+        fecha_pago: fecha,
         notas:
           estadoClase === "cancelada"
             ? "Clase cancelada facturable · generado desde Clases"
             : "Generado automáticamente desde Clases",
       };
 
-      if (
-        pagoExistente
-      ) {
-        const {
-          error:
-            errorActualizar,
-        } =
+      if (pagoExistente) {
+        const { error: errorActualizar } =
           await supabase
-            .from(
-              "pagos"
-            )
-            .update(
-              datosPago
-            )
+            .from("pagos")
+            .update(datosPago)
             .eq(
               "id",
-              pagoExistente
-                .id
+              pagoExistente.id
             );
 
-        if (
-          errorActualizar
-        ) {
+        if (errorActualizar) {
           throw new Error(
             "No se pudo actualizar uno de los pagos."
           );
         }
       } else {
-        const {
-          error:
-            errorInsertar,
-        } =
+        const { error: errorInsertar } =
           await supabase
-            .from(
-              "pagos"
-            )
-            .insert(
-              datosPago
-            );
+            .from("pagos")
+            .insert(datosPago);
 
-        if (
-          errorInsertar
-        ) {
+        if (errorInsertar) {
           throw new Error(
             "No se pudo crear uno de los pagos."
           );
@@ -2880,6 +3225,61 @@ export default function ClasesPage() {
             clase.ingreso_extra
           )
         : ""
+    );
+
+    const modoCobroGuardado =
+      clase.tipo !== "club" &&
+      clase.modo_cobro === "total"
+        ? "total"
+        : "por_alumno";
+
+    setModoCobroClase(
+      modoCobroGuardado
+    );
+    setModoCobroManual(true);
+    setImporteTotalClase(
+      modoCobroGuardado === "total"
+        ? String(
+            clase.importe_total ?? ""
+          )
+        : ""
+    );
+    setImporteTotalManual(
+      modoCobroGuardado === "total"
+    );
+    setImportePorAlumnoManual(
+      modoCobroGuardado ===
+        "por_alumno"
+    );
+
+    const pagoTotalClase =
+      pagosClase.find(
+        (item) =>
+          item.clase_id === clase.id &&
+          item.alumno_id === null
+      );
+
+    const participantesNormalesClase =
+      clase.clase_alumnos.filter(
+        (participante) =>
+          !participante.usa_bono
+      );
+
+    setEstadoPagoTotal(
+      pagoTotalClase?.estado === "pagado" ||
+      (
+        participantesNormalesClase.length > 0 &&
+        participantesNormalesClase.every(
+          (participante) =>
+            participante.pagado
+        )
+      )
+        ? "pagado"
+        : "pendiente"
+    );
+    setMetodoPagoTotal(
+      pagoTotalClase?.metodo ||
+      "efectivo"
     );
 
     setBusquedaAlumno(
@@ -3400,6 +3800,38 @@ export default function ClasesPage() {
         : `Creando serie de ${fechasDisponibles.length} clase(s)...`
     );
 
+    const modoCobroFinalSerie:
+      "por_alumno" | "total" =
+      tipo !== "club" &&
+      !hayBonoSeleccionado &&
+      modoCobroClase === "total"
+        ? "total"
+        : "por_alumno";
+
+    const importeTotalFinalSerie =
+      modoCobroFinalSerie === "total"
+        ? Math.floor(
+            Number(importeTotalClase)
+          )
+        : null;
+
+    if (
+      modoCobroFinalSerie === "total" &&
+      (
+        importeTotalClase.trim() === "" ||
+        !Number.isFinite(
+          importeTotalFinalSerie
+        ) ||
+        Number(importeTotalFinalSerie) < 0
+      )
+    ) {
+      setCreandoSerie(false);
+      setMensaje(
+        "❌ No hay un precio total válido. Revisa la tarifa de Clase suelta o introduce el importe manualmente."
+      );
+      return;
+    }
+
     const participantes =
       tipo === "club"
         ? alumnosSeleccionados.map(
@@ -3473,6 +3905,9 @@ export default function ClasesPage() {
                               usuariosMismoBonoGrupo
                           : importeClaseBono;
                       })()
+                    : modoCobroFinalSerie ===
+                      "total"
+                    ? 0
                     : importesAlumnos[
                         alumnoId
                       ]
@@ -3486,6 +3921,10 @@ export default function ClasesPage() {
                 pagado:
                   usaBono
                     ? true
+                    : modoCobroFinalSerie ===
+                      "total"
+                    ? estadoPagoTotal ===
+                      "pagado"
                     : estadoPagoAlumnos[
                         alumnoId
                       ] ===
@@ -3623,6 +4062,10 @@ export default function ClasesPage() {
             ingresoExtra
               ? Number(ingresoExtra)
               : 0,
+          modo_cobro:
+            modoCobroFinalSerie,
+          importe_total:
+            importeTotalFinalSerie,
           estado:
             "programada",
           observaciones:
@@ -4258,6 +4701,37 @@ export default function ClasesPage() {
         ? facturableCancelacion === true
         : true;
 
+    const modoCobroFinal:
+      "por_alumno" | "total" =
+      tipo !== "club" &&
+      !hayBonoSeleccionado &&
+      modoCobroClase === "total"
+        ? "total"
+        : "por_alumno";
+
+    const importeTotalFinal =
+      modoCobroFinal === "total"
+        ? Math.floor(
+            Number(importeTotalClase)
+          )
+        : null;
+
+    if (
+      modoCobroFinal === "total" &&
+      (
+        importeTotalClase.trim() === "" ||
+        !Number.isFinite(
+          importeTotalFinal
+        ) ||
+        Number(importeTotalFinal) < 0
+      )
+    ) {
+      setMensaje(
+        "❌ No hay un precio total válido. Revisa la tarifa de Clase suelta o introduce el importe manualmente."
+      );
+      return;
+    }
+
     const participantesNuevos =
       tipo ===
       "club"
@@ -4347,6 +4821,9 @@ export default function ClasesPage() {
                               usuariosMismoBonoGrupo
                           : importeClaseBono;
                       })()
+                    : modoCobroFinal ===
+                      "total"
+                    ? 0
                     : importesAlumnos[
                         alumnoId
                       ]
@@ -4363,6 +4840,10 @@ export default function ClasesPage() {
                     : estado === "cancelada" &&
                       !facturableNueva
                     ? false
+                    : modoCobroFinal ===
+                      "total"
+                    ? estadoPagoTotal ===
+                      "pagado"
                     : estadoPagoAlumnos[
                         alumnoId
                       ] ===
@@ -4471,6 +4952,12 @@ export default function ClasesPage() {
               ingresoExtra
             )
           : 0,
+
+      modo_cobro:
+        modoCobroFinal,
+
+      importe_total:
+        importeTotalFinal,
 
       estado,
 
@@ -4649,7 +5136,9 @@ export default function ClasesPage() {
             estado,
             participantesNuevos,
             tipo,
-            facturableNueva
+            facturableNueva,
+            modoCobroFinal,
+            importeTotalFinal
           );
 
           try {
@@ -4845,7 +5334,9 @@ export default function ClasesPage() {
         estado,
         participantesNuevos,
         tipo,
-        facturableNueva
+        facturableNueva,
+        modoCobroFinal,
+        importeTotalFinal
       );
     } catch {
       setMensaje(
@@ -6401,12 +6892,104 @@ export default function ClasesPage() {
                     </h3>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      Configura el cobro de cada alumno
+                      Elige si el precio corresponde a cada alumno o a la clase completa
                     </p>
 
                   </div>
 
-                  {alumnosElegidos.length > 1 && (
+                  {alumnosElegidos.length > 0 && (
+                    <div className="flex rounded-xl border border-slate-200 bg-white p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModoCobroClase(
+                            "por_alumno"
+                          );
+                          setModoCobroManual(true);
+                          setImportePorAlumnoManual(
+                            alumnosElegidos.length !== 1
+                          );
+                          setImportesAlumnos(
+                            (actuales) => {
+                              const siguientes = {
+                                ...actuales,
+                              };
+
+                              alumnosElegidos.forEach(
+                                (alumno) => {
+                                  if (
+                                    siguientes[alumno.id]
+                                  ) {
+                                    return;
+                                  }
+
+                                  siguientes[alumno.id] =
+                                    alumno.precio_habitual !== null
+                                      ? String(
+                                          alumno.precio_habitual
+                                        )
+                                      : "";
+                                }
+                              );
+
+                              return siguientes;
+                            }
+                          );
+                        }}
+                        className={
+                          modoCobroClase ===
+                          "por_alumno"
+                            ? "rounded-lg bg-[#17324D] px-3 py-2 text-xs font-bold text-white"
+                            : "rounded-lg px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                        }
+                      >
+                        Por alumno
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={
+                          hayBonoSeleccionado
+                        }
+                        onClick={() => {
+                          if (hayBonoSeleccionado) {
+                            return;
+                          }
+
+                          setModoCobroClase(
+                            "total"
+                          );
+                          setModoCobroManual(true);
+                          setImporteTotalManual(false);
+                          setImporteTotalClase(
+                            calcularPrecioTotalAutomatico(
+                              alumnosSeleccionados.length,
+                              Number(duracion)
+                            )
+                          );
+                        }}
+                        className={
+                          hayBonoSeleccionado
+                            ? "cursor-not-allowed rounded-lg px-3 py-2 text-xs font-bold text-slate-300"
+                            : modoCobroClase ===
+                              "total"
+                            ? "rounded-lg bg-[#00A79C] px-3 py-2 text-xs font-bold text-white"
+                            : "rounded-lg px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                        }
+                        title={
+                          hayBonoSeleccionado
+                            ? "Las clases con bono mantienen su gestión por alumno/bono"
+                            : "Precio único para toda la clase"
+                        }
+                      >
+                        Precio total
+                      </button>
+                    </div>
+                  )}
+
+                  {modoCobroClase ===
+                    "por_alumno" &&
+                    alumnosElegidos.length > 1 && (
                     <button
                       type="button"
                       onClick={() =>
@@ -6461,8 +7044,99 @@ export default function ClasesPage() {
 
                 ) : (
 
-                  <div className="mt-3 grid gap-2 xl:grid-cols-2">
+                  <div className="mt-3 space-y-3">
 
+                    {modoCobroClase === "total" &&
+                      !hayBonoSeleccionado && (
+                      <div className="rounded-xl border border-[#BDE7DA] bg-[#F6FCFB] p-3.5">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                          <div className="flex-1">
+                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#008C83]">
+                              Precio total de la clase
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={
+                                importeTotalClase
+                              }
+                              onChange={(e) => {
+                                setImporteTotalClase(
+                                  e.target.value
+                                );
+                                setImporteTotalManual(true);
+                              }}
+                              placeholder="0"
+                              className="w-full rounded-lg border border-[#A8E1DC] bg-white px-3 py-2.5 text-sm font-bold text-[#17324D] outline-none focus:border-[#00A79C]"
+                            />
+                            <p className="mt-1.5 text-[11px] text-slate-500">
+                              Calculado desde Tarifas · Clase suelta · 60 min · {alumnosSeleccionados.length} alumno{alumnosSeleccionados.length === 1 ? "" : "s"}, ajustado a {duracion} min y redondeado hacia abajo. Puedes modificarlo manualmente.
+                            </p>
+                          </div>
+
+                          <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                Estado
+                              </label>
+                              <select
+                                value={
+                                  estadoPagoTotal
+                                }
+                                onChange={(e) =>
+                                  setEstadoPagoTotal(
+                                    e.target.value as
+                                      | "pagado"
+                                      | "pendiente"
+                                  )
+                                }
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                              >
+                                <option value="pendiente">
+                                  Pendiente
+                                </option>
+                                <option value="pagado">
+                                  Pagado
+                                </option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                Método
+                              </label>
+                              <select
+                                value={
+                                  metodoPagoTotal
+                                }
+                                onChange={(e) =>
+                                  setMetodoPagoTotal(
+                                    e.target.value
+                                  )
+                                }
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                              >
+                                <option value="efectivo">
+                                  Efectivo
+                                </option>
+                                <option value="bizum">
+                                  Bizum
+                                </option>
+                                <option value="transferencia">
+                                  Transferencia
+                                </option>
+                                <option value="tarjeta">
+                                  Tarjeta
+                                </option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid gap-2 xl:grid-cols-2">
                     {alumnosElegidos.map(
                       (
                         alumno
@@ -6518,7 +7192,7 @@ export default function ClasesPage() {
 
                                 <button
                                   type="button"
-                                  onClick={() =>
+                                  onClick={() => {
                                     setModoPagoAlumnos(
                                       (
                                         actuales
@@ -6527,8 +7201,8 @@ export default function ClasesPage() {
                                         [alumno.id]:
                                           "normal",
                                       })
-                                    )
-                                  }
+                                    );
+                                  }}
                                   className={
                                     modo ===
                                     "normal"
@@ -6562,6 +7236,10 @@ export default function ClasesPage() {
                                           "bono",
                                       })
                                     );
+                                    setModoCobroClase(
+                                      "por_alumno"
+                                    );
+                                    setImporteTotalManual(false);
 
                                     if (
                                       !bonosSeleccionados[
@@ -6653,6 +7331,13 @@ export default function ClasesPage() {
 
                               </div>
 
+                            ) : modoCobroClase ===
+                              "total" ? (
+
+                              <div className="mt-3 rounded-lg border border-[#BDE7DA] bg-[#F6FCFB] px-3 py-2.5 text-sm font-semibold text-[#008C83]">
+                                Incluido en el precio total de la clase
+                              </div>
+
                             ) : (
 
                               <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -6673,7 +7358,10 @@ export default function ClasesPage() {
                                       ] ||
                                       ""
                                     }
-                                    onChange={(e) =>
+                                    onChange={(e) => {
+                                      setImportePorAlumnoManual(
+                                        true
+                                      );
                                       setImportesAlumnos(
                                         (
                                           actuales
@@ -6682,8 +7370,8 @@ export default function ClasesPage() {
                                           [alumno.id]:
                                             e.target.value,
                                         })
-                                      )
-                                    }
+                                      );
+                                    }}
                                     placeholder="0,00"
                                     className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
                                   />
@@ -6783,6 +7471,7 @@ export default function ClasesPage() {
                         );
                       }
                     )}
+                    </div>
 
                   </div>
 
@@ -7364,18 +8053,24 @@ export default function ClasesPage() {
                 );
 
                 const importeTotalAlumnos =
-                  clase.clase_alumnos.reduce(
-                    (
-                      total,
-                      participante
-                    ) =>
-                      total +
-                      Number(
-                        participante.importe ||
+                  clase.modo_cobro ===
+                    "total"
+                    ? Number(
+                        clase.importe_total ||
                           0
-                      ),
-                    0
-                  );
+                      )
+                    : clase.clase_alumnos.reduce(
+                        (
+                          total,
+                          participante
+                        ) =>
+                          total +
+                          Number(
+                            participante.importe ||
+                              0
+                          ),
+                        0
+                      );
 
                 const tarifaClubVisual =
                   clase.tipo === "club" &&
@@ -7747,6 +8442,8 @@ export default function ClasesPage() {
                               {clase.tipo ===
                               "club"
                                 ? "A cobrar al club"
+                                : clase.modo_cobro === "total"
+                                ? "Precio total"
                                 : "Valor alumnos"}
                             </span>
                             <span className="text-sm font-bold text-[#17324D]">

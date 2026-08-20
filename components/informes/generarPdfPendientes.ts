@@ -55,6 +55,42 @@ async function cargarLogoBase64() {
   );
 }
 
+function nombrePagoPendiente(
+  pago: Pago
+) {
+  if (pago.alumnos) {
+    return `${pago.alumnos.nombre} ${
+      pago.alumnos.apellidos || ""
+    }`.trim();
+  }
+
+  if (
+    pago.clases?.modo_cobro ===
+    "total"
+  ) {
+    const nombres =
+      (
+        pago.clases.clase_alumnos ||
+        []
+      )
+        .map(
+          (item) =>
+            item.alumnos
+              ? `${item.alumnos.nombre} ${
+                  item.alumnos.apellidos || ""
+                }`.trim()
+              : ""
+        )
+        .filter(Boolean);
+
+    return nombres.length > 0
+      ? `Clase completa · ${nombres.join(" + ")}`
+      : "Clase completa";
+  }
+
+  return "Sin alumno";
+}
+
 export async function generarPdfPendientes({
   mes,
   pagosPendientes,
@@ -285,7 +321,7 @@ export async function generarPdfPendientes({
       },
       head: [
         [
-          "Alumno",
+          "Alumno / clase",
           "Fecha",
           "Método",
           "Importe",
@@ -294,12 +330,9 @@ export async function generarPdfPendientes({
       body:
         pagosPendientes.map(
           (pago) => [
-            pago.alumnos
-              ? `${pago.alumnos.nombre} ${
-                  pago.alumnos.apellidos ||
-                  ""
-                }`
-              : "Sin alumno",
+            nombrePagoPendiente(
+              pago
+            ),
 
             formatearFecha(
               pago.fecha_pago

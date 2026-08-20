@@ -369,6 +369,38 @@ function IconoInforme({
   );
 }
 
+type ClaseEconomicaNoClub = {
+  modo_cobro?: "por_alumno" | "total" | string | null;
+  importe_total?: number | null;
+  clase_alumnos?: {
+    importe?: number | null;
+  }[];
+};
+
+function ingresoClaseNoClub(
+  clase: ClaseEconomicaNoClub
+) {
+  if (
+    clase.modo_cobro ===
+    "total"
+  ) {
+    return Number(
+      clase.importe_total || 0
+    );
+  }
+
+  return (
+    clase.clase_alumnos || []
+  ).reduce(
+    (subtotal, participante) =>
+      subtotal +
+      Number(
+        participante.importe || 0
+      ),
+    0
+  );
+}
+
 export default function InformesPage() {
   const [mes, setMes] =
     useState(
@@ -559,6 +591,8 @@ const {
           importe_club,
           coste_pista,
           ingreso_extra,
+          modo_cobro,
+          importe_total,
 
           ubicaciones (
   nombre,
@@ -622,6 +656,20 @@ const {
           metodo,
           fecha_pago,
 
+          clases (
+            id,
+            fecha,
+            hora_inicio,
+            modo_cobro,
+            importe_total,
+            clase_alumnos (
+              alumnos (
+                nombre,
+                apellidos
+              )
+            )
+          ),
+
           alumnos (
             nombre,
             apellidos
@@ -669,6 +717,8 @@ const {
       importe_club,
       coste_pista,
       ingreso_extra,
+      modo_cobro,
+      importe_total,
 
       ubicaciones (
         nombre,
@@ -756,6 +806,8 @@ const {
       importe_club,
       coste_pista,
       ingreso_extra,
+      modo_cobro,
+      importe_total,
 
       clase_alumnos (
         alumno_id,
@@ -856,20 +908,8 @@ for (
         }
 
         const ingresosAlumnos =
-          (
-            clase.clase_alumnos ||
-            []
-          ).reduce(
-            (
-              subtotal,
-              participante
-            ) =>
-              subtotal +
-              Number(
-                participante.importe ||
-                  0
-              ),
-            0
+          ingresoClaseNoClub(
+            clase
           );
 
         return (
@@ -1013,20 +1053,8 @@ const ingresosMesAnterior =
       }
 
       const ingresosAlumnos =
-        (
-          clase.clase_alumnos ||
-          []
-        ).reduce(
-          (
-            subtotal,
-            participante
-          ) =>
-            subtotal +
-            Number(
-              participante.importe ||
-                0
-            ),
-          0
+        ingresoClaseNoClub(
+          clase
         );
 
       return (
@@ -1278,22 +1306,8 @@ const horasMesAnterior =
         }
 
         const ingresosAlumnos =
-          (
-            clase.clase_alumnos ||
-            []
-          ).reduce(
-            (
-              subtotal:
-                number,
-              participante:
-                any
-            ) =>
-              subtotal +
-              Number(
-                participante.importe ||
-                  0
-              ),
-            0
+          ingresoClaseNoClub(
+            clase
           );
 
         return (
@@ -1346,17 +1360,8 @@ const ingresosClasesPropiasPago =
     .reduce(
       (total, clase) =>
         total +
-        (
-          clase.clase_alumnos ||
-          []
-        ).reduce(
-          (subtotal, participante) =>
-            subtotal +
-            Number(
-              participante.importe ||
-                0
-            ),
-          0
+        ingresoClaseNoClub(
+          clase
         ),
       0
     );
@@ -1370,17 +1375,8 @@ const ingresosClasesPrivadas =
     .reduce(
       (total, clase) =>
         total +
-        (
-          clase.clase_alumnos ||
-          []
-        ).reduce(
-          (subtotal, participante) =>
-            subtotal +
-            Number(
-              participante.importe ||
-                0
-            ),
-          0
+        ingresoClaseNoClub(
+          clase
         ),
       0
     );
@@ -1412,26 +1408,43 @@ const ingresosPorBonoConsumido =
 
 const ingresosPagoNormalGenerado =
   clasesEconomicas.reduce(
-    (total, clase) =>
-      total +
-      (
-        clase.clase_alumnos ||
-        []
-      )
-        .filter(
-          (participante) =>
-            clase.tipo !== "club" &&
-            !participante.usa_bono
+    (total, clase) => {
+      if (clase.tipo === "club") {
+        return total;
+      }
+
+      if (
+        clase.modo_cobro ===
+        "total"
+      ) {
+        return (
+          total +
+          Number(
+            clase.importe_total || 0
+          )
+        );
+      }
+
+      return (
+        total +
+        (
+          clase.clase_alumnos ||
+          []
         )
-        .reduce(
-          (subtotal, participante) =>
-            subtotal +
-            Number(
-              participante.importe ||
-                0
-            ),
-          0
-        ),
+          .filter(
+            (participante) =>
+              !participante.usa_bono
+          )
+          .reduce(
+            (subtotal, participante) =>
+              subtotal +
+              Number(
+                participante.importe || 0
+              ),
+            0
+          )
+      );
+    },
     0
   );
 
@@ -1596,8 +1609,9 @@ const datosResumenAlumnos =
               ) / 60;
 
             if (
-              clase.tipo !==
-              "club"
+              clase.tipo !== "club" &&
+              clase.modo_cobro !==
+                "total"
             ) {
               actual.ingresos +=
                 Number(
@@ -1716,20 +1730,8 @@ const acumuladoDiario = (() => {
               clase.importe_club ||
                 0
             )
-          : (
-              clase.clase_alumnos ||
-              []
-            ).reduce(
-              (
-                total,
-                participante
-              ) =>
-                total +
-                Number(
-                  participante.importe ||
-                    0
-                ),
-              0
+          : ingresoClaseNoClub(
+              clase
             );
 
       const ingresoExtra =

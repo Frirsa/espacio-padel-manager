@@ -116,6 +116,17 @@ function ingresoClase(
     );
   }
 
+  if (
+    clase.modo_cobro ===
+    "total"
+  ) {
+    return (
+      Number(
+        clase.importe_total || 0
+      ) + extra
+    );
+  }
+
   const alumnos =
     (
       clase.clase_alumnos ||

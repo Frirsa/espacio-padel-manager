@@ -60,6 +60,8 @@ type Clase = {
   facturable: boolean;
   cobrada: boolean;
   observaciones: string | null;
+  modo_cobro: "por_alumno" | "total" | string | null;
+  importe_total: number | null;
 
   ubicaciones: {
     nombre: string;
@@ -354,6 +356,8 @@ export default function AgendaPage() {
         facturable,
         cobrada,
         observaciones,
+        modo_cobro,
+        importe_total,
         ubicaciones (
           nombre
         ),

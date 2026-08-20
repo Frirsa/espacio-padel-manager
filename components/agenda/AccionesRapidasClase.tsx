@@ -19,6 +19,8 @@ export type ClaseAccionesRapidas = {
   facturable: boolean;
   cobrada: boolean;
   observaciones: string | null;
+  modo_cobro?: "por_alumno" | "total" | string | null;
+  importe_total?: number | null;
   ubicaciones: { nombre: string } | null;
   clase_alumnos: {
     id: string;
@@ -553,16 +555,15 @@ export default function AccionesRapidasClase({
     metodoCobro?: string
   ) {
     const generaCobro =
-      estadoNuevo ===
-        "realizada" ||
-      (estadoNuevo ===
-        "cancelada" &&
-        facturableNueva);
+      estadoNuevo === "realizada" ||
+      (
+        estadoNuevo === "cancelada" &&
+        facturableNueva
+      );
 
     if (
       !generaCobro ||
-      claseTrabajo.tipo ===
-        "club"
+      claseTrabajo.tipo === "club"
     ) {
       await supabase
         .from("pagos")
@@ -577,34 +578,150 @@ export default function AccionesRapidasClase({
 
     const {
       data: pagosExistentes,
-      error:
-        errorPagos,
+      error: errorPagos,
     } =
       await supabase
         .from("pagos")
         .select(
-          "id,alumno_id,metodo"
+          "id,alumno_id,metodo,estado"
         )
         .eq(
           "clase_id",
           claseTrabajo.id
         );
 
-    if (
-      errorPagos
-    ) {
+    if (errorPagos) {
       throw new Error(
         "No se pudieron sincronizar los pagos."
       );
+    }
+
+    const pagosActuales =
+      pagosExistentes || [];
+
+    if (
+      claseTrabajo.modo_cobro ===
+      "total"
+    ) {
+      const pagosTotales =
+        pagosActuales.filter(
+          (pago) =>
+            pago.alumno_id === null
+        );
+
+      const existenteTotal =
+        pagosTotales[0];
+
+      for (const pago of pagosActuales) {
+        if (
+          pago.alumno_id !== null ||
+          (
+            existenteTotal &&
+            pago.id !== existenteTotal.id
+          )
+        ) {
+          const { error: errorBorrar } =
+            await supabase
+              .from("pagos")
+              .delete()
+              .eq("id", pago.id);
+
+          if (errorBorrar) {
+            throw new Error(
+              "No se pudieron limpiar los pagos anteriores de la clase."
+            );
+          }
+        }
+      }
+
+      const participantesNormales =
+        claseTrabajo.clase_alumnos.filter(
+          (participante) =>
+            !participante.usa_bono
+        );
+
+      const pagado =
+        participantesNormales.length > 0 &&
+        participantesNormales.every(
+          (participante) =>
+            participante.pagado
+        );
+
+      const datosPago = {
+        alumno_id: null,
+        clase_id: claseTrabajo.id,
+        importe: Number(
+          claseTrabajo.importe_total || 0
+        ),
+        metodo:
+          metodoCobro ||
+          existenteTotal?.metodo ||
+          "efectivo",
+        estado: pagado
+          ? "pagado"
+          : "pendiente",
+        fecha_pago:
+          claseTrabajo.fecha,
+        notas:
+          estadoNuevo === "cancelada"
+            ? "Clase completa cancelada facturable · actualizado desde Agenda"
+            : "Clase completa · actualizado desde Agenda",
+      };
+
+      if (existenteTotal) {
+        const { error: errorActualizar } =
+          await supabase
+            .from("pagos")
+            .update(datosPago)
+            .eq(
+              "id",
+              existenteTotal.id
+            );
+
+        if (errorActualizar) {
+          throw new Error(
+            "No se pudo actualizar el pago total de la clase."
+          );
+        }
+      } else {
+        const { error: errorInsertar } =
+          await supabase
+            .from("pagos")
+            .insert(datosPago);
+
+        if (errorInsertar) {
+          throw new Error(
+            "No se pudo crear el pago total de la clase."
+          );
+        }
+      }
+
+      return;
+    }
+
+    for (
+      const pago of pagosActuales
+    ) {
+      if (pago.alumno_id === null) {
+        const { error: errorBorrar } =
+          await supabase
+            .from("pagos")
+            .delete()
+            .eq("id", pago.id);
+
+        if (errorBorrar) {
+          throw new Error(
+            "No se pudo limpiar el pago total anterior."
+          );
+        }
+      }
     }
 
     for (
       const participante of
       claseTrabajo.clase_alumnos
     ) {
-      if (
-        participante.usa_bono
-      ) {
+      if (participante.usa_bono) {
         await supabase
           .from("pagos")
           .delete()
@@ -621,83 +738,58 @@ export default function AccionesRapidasClase({
       }
 
       const existente =
-        (
-          pagosExistentes ||
-          []
-        ).find(
-          (
-            pago
-          ) =>
+        pagosActuales.find(
+          (pago) =>
             pago.alumno_id ===
             participante.alumno_id
         );
 
-      const datosPago =
-        {
-          alumno_id:
-            participante.alumno_id,
-          clase_id:
-            claseTrabajo.id,
-          importe:
-            Number(
-              participante.importe ||
-                0
-            ),
-          metodo:
-            metodoCobro ||
-            existente?.metodo ||
-            "efectivo",
-          estado:
-            participante.pagado
-              ? "pagado"
-              : "pendiente",
-          fecha_pago:
-            claseTrabajo.fecha,
-          notas:
-            estadoNuevo ===
-            "cancelada"
-              ? "Clase cancelada facturable · actualizado desde Agenda"
-              : "Actualizado desde Agenda",
-        };
+      const datosPago = {
+        alumno_id:
+          participante.alumno_id,
+        clase_id:
+          claseTrabajo.id,
+        importe: Number(
+          participante.importe || 0
+        ),
+        metodo:
+          metodoCobro ||
+          existente?.metodo ||
+          "efectivo",
+        estado:
+          participante.pagado
+            ? "pagado"
+            : "pendiente",
+        fecha_pago:
+          claseTrabajo.fecha,
+        notas:
+          estadoNuevo === "cancelada"
+            ? "Clase cancelada facturable · actualizado desde Agenda"
+            : "Actualizado desde Agenda",
+      };
 
-      if (
-        existente
-      ) {
-        const {
-          error:
-            errorActualizar,
-        } =
+      if (existente) {
+        const { error: errorActualizar } =
           await supabase
             .from("pagos")
-            .update(
-              datosPago
-            )
+            .update(datosPago)
             .eq(
               "id",
               existente.id
             );
 
-        if (
-          errorActualizar
-        ) {
+        if (errorActualizar) {
           throw new Error(
             "No se pudo actualizar un pago."
           );
         }
       } else {
-        const {
-          error:
-            errorInsertar,
-        } =
+        const { error: errorInsertar } =
           await supabase
             .from("pagos")
-            .insert(
-              datosPago
-            );
+            .insert(datosPago);
 
-        if (
-          errorInsertar
-        ) {
+        if (errorInsertar) {
           throw new Error(
             "No se pudo crear un pago."
           );
@@ -1252,6 +1344,154 @@ export default function AccionesRapidasClase({
     }
   }
 
+  async function cambiarCobroTotal(
+    pagado: boolean,
+    metodoCobro?: string
+  ) {
+    if (
+      claseSeleccionada.tipo === "club" ||
+      claseSeleccionada.modo_cobro !== "total"
+    ) {
+      return;
+    }
+
+    setActualizando(true);
+    setMensajeAccion("");
+
+    try {
+      let claseTrabajo =
+        claseSeleccionada;
+      let cambioARealizada =
+        false;
+
+      if (
+        pagado &&
+        claseTrabajo.estado ===
+          "programada"
+      ) {
+        await ajustarBonosDeParticipantes(
+          claseTrabajo.clase_alumnos,
+          -1
+        );
+
+        const { error: errorClase } =
+          await supabase
+            .from("clases")
+            .update({
+              estado: "realizada",
+              facturable: true,
+            })
+            .eq(
+              "id",
+              claseTrabajo.id
+            );
+
+        if (errorClase) {
+          throw new Error(
+            "No se pudo marcar la clase como realizada."
+          );
+        }
+
+        claseTrabajo = {
+          ...claseTrabajo,
+          estado: "realizada",
+          facturable: true,
+        };
+        cambioARealizada = true;
+      }
+
+      const idsPagoNormal =
+        claseTrabajo.clase_alumnos
+          .filter(
+            (participante) =>
+              !participante.usa_bono
+          )
+          .map(
+            (participante) =>
+              participante.id
+          );
+
+      if (idsPagoNormal.length > 0) {
+        const { error: errorParticipantes } =
+          await supabase
+            .from("clase_alumnos")
+            .update({ pagado })
+            .in(
+              "id",
+              idsPagoNormal
+            );
+
+        if (errorParticipantes) {
+          throw new Error(
+            "No se pudo actualizar el cobro de la clase."
+          );
+        }
+      }
+
+      const participantesActualizados =
+        claseTrabajo.clase_alumnos.map(
+          (participante) =>
+            participante.usa_bono
+              ? participante
+              : {
+                  ...participante,
+                  pagado,
+                }
+        );
+
+      claseTrabajo = {
+        ...claseTrabajo,
+        clase_alumnos:
+          participantesActualizados,
+      };
+
+      await sincronizarPagosRapidos(
+        claseTrabajo,
+        claseTrabajo.estado,
+        claseTrabajo.facturable,
+        metodoCobro
+      );
+
+      let falloGoogle = false;
+
+      if (cambioARealizada) {
+        try {
+          await sincronizarClaseConGoogleCalendar(
+            datosGoogleClase(
+              claseTrabajo,
+              { estado: "realizada" }
+            )
+          );
+        } catch {
+          falloGoogle = true;
+        }
+      }
+
+      setClaseSeleccionada(
+        claseTrabajo
+      );
+      setParticipanteCobroId(null);
+      await onClaseActualizada();
+
+      if (falloGoogle) {
+        window.alert(
+          "La clase se actualizó en Manager, pero no se pudo sincronizar el cambio con Google Calendar."
+        );
+      }
+    } catch (error) {
+      setMensajeAccion(
+        "❌ " +
+          (
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar el cobro de la clase."
+          )
+      );
+    } finally {
+      setActualizando(false);
+    }
+  }
+
   async function cambiarCobro(
     participante:
       ClaseAccionesRapidas["clase_alumnos"][number],
@@ -1577,7 +1817,28 @@ export default function AccionesRapidasClase({
           !participante.usa_bono
       );
 
+  const esCobroTotal =
+    claseSeleccionada.tipo !==
+      "club" &&
+    claseSeleccionada.modo_cobro ===
+      "total";
+
+  const cobroTotalPagado =
+    esCobroTotal &&
+    pagosNormales.length > 0 &&
+    pagosNormales.every(
+      (participante) =>
+        participante.pagado
+    );
+
+  const importeCobroTotal =
+    Number(
+      claseSeleccionada.importe_total ||
+        0
+    ).toFixed(2);
+
   const pagoNormalUnico =
+    !esCobroTotal &&
     pagosNormales.length ===
     1
       ? pagosNormales[0]
@@ -1628,26 +1889,26 @@ export default function AccionesRapidasClase({
   ];
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0F172A]/58 p-3 backdrop-blur-[3px] sm:p-5">
-      <div className="max-h-[94vh] w-full max-w-[920px] overflow-y-auto rounded-[28px] border border-slate-200 bg-white px-4 py-5 shadow-[0_28px_90px_rgba(15,23,42,0.30)] sm:px-6 sm:py-6 lg:px-8 lg:py-7">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0F172A]/58 p-2.5 backdrop-blur-[3px] sm:p-4">
+      <div className="max-h-[calc(100vh-20px)] w-full max-w-[1180px] overflow-y-auto rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_28px_90px_rgba(15,23,42,0.30)] sm:max-h-[calc(100vh-32px)] sm:px-5 sm:py-5 lg:px-6 lg:py-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#00A79C] sm:text-[12px]">
               Acciones rápidas
             </p>
 
-            <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0">
-              <h3 className="text-[27px] font-extrabold leading-tight tracking-tight text-[#17324D] sm:text-[34px] lg:text-[38px]">
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0">
+              <h3 className="text-[25px] font-extrabold leading-tight tracking-tight text-[#17324D] sm:text-[30px] lg:text-[32px]">
                 {horaInicio} h - {horaFin} h
               </h3>
 
-              <p className="whitespace-nowrap text-[14px] font-semibold leading-tight text-slate-400 sm:text-base lg:text-lg">
+              <p className="whitespace-nowrap text-[13px] font-semibold leading-tight text-slate-400 sm:text-sm">
                 · {claseSeleccionada.duracion_minutos} min
               </p>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <p className="text-lg font-medium text-slate-500">
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-slate-500 sm:text-[15px]">
                 {claseSeleccionada.ubicaciones?.nombre || "Sin ubicación"}
               </p>
 
@@ -1662,7 +1923,7 @@ export default function AccionesRapidasClase({
             onClick={
               onCerrar
             }
-            className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-[0_6px_20px_rgba(15,23,42,0.08)] transition hover:bg-slate-50 hover:text-[#17324D]"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-[0_6px_20px_rgba(15,23,42,0.08)] transition hover:bg-slate-50 hover:text-[#17324D]"
             aria-label="Cerrar"
             title="Cerrar"
           >
@@ -1670,20 +1931,59 @@ export default function AccionesRapidasClase({
           </button>
         </div>
 
+        <div
+          className={
+            esClub
+              ? "mt-4"
+              : "mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(410px,0.92fr)] lg:items-start"
+          }
+        >
+          <div className={esClub ? "hidden" : "min-w-0"}>
         {!esClub &&
           claseSeleccionada
             .clase_alumnos
             .length >
             0 && (
-            <section className="mt-6 rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5">
+            <section className="rounded-[20px] border border-slate-200 bg-[#FBFCFD] p-3 sm:p-4">
               <div className="flex items-center gap-3 text-[#0DAA9B]">
                 <IconoAlumno />
-                <p className="text-[15px] font-extrabold uppercase tracking-[0.08em]">
+                <p className="text-[13px] font-extrabold uppercase tracking-[0.08em]">
                   Alumnos
                 </p>
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-2.5">
+                {esCobroTotal && (
+                  <div className="flex flex-col gap-2 rounded-[16px] border border-[#BDE7DA] bg-[#F6FCFB] px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#148C86]">
+                        Precio total de la clase
+                      </p>
+                      <p className="mt-0.5 text-[20px] font-extrabold text-[#17324D]">
+                        {importeCobroTotal} €
+                      </p>
+                      <p className="mt-0.5 text-xs font-medium text-slate-500">
+                        {cobroTotalPagado
+                          ? "Cobrado"
+                          : "Pendiente de cobro"}
+                      </p>
+                    </div>
+
+                    {cobroTotalPagado && (
+                      <button
+                        type="button"
+                        disabled={actualizando}
+                        onClick={() =>
+                          cambiarCobroTotal(false)
+                        }
+                        className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-5 text-[14px] font-bold text-emerald-700 disabled:opacity-50"
+                      >
+                        Cobrado
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {claseSeleccionada.clase_alumnos.map(
                   (
                     participante
@@ -1706,21 +2006,27 @@ export default function AccionesRapidasClase({
                         key={
                           participante.id
                         }
-                        className="rounded-[20px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]"
+                        className="rounded-[16px] border border-slate-200 bg-white px-3.5 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)]"
                       >
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                           <div className="min-w-0">
-                            <p className="truncate text-[17px] font-extrabold text-[#17324D]">
+                            <p className="truncate text-[15px] font-extrabold text-[#17324D] sm:text-[16px]">
                               {nombre}
                             </p>
 
                             {participante.usa_bono ? (
-                              <p className="mt-1 inline-flex items-center gap-1.5 text-[14px] font-semibold text-violet-700">
+                              <p className="mt-0.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-violet-700 sm:text-[13px]">
                                 <IconoBono />
                                 Bono asignado
                               </p>
+                            ) : esCobroTotal ? (
+                              <p className="mt-0.5 text-[12px] font-medium text-slate-500 sm:text-[13px]">
+                                Incluido en precio total · {participante.pagado
+                                  ? "Cobrado"
+                                  : "Pendiente de cobro"}
+                              </p>
                             ) : (
-                              <p className="mt-1 text-[14px] font-medium text-slate-500">
+                              <p className="mt-0.5 text-[12px] font-medium text-slate-500 sm:text-[13px]">
                                 {importe} € · {participante.pagado
                                   ? "Cobrado"
                                   : "Pendiente de cobro"}
@@ -1728,7 +2034,7 @@ export default function AccionesRapidasClase({
                             )}
                           </div>
 
-                          <div className="grid w-full grid-cols-2 gap-3 lg:w-auto lg:grid-cols-[138px_138px]">
+                          <div className="grid w-full grid-cols-2 gap-2 lg:w-auto lg:grid-cols-[118px_118px]">
                             <button
                               type="button"
                               disabled={
@@ -1742,8 +2048,8 @@ export default function AccionesRapidasClase({
                               }
                               className={
                                 participante.asistio
-                                  ? "inline-flex h-11 w-full items-center justify-center rounded-full border border-[#8FD7DA] bg-[#EFFBFA] px-3 text-[14px] font-bold text-[#2A77FF]"
-                                  : "inline-flex h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 text-[14px] font-bold text-slate-600"
+                                  ? "inline-flex h-10 w-full items-center justify-center rounded-full border border-[#8FD7DA] bg-[#EFFBFA] px-2.5 text-[12px] font-bold text-[#2A77FF] sm:text-[13px]"
+                                  : "inline-flex h-10 w-full items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[12px] font-bold text-slate-600 sm:text-[13px]"
                               }
                             >
                               {participante.asistio
@@ -1752,8 +2058,12 @@ export default function AccionesRapidasClase({
                             </button>
 
                             {participante.usa_bono ? (
-                              <span className="inline-flex h-11 w-full items-center justify-center rounded-full border border-violet-200 bg-violet-50 px-3 text-[14px] font-bold text-violet-700">
+                              <span className="inline-flex h-10 w-full items-center justify-center rounded-full border border-violet-200 bg-violet-50 px-2.5 text-[12px] font-bold text-violet-700 sm:text-[13px]">
                                 Bono
+                              </span>
+                            ) : esCobroTotal ? (
+                              <span className="inline-flex h-10 w-full items-center justify-center rounded-full border border-[#BDE7DA] bg-[#F6FCFB] px-2.5 text-[12px] font-bold text-[#148C86] sm:text-[13px]">
+                                Precio total
                               </span>
                             ) : participante.pagado ? (
                               <button
@@ -1767,7 +2077,7 @@ export default function AccionesRapidasClase({
                                     false
                                   )
                                 }
-                                className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[14px] font-bold text-emerald-700"
+                                className="inline-flex h-10 w-full items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 text-[12px] font-bold text-emerald-700 sm:text-[13px]"
                               >
                                 Cobrado
                               </button>
@@ -1785,7 +2095,7 @@ export default function AccionesRapidasClase({
                                       : participante.id
                                   )
                                 }
-                                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-gradient-to-r from-[#0EA6A0] to-[#159A8A] px-3 text-[14px] font-bold text-white shadow-sm transition hover:opacity-95"
+                                className="inline-flex h-10 w-full items-center justify-center rounded-full bg-gradient-to-r from-[#0EA6A0] to-[#159A8A] px-2.5 text-[12px] font-bold text-white shadow-sm transition hover:opacity-95 sm:text-[13px]"
                               >
                                 Cobrar
                               </button>
@@ -1793,14 +2103,15 @@ export default function AccionesRapidasClase({
                           </div>
                         </div>
 
-                        {!participante.usa_bono &&
+                        {!esCobroTotal &&
+                          !participante.usa_bono &&
                           !participante.pagado &&
                           (claseSeleccionada.estado !==
                             "cancelada" ||
                             claseSeleccionada.facturable) &&
                           participanteCobroId ===
                             participante.id && (
-                            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+                            <div className="mt-2.5 grid grid-cols-2 gap-2 md:grid-cols-4">
                               {metodosCobro.map(
                                 (
                                   metodo
@@ -1820,9 +2131,9 @@ export default function AccionesRapidasClase({
                                         metodo.valor
                                       )
                                     }
-                                    className="rounded-2xl border border-[#C9E8E4] bg-[#F7FFFE] px-3 py-3 text-center text-[13px] font-bold text-[#0F8E83] transition hover:bg-[#ECFBF8] disabled:opacity-50"
+                                    className="rounded-xl border border-[#C9E8E4] bg-[#F7FFFE] px-2 py-2 text-center text-[11px] font-bold text-[#0F8E83] transition hover:bg-[#ECFBF8] disabled:opacity-50 sm:text-[12px]"
                                   >
-                                    <div className="mb-1 flex justify-center text-[#10A99D]">
+                                    <div className="mb-0.5 flex justify-center text-[#10A99D]">
                                       {metodo.icono}
                                     </div>
                                     {metodo.texto}
@@ -1838,20 +2149,37 @@ export default function AccionesRapidasClase({
               </div>
             </section>
           )}
+          </div>
 
-        <section className="mt-5 rounded-[24px] border border-[#BDE7DA] bg-[#F6FCFB] p-4 sm:p-5">
+          <div className="min-w-0 space-y-4">
+        <section className="rounded-[20px] border border-[#BDE7DA] bg-[#F6FCFB] p-3 sm:p-4">
           <div className="flex items-center gap-3 text-[#10A99D]">
             <IconoCheckCircle />
             <div>
-              <p className="text-[15px] font-extrabold uppercase tracking-[0.08em] text-[#148C86]">
+              <p className="text-[13px] font-extrabold uppercase tracking-[0.08em] text-[#148C86]">
                 Finalizar clase
               </p>
-              {!esClub && pagoNormalUnico && !pagoNormalUnico.pagado && claseSeleccionada.estado !== "cancelada" ? (
-                <p className="mt-1 text-[15px] font-medium text-slate-500">
+              {!esClub &&
+              (
+                (
+                  esCobroTotal &&
+                  !cobroTotalPagado &&
+                  (
+                    claseSeleccionada.estado !== "cancelada" ||
+                    claseSeleccionada.facturable
+                  )
+                ) ||
+                (
+                  pagoNormalUnico &&
+                  !pagoNormalUnico.pagado &&
+                  claseSeleccionada.estado !== "cancelada"
+                )
+              ) ? (
+                <p className="mt-0.5 text-[12px] font-medium text-slate-500">
                   Elige forma de cobro
                 </p>
               ) : (
-                <p className="mt-1 text-[15px] font-medium text-slate-500">
+                <p className="mt-0.5 text-[12px] font-medium text-slate-500">
                   Marca la clase como realizada
                 </p>
               )}
@@ -1859,11 +2187,22 @@ export default function AccionesRapidasClase({
           </div>
 
           {!esClub &&
-          pagoNormalUnico &&
-          !pagoNormalUnico.pagado &&
-          claseSeleccionada.estado !==
-            "cancelada" ? (
-            <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          (
+            (
+              esCobroTotal &&
+              !cobroTotalPagado &&
+              (
+                claseSeleccionada.estado !== "cancelada" ||
+                claseSeleccionada.facturable
+              )
+            ) ||
+            (
+              pagoNormalUnico &&
+              !pagoNormalUnico.pagado &&
+              claseSeleccionada.estado !== "cancelada"
+            )
+          ) ? (
+            <div className="mt-3 grid grid-cols-4 gap-2">
               {metodosCobro.map(
                 (
                   metodo
@@ -1876,25 +2215,46 @@ export default function AccionesRapidasClase({
                     disabled={
                       actualizando
                     }
-                    onClick={() =>
+                    onClick={() => {
+                      if (esCobroTotal) {
+                        if (
+                          claseSeleccionada.estado ===
+                          "programada"
+                        ) {
+                          cambiarEstadoClase(
+                            "realizada",
+                            {
+                              facturable: true,
+                              cobrar: true,
+                              metodoCobro:
+                                metodo.valor,
+                            }
+                          );
+                        } else {
+                          cambiarCobroTotal(
+                            true,
+                            metodo.valor
+                          );
+                        }
+                        return;
+                      }
+
                       cambiarEstadoClase(
                         "realizada",
                         {
-                          facturable:
-                            true,
-                          cobrar:
-                            true,
+                          facturable: true,
+                          cobrar: true,
                           metodoCobro:
                             metodo.valor,
                         }
-                      )
-                    }
-                    className="rounded-[18px] border border-slate-200 bg-white px-3 py-4 text-center text-[#17324D] shadow-[0_8px_20px_rgba(15,23,42,0.05)] transition hover:border-[#A8E1DC] hover:bg-[#F9FFFE] disabled:opacity-50"
+                      );
+                    }}
+                    className="rounded-[14px] border border-slate-200 bg-white px-2 py-2.5 text-center text-[#17324D] shadow-[0_6px_16px_rgba(15,23,42,0.04)] transition hover:border-[#A8E1DC] hover:bg-[#F9FFFE] disabled:opacity-50"
                   >
-                    <div className="mb-2 flex justify-center text-[#10A99D]">
+                    <div className="mb-1 flex justify-center text-[#10A99D]">
                       {metodo.icono}
                     </div>
-                    <div className="text-[13px] font-bold sm:text-[15px]">
+                    <div className="text-[10px] font-bold sm:text-[11px]">
                       {metodo.texto}
                     </div>
                   </button>
@@ -1903,19 +2263,20 @@ export default function AccionesRapidasClase({
             </div>
           ) : null}
 
-          {pagosNormales.length >
-            1 &&
+          {!esCobroTotal &&
+            pagosNormales.length >
+              1 &&
             claseSeleccionada.tipo !==
               "club" && (
-              <p className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600">
+              <p className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600">
                 Para clases con varios alumnos, usa “Cobrar” dentro de cada tarjeta para indicar la forma de pago de cada uno.
               </p>
             )}
 
-          <div className="mt-4">
+          <div className="mt-3">
             {claseSeleccionada.estado ===
             "realizada" ? (
-              <div className="flex min-h-[58px] items-center justify-center rounded-[18px] border border-[#8FD7DA] bg-white px-4 py-3 text-[18px] font-bold text-[#129F8E]">
+              <div className="flex min-h-[44px] items-center justify-center rounded-[14px] border border-[#8FD7DA] bg-white px-3 py-2 text-[14px] font-bold text-[#129F8E]">
                 ✓ Clase realizada
               </div>
             ) : (
@@ -1933,7 +2294,7 @@ export default function AccionesRapidasClase({
                     }
                   )
                 }
-                className="w-full rounded-[18px] border border-[#22B0A3] bg-white px-4 py-3 text-[18px] font-bold text-[#129F8E] transition hover:bg-[#F0FBF9] disabled:opacity-50"
+                className="w-full rounded-[14px] border border-[#22B0A3] bg-white px-3 py-2.5 text-[14px] font-bold text-[#129F8E] transition hover:bg-[#F0FBF9] disabled:opacity-50"
               >
                 ✓ Marcar solo como realizada
               </button>
@@ -1941,15 +2302,15 @@ export default function AccionesRapidasClase({
           </div>
         </section>
 
-        <section className="mt-5 rounded-[24px] border border-[#F5D5D7] bg-[#FFF7F7] p-4 sm:p-5">
+        <section className="rounded-[20px] border border-[#F5D5D7] bg-[#FFF7F7] p-3 sm:p-4">
           <div className="flex items-center gap-3 text-[#FF3B3B]">
             <IconoCancelarCircle />
-            <p className="text-[15px] font-extrabold uppercase tracking-[0.08em]">
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.08em]">
               Cancelar clase
             </p>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
               disabled={
@@ -1964,7 +2325,7 @@ export default function AccionesRapidasClase({
                     ""
                 );
               }}
-              className={`rounded-[18px] px-4 py-3 text-[18px] font-bold transition disabled:opacity-50 ${
+              className={`rounded-[14px] px-3 py-2.5 text-[14px] font-bold transition disabled:opacity-50 ${
                 cancelacionFacturablePendiente ===
                 true
                   ? "bg-red-600 text-white"
@@ -1988,7 +2349,7 @@ export default function AccionesRapidasClase({
                     ""
                 );
               }}
-              className={`rounded-[18px] px-4 py-3 text-[18px] font-bold transition disabled:opacity-50 ${
+              className={`rounded-[14px] px-3 py-2.5 text-[14px] font-bold transition disabled:opacity-50 ${
                 cancelacionFacturablePendiente ===
                 false
                   ? "bg-red-600 text-white"
@@ -2001,7 +2362,7 @@ export default function AccionesRapidasClase({
 
           {cancelacionFacturablePendiente !==
             null && (
-            <div className="mt-4 rounded-[18px] border border-red-200 bg-white p-4">
+            <div className="mt-3 rounded-[14px] border border-red-200 bg-white p-3">
               <label className="block text-[12px] font-extrabold uppercase tracking-[0.08em] text-red-600">
                 Motivo de cancelación
               </label>
@@ -2019,8 +2380,8 @@ export default function AccionesRapidasClase({
                   )
                 }
                 placeholder="Ej.: Cancela porque se encuentra mal."
-                rows={3}
-                className="mt-3 w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-red-400"
+                rows={2}
+                className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-red-400"
               />
 
               <button
@@ -2043,7 +2404,7 @@ export default function AccionesRapidasClase({
                     }
                   )
                 }
-                className="mt-3 w-full rounded-[16px] bg-red-600 px-4 py-3 text-base font-bold text-white transition hover:bg-red-700 disabled:opacity-40"
+                className="mt-2 w-full rounded-[12px] bg-red-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-40"
               >
                 Confirmar cancelación
               </button>
@@ -2055,7 +2416,7 @@ export default function AccionesRapidasClase({
             claseSeleccionada.observaciones &&
             cancelacionFacturablePendiente ===
               null && (
-              <p className="mt-4 rounded-2xl border border-red-100 bg-white px-4 py-3 text-sm leading-6 text-slate-600">
+              <p className="mt-3 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs leading-5 text-slate-600">
                 <span className="font-bold text-slate-700">
                   Motivo:
                 </span>{" "}
@@ -2066,10 +2427,10 @@ export default function AccionesRapidasClase({
             )}
         </section>
 
-        <section className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/65 p-4 sm:p-5">
+        <section className="rounded-[20px] border border-slate-200 bg-slate-50/65 p-3 sm:p-4">
           <div className="flex items-center gap-3 text-slate-500">
             <IconoConfiguracion />
-            <p className="text-[15px] font-extrabold uppercase tracking-[0.08em] text-slate-600">
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.08em] text-slate-600">
               Otras acciones
             </p>
           </div>
@@ -2091,8 +2452,8 @@ export default function AccionesRapidasClase({
                 }
                 className={
                   claseSeleccionada.cobrada
-                    ? "mt-4 w-full rounded-[18px] border border-amber-300 bg-amber-50 px-5 py-3 text-base font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
-                    : "mt-4 w-full rounded-[18px] border border-emerald-300 bg-emerald-50 px-5 py-3 text-base font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
+                    ? "mt-3 w-full rounded-[14px] border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
+                    : "mt-3 w-full rounded-[14px] border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
                 }
               >
                 {claseSeleccionada.cobrada
@@ -2117,13 +2478,13 @@ export default function AccionesRapidasClase({
                   }
                 )
               }
-              className="mt-4 w-full rounded-[18px] border border-slate-300 bg-white px-5 py-3 text-[18px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              className="mt-3 w-full rounded-[14px] border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
             >
               Volver a programada
             </button>
           )}
 
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() =>
@@ -2131,7 +2492,7 @@ export default function AccionesRapidasClase({
                   claseSeleccionada.id
                 )
               }
-              className="inline-flex items-center justify-center gap-2 rounded-[18px] bg-[#17324D] px-5 py-4 text-[18px] font-bold text-white transition hover:bg-[#0F2538]"
+              className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-[#17324D] px-3 py-2.5 text-[13px] font-bold text-white transition hover:bg-[#0F2538]"
             >
               <IconoEditar />
               Editar clase completa
@@ -2145,20 +2506,22 @@ export default function AccionesRapidasClase({
               onClick={
                 borrarClaseSeleccionada
               }
-              className="inline-flex items-center justify-center gap-2 rounded-[18px] border border-red-200 bg-white px-5 py-4 text-[18px] font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-[14px] border border-red-200 bg-white px-3 py-2.5 text-[13px] font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
             >
               <IconoPapelera />
               Borrar clase
             </button>
           </div>
         </section>
+          </div>
+        </div>
 
-        <p className="mt-6 text-center text-sm leading-7 text-slate-500">
+        <p className="mt-3 text-center text-[11px] leading-5 text-slate-400">
           Los bonos se descuentan cuando la clase se realiza o cuando una cancelación es facturable. Se devuelven si vuelve a programada o pasa a no facturable.
         </p>
 
         {mensajeAccion && (
-          <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+          <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
             {
               mensajeAccion
             }
