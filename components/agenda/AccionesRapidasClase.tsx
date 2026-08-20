@@ -442,6 +442,110 @@ export default function AccionesRapidasClase({
     }
   }
 
+
+  async function ajustarBonosDeParticipantes(
+    participantes: {
+      usa_bono: boolean;
+      bono_id: string | null;
+    }[],
+    diferencia: number
+  ) {
+    const consumosPorBono =
+      new Map<string, number>();
+
+    for (
+      const participante of
+      participantes
+    ) {
+      if (
+        !participante.usa_bono ||
+        !participante.bono_id
+      ) {
+        continue;
+      }
+
+      consumosPorBono.set(
+        participante.bono_id,
+        (
+          consumosPorBono.get(
+            participante.bono_id
+          ) || 0
+        ) + 1
+      );
+    }
+
+    const idsBono =
+      Array.from(
+        consumosPorBono.keys()
+      );
+
+    if (
+      idsBono.length ===
+      0
+    ) {
+      return;
+    }
+
+    const {
+      data:
+        bonosRelacionados,
+      error:
+        errorBonosRelacionados,
+    } =
+      await supabase
+        .from("bonos")
+        .select(
+          "id,grupo_id"
+        )
+        .in(
+          "id",
+          idsBono
+        );
+
+    if (
+      errorBonosRelacionados
+    ) {
+      throw new Error(
+        "No se pudo comprobar el tipo de bono."
+      );
+    }
+
+    for (
+      const bonoId of
+      idsBono
+    ) {
+      const bono =
+        (
+          bonosRelacionados ||
+          []
+        ).find(
+          (item) =>
+            item.id ===
+            bonoId
+        );
+
+      const cantidad =
+        bono?.grupo_id
+          ? 1
+          : consumosPorBono.get(
+              bonoId
+            ) || 0;
+
+      if (
+        cantidad <=
+        0
+      ) {
+        continue;
+      }
+
+      await ajustarBono(
+        bonoId,
+        diferencia *
+          cantidad
+      );
+    }
+  }
+
   async function sincronizarPagosRapidos(
     claseTrabajo: ClaseAccionesRapidas,
     estadoNuevo: string,
@@ -696,20 +800,10 @@ export default function AccionesRapidasClase({
         "realizada"
       ) {
         try {
-          for (
-            const participante of
-            claseTrabajo.clase_alumnos
-          ) {
-            if (
-              participante.usa_bono &&
-              participante.bono_id
-            ) {
-              await ajustarBono(
-                participante.bono_id,
-                1
-              );
-            }
-          }
+          await ajustarBonosDeParticipantes(
+            claseTrabajo.clase_alumnos,
+            1
+          );
         } catch {
           avisoBono =
             "Clase borrada, pero hubo un problema al devolver el bono.";
@@ -819,22 +913,12 @@ export default function AccionesRapidasClase({
         consumiaBonoAntes !==
         consumiraBonoAhora
       ) {
-        for (
-          const participante of
-          claseTrabajo.clase_alumnos
-        ) {
-          if (
-            participante.usa_bono &&
-            participante.bono_id
-          ) {
-            await ajustarBono(
-              participante.bono_id,
-              consumiraBonoAhora
-                ? -1
-                : 1
-            );
-          }
-        }
+        await ajustarBonosDeParticipantes(
+          claseTrabajo.clase_alumnos,
+          consumiraBonoAhora
+            ? -1
+            : 1
+        );
       }
 
       let participantesActualizados =
@@ -1199,20 +1283,10 @@ export default function AccionesRapidasClase({
         claseTrabajo.estado ===
           "programada"
       ) {
-        for (
-          const item of
-          claseTrabajo.clase_alumnos
-        ) {
-          if (
-            item.usa_bono &&
-            item.bono_id
-          ) {
-            await ajustarBono(
-              item.bono_id,
-              -1
-            );
-          }
-        }
+        await ajustarBonosDeParticipantes(
+          claseTrabajo.clase_alumnos,
+          -1
+        );
 
         const {
           error:

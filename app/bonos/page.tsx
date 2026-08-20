@@ -777,7 +777,11 @@ export default function BonosPage() {
   const [
     filtroEstado,
     setFiltroEstado,
-  ] = useState("todos");
+  ] = useState(
+    filtroDesdeDashboard
+      ? "todos"
+      : "activos"
+  );
 
   const [
     filtroMes,
