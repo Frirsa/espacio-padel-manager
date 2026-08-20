@@ -30,6 +30,7 @@ type Alumno = {
   fecha_nacimiento: string | null;
   localidad: string | null;
   pais: string | null;
+  observaciones: string | null;
 };
 
 type Ubicacion = {
@@ -122,6 +123,9 @@ export default function AlumnosPage() {
     useState("");
 
   const [pais, setPais] =
+    useState("");
+
+  const [observaciones, setObservaciones] =
     useState("");
 
   const [telefono, setTelefono] =
@@ -344,6 +348,7 @@ export default function AlumnosPage() {
     setFechaNacimiento("");
     setLocalidad("");
     setPais("");
+    setObservaciones("");
     setTelefono("");
     setEmail("");
     setPrecio("");
@@ -512,6 +517,8 @@ export default function AlumnosPage() {
         localidad.trim() || null,
       pais:
         pais.trim() || null,
+      observaciones:
+        observaciones.trim() || null,
       telefono:
         telefono || null,
       email:
@@ -636,6 +643,10 @@ export default function AlumnosPage() {
 
     setPais(
       alumno.pais || ""
+    );
+
+    setObservaciones(
+      alumno.observaciones || ""
     );
 
     setTelefono(
@@ -1340,6 +1351,9 @@ export default function AlumnosPage() {
           } ${
             alumno.pais ||
             ""
+          } ${
+            alumno.observaciones ||
+            ""
           }`.toLowerCase();
 
         const coincideBusqueda =
@@ -1831,6 +1845,9 @@ export default function AlumnosPage() {
                 }
                 localidad={localidad}
                 pais={pais}
+                observaciones={
+                  observaciones
+                }
                 telefono={telefono}
                 email={email}
                 precio={precio}
@@ -1861,6 +1878,9 @@ export default function AlumnosPage() {
                   setLocalidad
                 }
                 setPais={setPais}
+                setObservaciones={
+                  setObservaciones
+                }
                 setTelefono={
                   setTelefono
                 }

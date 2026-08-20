@@ -17,6 +17,7 @@ type Alumno = {
   fecha_nacimiento?: string | null;
   localidad?: string | null;
   pais?: string | null;
+  observaciones?: string | null;
 };
 
 type ResumenAlumno = {
@@ -1168,6 +1169,25 @@ export default function FichaAlumno({
               </div>
             </section>
           </div>
+
+          {alumno.observaciones?.trim() && (
+            <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:p-5">
+              <TituloTarjeta
+                icono={
+                  <Icono
+                    nombre="etiqueta"
+                    className="h-5 w-5"
+                  />
+                }
+                titulo="Observaciones"
+                subtitulo="Notas internas del alumno"
+              />
+
+              <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-[#17324D]">
+                {alumno.observaciones}
+              </p>
+            </section>
+          )}
         </>
       ) : (
         <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:p-5">

@@ -10,6 +10,7 @@ type Props = {
   fechaNacimiento: string;
   localidad: string;
   pais: string;
+  observaciones: string;
   telefono: string;
   email: string;
   precio: string;
@@ -29,6 +30,7 @@ type Props = {
   setFechaNacimiento: (valor: string) => void;
   setLocalidad: (valor: string) => void;
   setPais: (valor: string) => void;
+  setObservaciones: (valor: string) => void;
   setTelefono: (valor: string) => void;
   setEmail: (valor: string) => void;
   setPrecio: (valor: string) => void;
@@ -109,6 +111,7 @@ export default function FormularioAlumno({
   fechaNacimiento,
   localidad,
   pais,
+  observaciones,
   telefono,
   email,
   precio,
@@ -127,6 +130,7 @@ export default function FormularioAlumno({
   setFechaNacimiento,
   setLocalidad,
   setPais,
+  setObservaciones,
   setTelefono,
   setEmail,
   setPrecio,
@@ -517,6 +521,34 @@ export default function FormularioAlumno({
               </Campo>
             )}
           </div>
+        </section>
+
+        <div className="my-6 h-px bg-slate-100" />
+
+        {/* OBSERVACIONES */}
+        <section>
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-[#17324D]">
+              Observaciones
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              Notas internas y datos que conviene recordar del alumno
+            </p>
+          </div>
+
+          <Campo etiqueta="Observaciones">
+            <textarea
+              value={observaciones}
+              onChange={(e) =>
+                setObservaciones(
+                  e.target.value
+                )
+              }
+              rows={5}
+              placeholder="Escribe aquí cualquier información útil sobre el alumno..."
+              className="min-h-[120px] w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm leading-6 text-[#17324D] outline-none transition placeholder:text-slate-400 focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
+            />
+          </Campo>
         </section>
 
         {mensaje && (
