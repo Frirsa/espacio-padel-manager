@@ -1555,19 +1555,19 @@ export default function AccionesRapidasClase({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0F172A]/58 p-3 backdrop-blur-[3px] sm:p-5">
-      <div className="max-h-[94vh] w-full max-w-[1120px] overflow-y-auto rounded-[28px] border border-slate-200 bg-white px-4 py-5 shadow-[0_28px_90px_rgba(15,23,42,0.30)] sm:px-6 sm:py-6 lg:px-8 lg:py-7">
+      <div className="max-h-[94vh] w-full max-w-[920px] overflow-y-auto rounded-[28px] border border-slate-200 bg-white px-4 py-5 shadow-[0_28px_90px_rgba(15,23,42,0.30)] sm:px-6 sm:py-6 lg:px-8 lg:py-7">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#00A79C] sm:text-[12px]">
               Acciones rápidas
             </p>
 
-            <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
-              <h3 className="text-[32px] font-extrabold tracking-tight text-[#17324D] sm:text-[38px] lg:text-[42px]">
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0">
+              <h3 className="text-[27px] font-extrabold leading-tight tracking-tight text-[#17324D] sm:text-[34px] lg:text-[38px]">
                 {horaInicio} h - {horaFin} h
               </h3>
 
-              <p className="pb-1 text-lg font-semibold text-slate-400 sm:text-xl">
+              <p className="whitespace-nowrap text-[14px] font-semibold leading-tight text-slate-400 sm:text-base lg:text-lg">
                 · {claseSeleccionada.duracion_minutos} min
               </p>
             </div>
@@ -1654,7 +1654,7 @@ export default function AccionesRapidasClase({
                             )}
                           </div>
 
-                          <div className="flex flex-wrap gap-3">
+                          <div className="grid w-full grid-cols-2 gap-3 lg:w-auto lg:grid-cols-[138px_138px]">
                             <button
                               type="button"
                               disabled={
@@ -1668,8 +1668,8 @@ export default function AccionesRapidasClase({
                               }
                               className={
                                 participante.asistio
-                                  ? "inline-flex min-w-[138px] items-center justify-center rounded-full border border-[#8FD7DA] bg-[#EFFBFA] px-4 py-2.5 text-[14px] font-bold text-[#2A77FF]"
-                                  : "inline-flex min-w-[138px] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-[14px] font-bold text-slate-600"
+                                  ? "inline-flex h-11 w-full items-center justify-center rounded-full border border-[#8FD7DA] bg-[#EFFBFA] px-3 text-[14px] font-bold text-[#2A77FF]"
+                                  : "inline-flex h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 text-[14px] font-bold text-slate-600"
                               }
                             >
                               {participante.asistio
@@ -1678,7 +1678,7 @@ export default function AccionesRapidasClase({
                             </button>
 
                             {participante.usa_bono ? (
-                              <span className="inline-flex min-w-[120px] items-center justify-center rounded-full border border-violet-200 bg-violet-50 px-4 py-2.5 text-[14px] font-bold text-violet-700">
+                              <span className="inline-flex h-11 w-full items-center justify-center rounded-full border border-violet-200 bg-violet-50 px-3 text-[14px] font-bold text-violet-700">
                                 Bono
                               </span>
                             ) : participante.pagado ? (
@@ -1693,7 +1693,7 @@ export default function AccionesRapidasClase({
                                     false
                                   )
                                 }
-                                className="inline-flex min-w-[120px] items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[14px] font-bold text-emerald-700"
+                                className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[14px] font-bold text-emerald-700"
                               >
                                 Cobrado
                               </button>
@@ -1711,7 +1711,7 @@ export default function AccionesRapidasClase({
                                       : participante.id
                                   )
                                 }
-                                className="inline-flex min-w-[120px] items-center justify-center rounded-full bg-gradient-to-r from-[#0EA6A0] to-[#159A8A] px-4 py-2.5 text-[14px] font-bold text-white shadow-sm transition hover:opacity-95"
+                                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-gradient-to-r from-[#0EA6A0] to-[#159A8A] px-3 text-[14px] font-bold text-white shadow-sm transition hover:opacity-95"
                               >
                                 Cobrar
                               </button>
