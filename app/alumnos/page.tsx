@@ -1834,8 +1834,8 @@ export default function AlumnosPage() {
             De momento conserva el formulario funcional actual.
             Su rediseño se hará después de aprobar esta pantalla principal. */}
         {formularioAbierto && (
-          <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-[#0F172A]/45 p-3 backdrop-blur-[2px] sm:p-6">
-            <div className="my-3 w-full max-w-xl sm:my-8">
+          <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-[#0F172A]/45 p-3 backdrop-blur-[2px] sm:p-5 lg:items-center">
+            <div className="my-3 w-full max-w-5xl lg:my-5">
               <FormularioAlumno
                 nombre={nombre}
                 apellidos={apellidos}
