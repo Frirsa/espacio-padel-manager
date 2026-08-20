@@ -1,32 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AccionesRapidasClase, { type ClaseAccionesRapidas } from "./AccionesRapidasClase";
 
-type Clase = {
-  id: string;
-  fecha: string;
-  hora_inicio: string;
-  duracion_minutos: number;
-  tipo: string;
-  estado: string;
-  facturable: boolean;
-  cobrada: boolean;
-  observaciones: string | null;
-
-  ubicaciones: {
-    nombre: string;
-  } | null;
-
-  clase_alumnos: {
-    pagado: boolean;
-    usa_bono: boolean;
-    alumnos: {
-      nombre: string;
-      apellidos: string | null;
-      apodo: string | null;
-    } | null;
-  }[];
-};
+type Clase = ClaseAccionesRapidas;
 
 type NoDisponibilidad = {
   id: string;
@@ -39,6 +16,7 @@ type Props = {
   clases: Clase[];
   fechaSeleccionada: string;
   noDisponibilidades: NoDisponibilidad[];
+  onClaseActualizada: () => Promise<void>;
   onFechaSeleccionadaChange?: (
     fecha: string
   ) => void;
@@ -393,8 +371,16 @@ export default function VistaMensualAgenda({
   clases,
   fechaSeleccionada,
   noDisponibilidades,
+  onClaseActualizada,
   onFechaSeleccionadaChange,
 }: Props) {
+  const [
+    claseSeleccionada,
+    setClaseSeleccionada,
+  ] = useState<Clase | null>(
+    null
+  );
+
   const [diasDesplegados, setDiasDesplegados] =
     useState<Record<string, boolean>>({});
 
@@ -530,13 +516,18 @@ export default function VistaMensualAgenda({
   function abrirClase(
     claseId: string
   ) {
-    const volver =
-      `/agenda?vista=mes&fecha=${fechaSeleccionada}`;
+    const clase =
+      clases.find(
+        (item) =>
+          item.id ===
+          claseId
+      );
 
-    window.location.href =
-      `/clases?editar=${claseId}&volver=${encodeURIComponent(
-        volver
-      )}`;
+    if (clase) {
+      setClaseSeleccionada(
+        clase
+      );
+    }
   }
 
   function crearClase(
@@ -1197,6 +1188,23 @@ export default function VistaMensualAgenda({
       </div>
 
       </div>
+
+      {claseSeleccionada && (
+        <AccionesRapidasClase
+          clase={
+            claseSeleccionada
+          }
+          volverA={`/agenda?vista=mes&fecha=${fechaSeleccionada}`}
+          onCerrar={() =>
+            setClaseSeleccionada(
+              null
+            )
+          }
+          onClaseActualizada={
+            onClaseActualizada
+          }
+        />
+      )}
 
     </div>
   );

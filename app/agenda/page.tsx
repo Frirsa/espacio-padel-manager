@@ -1555,6 +1555,9 @@ export default function AgendaPage() {
             totalClases={
               clasesFiltradas.length
             }
+            onClaseActualizada={
+              cargarClases
+            }
             formatearCabeceraFecha={
               formatearCabeceraFecha
             }
@@ -1576,6 +1579,9 @@ export default function AgendaPage() {
             }
             noDisponibilidades={
               noDisponibilidades
+            }
+            onClaseActualizada={
+              cargarClases
             }
             onFechaSeleccionadaChange={
               setFechaSeleccionada
@@ -1610,6 +1616,9 @@ export default function AgendaPage() {
             }
             noDisponibilidades={
               noDisponibilidades
+            }
+            onClaseActualizada={
+              cargarClases
             }
             onFechaSeleccionadaChange={
               setFechaSeleccionada

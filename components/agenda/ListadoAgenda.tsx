@@ -1,30 +1,10 @@
 "use client";
 
-type Clase = {
-  id: string;
-  fecha: string;
-  hora_inicio: string;
-  duracion_minutos: number;
-  tipo: string;
-  estado: string;
-  facturable: boolean;
-  cobrada: boolean;
+import { useState } from "react";
+import AccionesRapidasClase, { type ClaseAccionesRapidas } from "./AccionesRapidasClase";
+
+type Clase = ClaseAccionesRapidas & {
   grupo_id: string | null;
-  observaciones: string | null;
-
-  ubicaciones: {
-    nombre: string;
-  } | null;
-
-  clase_alumnos: {
-    pagado: boolean;
-    usa_bono: boolean;
-    alumnos: {
-      nombre: string;
-      apellidos: string | null;
-      apodo: string | null;
-    } | null;
-  }[];
 };
 
 type NoDisponibilidad = {
@@ -41,6 +21,7 @@ type Props = {
   hoy: string;
   cargando: boolean;
   totalClases: number;
+  onClaseActualizada: () => Promise<void>;
 
   formatearCabeceraFecha: (
     fecha: string
@@ -381,10 +362,18 @@ export default function ListadoAgenda({
   hoy,
   cargando,
   totalClases,
+  onClaseActualizada,
   formatearCabeceraFecha,
   calcularHorario,
   textoTipo,
 }: Props) {
+  const [
+    claseSeleccionada,
+    setClaseSeleccionada,
+  ] = useState<Clase | null>(
+    null
+  );
+
   if (cargando) {
     return (
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
@@ -542,15 +531,11 @@ export default function ListadoAgenda({
                       <button
                         type="button"
                         key={clase.id}
-                        onClick={() => {
-                          const volver =
-                            `/agenda?vista=lista&fecha=${fechaSeleccionada}`;
-
-                          window.location.href =
-                            `/clases?editar=${clase.id}&volver=${encodeURIComponent(
-                              volver
-                            )}`;
-                        }}
+                        onClick={() =>
+                          setClaseSeleccionada(
+                            clase
+                          )
+                        }
                         className={`relative block w-full overflow-hidden border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
                           clase.tipo
                         )}`}
@@ -648,6 +633,23 @@ export default function ListadoAgenda({
             </section>
           );
         }
+      )}
+
+      {claseSeleccionada && (
+        <AccionesRapidasClase
+          clase={
+            claseSeleccionada
+          }
+          volverA={`/agenda?vista=lista&fecha=${fechaSeleccionada}`}
+          onCerrar={() =>
+            setClaseSeleccionada(
+              null
+            )
+          }
+          onClaseActualizada={
+            onClaseActualizada
+          }
+        />
       )}
     </div>
   );
