@@ -41,6 +41,23 @@ function formatearFechaInforme(
   return `${dia}/${mes}/${anio}`;
 }
 
+function fechaLocalISOInforme(
+  fecha: Date
+) {
+  const anio =
+    fecha.getFullYear();
+
+  const mes = String(
+    fecha.getMonth() + 1
+  ).padStart(2, "0");
+
+  const dia = String(
+    fecha.getDate()
+  ).padStart(2, "0");
+
+  return `${anio}-${mes}-${dia}`;
+}
+
 function formatearMesInforme(
   valor: string
 ) {
@@ -1666,6 +1683,11 @@ const datosResumenAlumnos =
           ),
     })
   );          
+const hoyLocalInforme =
+  fechaLocalISOInforme(
+    new Date()
+  );
+
 const acumuladoDiario = (() => {
   const porDia = new Map<
     string,
@@ -1690,8 +1712,12 @@ const acumuladoDiario = (() => {
   clases
     .filter(
       (clase) =>
-        clase.estado === "realizada" ||
-        clase.estado === "cancelada"
+        (
+          clase.estado === "realizada" ||
+          clase.estado === "cancelada"
+        ) &&
+        clase.fecha <=
+          hoyLocalInforme
     )
     .forEach(
     (clase) => {
@@ -2942,7 +2968,7 @@ const ingresoMedio =
                         Alumnos
                       </p>
                       <h3 className="mt-0.5 text-lg font-bold">
-                        Resumen del mes
+                        Actividad por alumno
                       </h3>
                     </div>
                   </div>
@@ -2973,34 +2999,19 @@ const ingresoMedio =
                               key={alumno.alumnoId}
                               className="px-4 py-3.5"
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-bold text-[#17324D]">
-                                    {alumno.nombre}
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="min-w-0 truncate text-sm font-bold text-[#17324D]">
+                                  {alumno.nombre}
+                                </p>
+
+                                <div className="shrink-0 text-right">
+                                  <p className="text-sm font-bold text-[#17324D]">
+                                    {alumno.clases} clases
                                   </p>
                                   <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
-                                    {alumno.clases} clases · {alumno.horas.toFixed(1)} h
+                                    {alumno.horas.toFixed(1)} h
                                   </p>
                                 </div>
-
-                                <p className="shrink-0 text-sm font-bold text-[#17324D]">
-                                  {alumno.ingresos.toFixed(2)} €
-                                </p>
-                              </div>
-
-                              <div className="mt-2 flex items-center justify-between rounded-lg bg-[#FBFCFD] px-3 py-2">
-                                <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
-                                  Pendiente
-                                </span>
-                                <strong
-                                  className={
-                                    alumno.pendiente > 0
-                                      ? "text-xs text-red-600"
-                                      : "text-xs text-emerald-700"
-                                  }
-                                >
-                                  {alumno.pendiente.toFixed(2)} €
-                                </strong>
                               </div>
                             </article>
                           )
@@ -3014,8 +3025,6 @@ const ingresoMedio =
                         <th className="px-4 py-3 text-left">Alumno</th>
                         <th className="px-4 py-3 text-center">Clases</th>
                         <th className="px-4 py-3 text-center">Horas</th>
-                        <th className="px-4 py-3 text-right">Ingresos</th>
-                        <th className="px-4 py-3 text-right">Pendiente</th>
                       </tr>
                     </thead>
 
@@ -3041,12 +3050,6 @@ const ingresoMedio =
                               </td>
                               <td className="px-4 py-3 text-center text-slate-600">
                                 {alumno.horas.toFixed(1)}
-                              </td>
-                              <td className="px-4 py-3 text-right font-semibold text-[#17324D]">
-                                {alumno.ingresos.toFixed(2)} €
-                              </td>
-                              <td className={alumno.pendiente > 0 ? "px-4 py-3 text-right font-bold text-red-600" : "px-4 py-3 text-right font-semibold text-emerald-700"}>
-                                {alumno.pendiente.toFixed(2)} €
                               </td>
                             </tr>
                           )

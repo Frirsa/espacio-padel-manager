@@ -2202,7 +2202,7 @@ export default function AccionesRapidasClase({
               claseSeleccionada.estado !== "cancelada"
             )
           ) ? (
-            <div className="mt-3 grid grid-cols-4 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {metodosCobro.map(
                 (
                   metodo
@@ -2254,7 +2254,7 @@ export default function AccionesRapidasClase({
                     <div className="mb-1 flex justify-center text-[#10A99D]">
                       {metodo.icono}
                     </div>
-                    <div className="text-[10px] font-bold sm:text-[11px]">
+                    <div className="break-words text-[12px] font-bold leading-tight sm:text-[11px]">
                       {metodo.texto}
                     </div>
                   </button>
