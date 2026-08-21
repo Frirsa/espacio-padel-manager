@@ -39,6 +39,22 @@ export type ClaseAccionesRapidas = {
   }[];
 };
 
+type BonoRapido = {
+  id: string;
+  alumno_id: string;
+  grupo_id: string | null;
+  numero_clases: number;
+  clases_restantes: number;
+  importe_pagado: number;
+  activo: boolean;
+  titular_nombre: string;
+};
+
+type RelacionBonoRapido = {
+  bono_id: string;
+  alumno_id: string;
+};
+
 type Props = {
   clase: ClaseAccionesRapidas;
   volverA: string;
@@ -348,6 +364,184 @@ export default function AccionesRapidasClase({
   ] =
     useState("");
 
+  const [
+    bonosDisponibles,
+    setBonosDisponibles,
+  ] = useState<
+    Record<string, BonoRapido[]>
+  >({});
+
+  const [
+    selectorBonoAlumnoId,
+    setSelectorBonoAlumnoId,
+  ] = useState<string | null>(
+    null
+  );
+
+  async function cargarBonosDisponibles(
+    claseTrabajo: ClaseAccionesRapidas
+  ) {
+    const idsAlumnos =
+      Array.from(
+        new Set(
+          claseTrabajo.clase_alumnos
+            .map(
+              (participante) =>
+                participante.alumno_id
+            )
+            .filter(Boolean)
+        )
+      );
+
+    if (idsAlumnos.length === 0) {
+      setBonosDisponibles({});
+      return;
+    }
+
+    try {
+      const [
+        respuestaBonos,
+        respuestaRelaciones,
+      ] = await Promise.all([
+        supabase
+          .from("bonos")
+          .select(
+            "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,activo"
+          )
+          .eq("activo", true)
+          .gt("clases_restantes", 0),
+        supabase
+          .from("bono_alumnos")
+          .select(
+            "bono_id,alumno_id"
+          )
+          .in(
+            "alumno_id",
+            idsAlumnos
+          ),
+      ]);
+
+      if (
+        respuestaBonos.error ||
+        respuestaRelaciones.error
+      ) {
+        setBonosDisponibles({});
+        return;
+      }
+
+      const bonosBase =
+        (respuestaBonos.data || []) as Omit<
+          BonoRapido,
+          "titular_nombre"
+        >[];
+
+      const relaciones =
+        (respuestaRelaciones.data || []) as RelacionBonoRapido[];
+
+      const idsTitulares =
+        Array.from(
+          new Set(
+            bonosBase
+              .map(
+                (bono) =>
+                  bono.alumno_id
+              )
+              .filter(Boolean)
+          )
+        );
+
+      let nombresTitulares =
+        new Map<string, string>();
+
+      if (idsTitulares.length > 0) {
+        const {
+          data: titulares,
+          error: errorTitulares,
+        } = await supabase
+          .from("alumnos")
+          .select(
+            "id,nombre,apellidos"
+          )
+          .in(
+            "id",
+            idsTitulares
+          );
+
+        if (!errorTitulares) {
+          nombresTitulares =
+            new Map(
+              (titulares || []).map(
+                (titular) => [
+                  titular.id,
+                  `${titular.nombre} ${
+                    titular.apellidos || ""
+                  }`.trim(),
+                ]
+              )
+            );
+        }
+      }
+
+      const autorizadosPorAlumno =
+        new Map<string, Set<string>>();
+
+      for (const relacion of relaciones) {
+        const actuales =
+          autorizadosPorAlumno.get(
+            relacion.alumno_id
+          ) || new Set<string>();
+
+        actuales.add(
+          relacion.bono_id
+        );
+
+        autorizadosPorAlumno.set(
+          relacion.alumno_id,
+          actuales
+        );
+      }
+
+      const mapa: Record<
+        string,
+        BonoRapido[]
+      > = {};
+
+      for (const alumnoId of idsAlumnos) {
+        const autorizados =
+          autorizadosPorAlumno.get(
+            alumnoId
+          ) || new Set<string>();
+
+        mapa[alumnoId] =
+          bonosBase
+            .filter(
+              (bono) =>
+                bono.alumno_id ===
+                  alumnoId ||
+                autorizados.has(
+                  bono.id
+                )
+            )
+            .map(
+              (bono) => ({
+                ...bono,
+                titular_nombre:
+                  nombresTitulares.get(
+                    bono.alumno_id
+                  ) ||
+                  "otro alumno",
+              })
+            );
+      }
+
+      setBonosDisponibles(
+        mapa
+      );
+    } catch {
+      setBonosDisponibles({});
+    }
+  }
+
   useEffect(() => {
     setClaseSeleccionada(
       clase
@@ -361,6 +555,12 @@ export default function AccionesRapidasClase({
     );
     setMotivoCancelacion(
       ""
+    );
+    setSelectorBonoAlumnoId(
+      null
+    );
+    void cargarBonosDisponibles(
+      clase
     );
   }, [clase]);
 
@@ -795,6 +995,239 @@ export default function AccionesRapidasClase({
           );
         }
       }
+    }
+  }
+
+  function textoBonoRapido(
+    bono: BonoRapido,
+    alumnoId: string
+  ) {
+    const prefijo =
+      bono.alumno_id ===
+      alumnoId
+        ? "Bono propio"
+        : `Bono de ${bono.titular_nombre}`;
+
+    return `${prefijo} · ${bono.numero_clases} clases · ${bono.clases_restantes} restantes`;
+  }
+
+  async function usarBonoRapido(
+    participante: ClaseAccionesRapidas["clase_alumnos"][number],
+    bono: BonoRapido
+  ) {
+    if (
+      actualizando ||
+      participante.usa_bono ||
+      claseSeleccionada.tipo ===
+        "club"
+    ) {
+      return;
+    }
+
+    if (
+      claseSeleccionada.modo_cobro ===
+      "total"
+    ) {
+      setMensajeAccion(
+        "❌ En una clase con precio total, cambia primero la forma de cobro desde Editar clase completa."
+      );
+      return;
+    }
+
+    setActualizando(true);
+    setMensajeAccion("");
+
+    try {
+      const claseTrabajo =
+        claseSeleccionada;
+
+      const importeClaseBono =
+        bono.numero_clases > 0
+          ? Number(
+              bono.importe_pagado ||
+                0
+            ) /
+            Number(
+              bono.numero_clases
+            )
+          : 0;
+
+      const otrosConMismoBono =
+        claseTrabajo.clase_alumnos.filter(
+          (item) =>
+            item.id !==
+              participante.id &&
+            item.usa_bono &&
+            item.bono_id ===
+              bono.id
+        );
+
+      const numeroUsuariosBonoGrupo =
+        bono.grupo_id
+          ? otrosConMismoBono.length +
+            1
+          : 1;
+
+      const importeParticipante =
+        bono.grupo_id
+          ? importeClaseBono /
+            numeroUsuariosBonoGrupo
+          : importeClaseBono;
+
+      const idsActualizarGrupo =
+        bono.grupo_id
+          ? [
+              participante.id,
+              ...otrosConMismoBono.map(
+                (item) => item.id
+              ),
+            ]
+          : [participante.id];
+
+      const {
+        error: errorParticipante,
+      } = await supabase
+        .from("clase_alumnos")
+        .update({
+          usa_bono: true,
+          bono_id: bono.id,
+          pagado: true,
+          importe:
+            importeParticipante,
+        })
+        .eq(
+          "id",
+          participante.id
+        );
+
+      if (errorParticipante) {
+        throw new Error(
+          "No se pudo asignar el bono a la clase."
+        );
+      }
+
+      if (
+        bono.grupo_id &&
+        idsActualizarGrupo.length >
+          1
+      ) {
+        const {
+          error: errorImportesGrupo,
+        } = await supabase
+          .from("clase_alumnos")
+          .update({
+            importe:
+              importeParticipante,
+          })
+          .in(
+            "id",
+            idsActualizarGrupo
+          );
+
+        if (errorImportesGrupo) {
+          throw new Error(
+            "El bono se asignó, pero no se pudo ajustar el valor del bono de grupo."
+          );
+        }
+      }
+
+      const participantesActualizados =
+        claseTrabajo.clase_alumnos.map(
+          (item) => {
+            if (
+              item.id ===
+              participante.id
+            ) {
+              return {
+                ...item,
+                usa_bono: true,
+                bono_id: bono.id,
+                pagado: true,
+                importe:
+                  importeParticipante,
+              };
+            }
+
+            if (
+              bono.grupo_id &&
+              item.usa_bono &&
+              item.bono_id ===
+                bono.id
+            ) {
+              return {
+                ...item,
+                importe:
+                  importeParticipante,
+              };
+            }
+
+            return item;
+          }
+        );
+
+      const consumeBonoAhora =
+        claseTrabajo.estado ===
+          "realizada" ||
+        (
+          claseTrabajo.estado ===
+            "cancelada" &&
+          claseTrabajo.facturable
+        );
+
+      if (consumeBonoAhora) {
+        const bonoGrupoYaConsumido =
+          Boolean(
+            bono.grupo_id &&
+            otrosConMismoBono.length >
+              0
+          );
+
+        if (!bonoGrupoYaConsumido) {
+          await ajustarBono(
+            bono.id,
+            -1
+          );
+        }
+      }
+
+      const claseActualizada: ClaseAccionesRapidas =
+        {
+          ...claseTrabajo,
+          clase_alumnos:
+            participantesActualizados,
+        };
+
+      await sincronizarPagosRapidos(
+        claseActualizada,
+        claseActualizada.estado,
+        claseActualizada.facturable
+      );
+
+      setClaseSeleccionada(
+        claseActualizada
+      );
+      setParticipanteCobroId(
+        null
+      );
+      setSelectorBonoAlumnoId(
+        null
+      );
+
+      await onClaseActualizada();
+      await cargarBonosDisponibles(
+        claseActualizada
+      );
+    } catch (error) {
+      setMensajeAccion(
+        "❌ " +
+          (
+            error instanceof Error
+              ? error.message
+              : "No se pudo usar el bono en esta clase."
+          )
+      );
+    } finally {
+      setActualizando(false);
     }
   }
 
@@ -2001,6 +2434,21 @@ export default function AccionesRapidasClase({
                         2
                       );
 
+                    const bonosAlumno =
+                      bonosDisponibles[
+                        participante.alumno_id
+                      ] || [];
+
+                    const puedeUsarBono =
+                      !esCobroTotal &&
+                      !participante.usa_bono &&
+                      bonosAlumno.length > 0 &&
+                      (
+                        claseSeleccionada.estado !==
+                          "cancelada" ||
+                        claseSeleccionada.facturable
+                      );
+
                     return (
                       <div
                         key={
@@ -2102,6 +2550,79 @@ export default function AccionesRapidasClase({
                             )}
                           </div>
                         </div>
+
+                        {puedeUsarBono && (
+                          <div className="mt-2.5">
+                            <button
+                              type="button"
+                              disabled={
+                                actualizando
+                              }
+                              onClick={() => {
+                                setParticipanteCobroId(
+                                  null
+                                );
+
+                                if (
+                                  bonosAlumno.length ===
+                                  1
+                                ) {
+                                  void usarBonoRapido(
+                                    participante,
+                                    bonosAlumno[0]
+                                  );
+                                  return;
+                                }
+
+                                setSelectorBonoAlumnoId(
+                                  selectorBonoAlumnoId ===
+                                    participante.id
+                                    ? null
+                                    : participante.id
+                                );
+                              }}
+                              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 text-[12px] font-bold text-violet-700 transition hover:bg-violet-100 disabled:opacity-50 sm:w-auto"
+                            >
+                              <IconoBono />
+                              Usar bono
+                            </button>
+
+                            {
+                              bonosAlumno.length >
+                                1 &&
+                              selectorBonoAlumnoId ===
+                                participante.id && (
+                                <div className="mt-2 grid gap-2">
+                                  {bonosAlumno.map(
+                                    (bono) => (
+                                      <button
+                                        key={
+                                          bono.id
+                                        }
+                                        type="button"
+                                        disabled={
+                                          actualizando
+                                        }
+                                        onClick={() =>
+                                          void usarBonoRapido(
+                                            participante,
+                                            bono
+                                          )
+                                        }
+                                        className="rounded-xl border border-violet-200 bg-white px-3 py-2 text-left text-[12px] font-semibold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50"
+                                      >
+                                        {textoBonoRapido(
+                                          bono,
+                                          participante.alumno_id
+                                        )}
+                                      </button>
+                                    )
+                                  )}
+                                </div>
+                              )
+                            }
+                          </div>
+                        )}
 
                         {!esCobroTotal &&
                           !participante.usa_bono &&

@@ -2956,7 +2956,7 @@ const ingresoMedio =
             </div>
 
             {/* ALUMNOS */}
-            <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
+            <div className="mt-5">
               <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
                 <div className="flex flex-col gap-3 bg-[#0F2742] px-4 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-5">
                   <div className="flex items-center gap-3">
@@ -3060,61 +3060,6 @@ const ingresoMedio =
                 )}
               </section>
 
-              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
-                <div className="bg-[#0F2742] px-5 py-4 text-white">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#4DD4CA]">
-                    Ranking
-                  </p>
-                  <h3 className="mt-0.5 text-lg font-bold">
-                    Más activos
-                  </h3>
-                </div>
-
-                <div className="divide-y divide-slate-100">
-                  {datosResumenAlumnos
-                    .slice()
-                    .sort(
-                      (a, b) =>
-                        b.clases -
-                        a.clases
-                    )
-                    .slice(0, 8)
-                    .map(
-                      (
-                        alumno,
-                        indice
-                      ) => (
-                        <div
-                          key={alumno.alumnoId}
-                          className="grid grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3"
-                        >
-                          <span className={indice < 3 ? "flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F7F5] text-xs font-bold text-[#008F86]" : "flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-xs font-bold text-slate-400"}>
-                            {indice + 1}
-                          </span>
-
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-bold text-[#17324D]">
-                              {alumno.nombre}
-                            </p>
-                            <p className="mt-0.5 text-[10px] text-slate-400">
-                              {alumno.horas.toFixed(1)} h
-                            </p>
-                          </div>
-
-                          <strong className="text-sm text-[#17324D]">
-                            {alumno.clases}
-                          </strong>
-                        </div>
-                      )
-                    )}
-
-                  {datosResumenAlumnos.length === 0 && (
-                    <div className="px-5 py-8 text-center text-sm text-slate-500">
-                      Sin datos.
-                    </div>
-                  )}
-                </div>
-              </section>
             </div>
           </>
         ) : (
