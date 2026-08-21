@@ -2,6 +2,13 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
+import {
+  calcularEconomiaClase,
+  esClaseEconomica,
+  gastoPistaClase,
+  ingresoBaseClase,
+  ingresoTotalClase,
+} from "../lib/economia";
 
 const MESES = [
   "Enero",
@@ -227,33 +234,6 @@ function colorProximaClase(
   return "border-[#00A79C]/60 bg-[#00A79C]/10";
 }
 
-function ingresoClaseNoClub(
-  clase: any
-) {
-  if (
-    clase.modo_cobro ===
-    "total"
-  ) {
-    return Number(
-      clase.importe_total || 0
-    );
-  }
-
-  return (
-    clase.clase_alumnos || []
-  ).reduce(
-    (
-      total: number,
-      participante: any
-    ) =>
-      total +
-      Number(
-        participante.importe || 0
-      ),
-    0
-  );
-}
-
 export default function Home() {
   const ahoraInicial = new Date();
   const mesInicial = `${ahoraInicial.getFullYear()}-${String(
@@ -463,7 +443,8 @@ export default function Home() {
           modo_cobro,
           importe_total,
           ubicaciones (
-            nombre
+            nombre,
+            es_club_referencia
           ),
           clase_alumnos (
             alumno_id,
@@ -507,11 +488,7 @@ export default function Home() {
     const clasesEconomicas =
       clasesMes.filter(
         (clase: any) =>
-          clase.estado === "realizada" ||
-          (
-            clase.estado === "cancelada" &&
-            clase.facturable === true
-          )
+          esClaseEconomica(clase)
       );
 
     const porDia = new Map<string, any>();
@@ -547,12 +524,11 @@ export default function Home() {
         const cancelada =
           clase.estado === "cancelada";
 
+        const economia =
+          calcularEconomiaClase(clase);
+
         const cuentaEconomicamente =
-          realizada ||
-          (
-            cancelada &&
-            clase.facturable === true
-          );
+          economia.cuentaEconomicamente;
 
         if (realizada) {
           actual.clases += 1;
@@ -573,64 +549,26 @@ export default function Home() {
         }
 
         if (cuentaEconomicamente) {
-          const ingresoClase =
-            clase.tipo === "club"
-              ? Number(
-                  clase.importe_club || 0
-                )
-              : ingresoClaseNoClub(
-                  clase
-                );
-
-          const extra =
-            Number(
-              clase.ingreso_extra || 0
-            );
-
-          const gasto =
-            Number(
-              clase.coste_pista || 0
-            );
-
           actual.ingresos +=
-            ingresoClase + extra;
+            economia.ingresos;
 
           actual.ingresoExtra +=
-            extra;
+            economia.ingresoExtra;
 
           actual.gastos +=
-            gasto;
+            economia.gasto;
 
           actual.resultado +=
-            ingresoClase +
-            extra -
-            gasto;
+            economia.resultado;
 
-          if (
-            clase.tipo === "club"
-          ) {
-            actual.clubGenerado +=
-              ingresoClase;
+          actual.clubGenerado +=
+            economia.clubGenerado;
 
-            if (
-              clase.cobrada === true
-            ) {
-              actual.clubCobrado +=
-                ingresoClase;
-            }
-          }
+          actual.clubCobrado +=
+            economia.clubCobrado;
 
-          const esIQL =
-            clase.ubicaciones?.nombre ===
-            "IQL Sports";
-
-          if (
-            esIQL &&
-            clase.tipo !== "club"
-          ) {
-            actual.pistasPagadasClub +=
-              gasto;
-          }
+          actual.pistasPagadasClub +=
+            economia.pistasPagadasClub;
 
           actual.saldoClub =
             actual.clubGenerado -
@@ -749,15 +687,9 @@ export default function Home() {
 
     const totalGastosPista =
       clasesEconomicas.reduce(
-        (
-          total,
-          clase
-        ) =>
+        (total, clase) =>
           total +
-          Number(
-            clase.coste_pista ||
-              0
-          ),
+          gastoPistaClase(clase),
         0
       );
 
@@ -766,18 +698,17 @@ export default function Home() {
     );
 
     const totalIngresosClub =
-      clasesEconomicas.reduce(
-        (
-          total,
-          clase
-        ) =>
-          total +
-          Number(
-            clase.importe_club ||
-              0
-          ),
-        0
-      );
+      clasesEconomicas
+        .filter(
+          (clase) =>
+            clase.tipo === "club"
+        )
+        .reduce(
+          (total, clase) =>
+            total +
+            ingresoBaseClase(clase),
+          0
+        );
 
     const clasesClub =
       clasesRealizadas.filter(
@@ -851,41 +782,9 @@ export default function Home() {
 
     const ingresosGeneradosMes =
       clasesEconomicas.reduce(
-        (
-          total,
-          clase
-        ) => {
-          if (
-            clase.tipo ===
-            "club"
-          ) {
-            return (
-              total +
-              Number(
-                clase.importe_club ||
-                  0
-              ) +
-              Number(
-                clase.ingreso_extra ||
-                  0
-              )
-            );
-          }
-
-          const ingresosAlumnos =
-            ingresoClaseNoClub(
-              clase
-            );
-
-          return (
-            total +
-            ingresosAlumnos +
-            Number(
-              clase.ingreso_extra ||
-                0
-            )
-          );
-        },
+        (total, clase) =>
+          total +
+          ingresoTotalClase(clase),
         0
       );
 
@@ -1083,7 +982,8 @@ export default function Home() {
           tipo,
           estado,
           ubicaciones (
-            nombre
+            nombre,
+            es_club_referencia
           ),
           clase_alumnos (
             alumnos (
@@ -1128,7 +1028,8 @@ export default function Home() {
           tipo,
           estado,
           ubicaciones (
-            nombre
+            nombre,
+            es_club_referencia
           ),
           clase_alumnos (
             alumnos (

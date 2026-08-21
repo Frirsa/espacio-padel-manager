@@ -25,6 +25,7 @@ export type Clase = {
   ubicaciones: {
     nombre: string;
     tipo: string;
+    es_club_referencia?: boolean | null;
   } | null;
   clase_alumnos: ParticipanteClase[];
 };
