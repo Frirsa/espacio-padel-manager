@@ -9,6 +9,7 @@ import {
 
 export type ClaseAccionesRapidas = {
   id: string;
+  serie_id?: string | null;
   google_calendar_event_id: string | null;
   google_calendar_synced_at: string | null;
   fecha: string;
@@ -363,6 +364,11 @@ export default function AccionesRapidasClase({
     setActualizando,
   ] =
     useState(false);
+
+  const [
+    selectorBorradoSerieAbierto,
+    setSelectorBorradoSerieAbierto,
+  ] = useState(false);
 
   const [
     mensajeAccion,
@@ -816,10 +822,18 @@ export default function AccionesRapidasClase({
     }
   }
 
-  async function borrarClaseSeleccionada() {
-    if (
-      actualizando
-    ) {
+  type AlcanceBorradoSerie =
+    | "una"
+    | "siguientes"
+    | "serie";
+
+  function solicitarBorradoClaseSeleccionada() {
+    if (actualizando) {
+      return;
+    }
+
+    if (claseSeleccionada.serie_id) {
+      setSelectorBorradoSerieAbierto(true);
       return;
     }
 
@@ -828,88 +842,179 @@ export default function AccionesRapidasClase({
         "¿Seguro que quieres borrar esta clase?"
       );
 
-    if (
-      !confirmar
-    ) {
+    if (!confirmar) {
+      return;
+    }
+
+    void ejecutarBorradoAgenda(
+      "una"
+    );
+  }
+
+  async function ejecutarBorradoAgenda(
+    alcance: AlcanceBorradoSerie
+  ) {
+    if (actualizando) {
       return;
     }
 
     const claseTrabajo =
       claseSeleccionada;
 
-    setActualizando(
-      true
-    );
-    setMensajeAccion(
-      ""
-    );
+    setActualizando(true);
+    setMensajeAccion("");
 
     try {
+      let clasesABorrar: {
+        id: string;
+        serie_id: string | null;
+        fecha: string;
+        hora_inicio: string;
+        google_calendar_event_id:
+          | string
+          | null;
+      }[] = [
+        {
+          id: claseTrabajo.id,
+          serie_id:
+            claseTrabajo.serie_id ||
+            null,
+          fecha: claseTrabajo.fecha,
+          hora_inicio:
+            claseTrabajo.hora_inicio,
+          google_calendar_event_id:
+            claseTrabajo.google_calendar_event_id,
+        },
+      ];
+
+      if (
+        claseTrabajo.serie_id &&
+        alcance !== "una"
+      ) {
+        const {
+          data: clasesSerieData,
+          error: errorSerie,
+        } = await supabase
+          .from("clases")
+          .select(
+            "id,serie_id,fecha,hora_inicio,google_calendar_event_id"
+          )
+          .eq(
+            "serie_id",
+            claseTrabajo.serie_id
+          );
+
+        if (errorSerie) {
+          throw new Error(
+            errorSerie.message ||
+              "No se pudieron cargar las clases de la serie."
+          );
+        }
+
+        const clasesSerie =
+          (clasesSerieData || []) as {
+            id: string;
+            serie_id: string | null;
+            fecha: string;
+            hora_inicio: string;
+            google_calendar_event_id:
+              | string
+              | null;
+          }[];
+
+        if (alcance === "serie") {
+          clasesABorrar =
+            clasesSerie;
+        } else {
+          const referencia =
+            `${claseTrabajo.fecha} ${claseTrabajo.hora_inicio}`;
+
+          clasesABorrar =
+            clasesSerie.filter(
+              (item) =>
+                `${item.fecha} ${item.hora_inicio}` >=
+                referencia
+            );
+        }
+      }
+
+      if (
+        clasesABorrar.length === 0
+      ) {
+        throw new Error(
+          "No se encontraron clases para borrar."
+        );
+      }
+
+      const ids =
+        clasesABorrar.map(
+          (item) => item.id
+        );
+
       const {
-        error:
-          errorBorrado,
+        error: errorBorrado,
       } = await supabase.rpc(
         "borrar_clases_atomico",
         {
-          p_clase_ids: [
-            claseTrabajo.id,
-          ],
-          p_serie_id: null,
+          p_clase_ids: ids,
+          p_serie_id:
+            alcance === "serie" &&
+            claseTrabajo.serie_id
+              ? claseTrabajo.serie_id
+              : null,
         }
       );
 
-      if (
-        errorBorrado
-      ) {
+      if (errorBorrado) {
         throw new Error(
           errorBorrado.message ||
-            "No se pudo borrar la clase de forma segura."
+            "No se pudo borrar la clase o la serie de forma segura."
         );
       }
 
-      let avisoGoogle =
-        "";
+      let falloGoogle = false;
 
-      try {
-        await borrarClaseDeGoogleCalendar(
-          {
-            id:
-              claseTrabajo.id,
-            google_calendar_event_id:
-              claseTrabajo.google_calendar_event_id,
-          }
-        );
-      } catch {
-        avisoGoogle =
-          "Clase borrada en Manager, pero no se pudo borrar su evento de Google Calendar.";
+      for (
+        const claseABorrar of
+        clasesABorrar
+      ) {
+        try {
+          await borrarClaseDeGoogleCalendar(
+            {
+              id: claseABorrar.id,
+              google_calendar_event_id:
+                claseABorrar.google_calendar_event_id,
+            }
+          );
+        } catch {
+          falloGoogle = true;
+        }
       }
 
+      setSelectorBorradoSerieAbierto(
+        false
+      );
       onCerrar();
       await onClaseActualizada();
 
-      if (
-        avisoGoogle
-      ) {
+      if (falloGoogle) {
         window.alert(
-          avisoGoogle
+          clasesABorrar.length > 1
+            ? "Las clases se borraron en Manager, pero algún evento no se pudo borrar de Google Calendar."
+            : "La clase se borró en Manager, pero no se pudo borrar su evento de Google Calendar."
         );
       }
-    } catch (
-      error
-    ) {
+    } catch (error) {
       setMensajeAccion(
         "❌ " +
           (
-            error instanceof
-            Error
+            error instanceof Error
               ? error.message
-              : "No se pudo borrar la clase."
+              : "No se pudo borrar la clase o la serie."
           )
       );
     } finally {
-      setActualizando(
-        false
-      );
+      setActualizando(false);
     }
   }
 
@@ -2329,7 +2434,7 @@ export default function AccionesRapidasClase({
                 actualizando
               }
               onClick={
-                borrarClaseSeleccionada
+                solicitarBorradoClaseSeleccionada
               }
               className="inline-flex items-center justify-center gap-2 rounded-[14px] border border-red-200 bg-white px-3 py-2.5 text-[13px] font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
             >
@@ -2340,6 +2445,74 @@ export default function AccionesRapidasClase({
         </section>
           </div>
         </div>
+
+        {selectorBorradoSerieAbierto && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-4">
+            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+              <h2 className="text-xl font-bold text-[#17324D]">
+                Borrar clase de una serie
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Esta clase pertenece a una serie recurrente. Elige qué quieres borrar.
+              </p>
+
+              <div className="mt-6 grid gap-3">
+                <button
+                  type="button"
+                  disabled={actualizando}
+                  onClick={() =>
+                    ejecutarBorradoAgenda(
+                      "una"
+                    )
+                  }
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-left font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Solo esta clase
+                </button>
+
+                <button
+                  type="button"
+                  disabled={actualizando}
+                  onClick={() =>
+                    ejecutarBorradoAgenda(
+                      "siguientes"
+                    )
+                  }
+                  className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 text-left font-semibold text-amber-900 transition hover:bg-amber-100 disabled:opacity-50"
+                >
+                  Esta clase y las siguientes
+                </button>
+
+                <button
+                  type="button"
+                  disabled={actualizando}
+                  onClick={() =>
+                    ejecutarBorradoAgenda(
+                      "serie"
+                    )
+                  }
+                  className="rounded-xl bg-red-600 px-5 py-3 text-left font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  Toda la serie
+                </button>
+              </div>
+
+              <button
+                type="button"
+                disabled={actualizando}
+                onClick={() =>
+                  setSelectorBorradoSerieAbierto(
+                    false
+                  )
+                }
+                className="mt-5 w-full rounded-xl bg-slate-200 px-5 py-3 font-semibold text-slate-800 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         <p className="mt-3 text-center text-[11px] leading-5 text-slate-400">
           Los bonos se descuentan cuando la clase se realiza o cuando una cancelación es facturable. Se devuelven si vuelve a programada o pasa a no facturable.

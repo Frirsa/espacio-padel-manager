@@ -3646,59 +3646,9 @@ export default function ClasesPage() {
           )
         : 0;
 
-    const {
-      data:
-        serieCreada,
-      error:
-        errorSerie,
-    } =
-      await supabase
-        .from(
-          "series_clases"
-        )
-        .insert({
-          fecha_inicio:
-            fecha,
-          fecha_fin:
-            fechaFinSerie,
-          dias_semana:
-            diasSerie,
-          hora_inicio:
-            hora,
-          duracion_minutos:
-            Number(duracion),
-          ubicacion_id:
-            ubicacionId || null,
-          grupo_id:
-            grupoId || null,
-          tipo,
-          observaciones:
-            observaciones.trim() ||
-            null,
-        })
-        .select("id")
-        .single();
-
-    if (
-      errorSerie ||
-      !serieCreada
-    ) {
-      setCreandoSerie(false);
-      setMensaje(
-        "❌ No se pudo crear la serie: " +
-          (
-            errorSerie?.message ||
-            ""
-          )
-      );
-      return;
-    }
-
     const registrosClases =
       fechasDisponibles.map(
         (fechaClase) => ({
-          serie_id:
-            serieCreada.id,
           fecha:
             fechaClase,
           hora_inicio:
@@ -3736,84 +3686,75 @@ export default function ClasesPage() {
 
     const {
       data:
-        clasesCreadas,
+        resultadoSerie,
       error:
-        errorClases,
+        errorSerie,
     } =
-      await supabase
-        .from("clases")
-        .insert(
-          registrosClases
-        )
-        .select("id");
+      await supabase.rpc(
+        "crear_serie_atomica",
+        {
+          p_datos_serie: {
+            fecha_inicio:
+              fecha,
+            fecha_fin:
+              fechaFinSerie,
+            dias_semana:
+              diasSerie,
+            hora_inicio:
+              hora,
+            duracion_minutos:
+              Number(duracion),
+            ubicacion_id:
+              ubicacionId || null,
+            grupo_id:
+              grupoId || null,
+            tipo,
+            observaciones:
+              observaciones.trim() ||
+              null,
+          },
+          p_clases:
+            registrosClases,
+          p_participantes:
+            participantes,
+        }
+      );
+
+    const datosSerieCreada =
+      resultadoSerie as
+        | {
+            serie_id:
+              string;
+            clases:
+              {
+                id: string;
+                fecha: string;
+              }[];
+          }
+        | null;
+
+    const clasesCreadas =
+      Array.isArray(
+        datosSerieCreada?.clases
+      )
+        ? datosSerieCreada.clases
+        : [];
 
     if (
-      errorClases ||
-      !clasesCreadas
+      errorSerie ||
+      !datosSerieCreada?.serie_id ||
+      clasesCreadas.length !==
+        fechasDisponibles.length
     ) {
-      await supabase
-        .from(
-          "series_clases"
-        )
-        .delete()
-        .eq(
-          "id",
-          serieCreada.id
-        );
-
       setCreandoSerie(false);
       setMensaje(
-        "❌ No se pudieron crear las clases de la serie: " +
+        "❌ No se pudo crear la serie de forma segura: " +
           (
-            errorClases?.message ||
-            ""
+            errorSerie?.message ||
+            "La operación no devolvió todas las clases esperadas."
           )
       );
       return;
-    }
-
-    if (
-      participantes.length > 0
-    ) {
-      const relaciones =
-        clasesCreadas.flatMap(
-          (claseCreada) =>
-            participantes.map(
-              (participante) => ({
-                clase_id:
-                  claseCreada.id,
-                ...participante,
-              })
-            )
-        );
-
-      const {
-        error:
-          errorParticipantes,
-      } =
-        await supabase
-          .from(
-            "clase_alumnos"
-          )
-          .insert(
-            relaciones
-          );
-
-      if (
-        errorParticipantes
-      ) {
-        setCreandoSerie(false);
-        setMensaje(
-          `⚠️ La serie se creó, pero hubo un problema al añadir los alumnos.${avisoFechasOmitidas}`
-        );
-
-        limpiarFormulario();
-        setFormularioAbierto(
-          false
-        );
-        await cargarDatos();
-        return;
-      }
     }
 
     const datosGoogleSerie =
