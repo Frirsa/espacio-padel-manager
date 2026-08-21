@@ -601,428 +601,68 @@ export default function AccionesRapidasClase({
       )}`;
   }
 
-  async function ajustarBono(
-    bonoId: string,
-    diferencia: number
-  ) {
-    const {
-      data: bono,
-      error,
-    } =
-      await supabase
-        .from("bonos")
-        .select(
-          "id,numero_clases,clases_restantes"
-        )
-        .eq(
-          "id",
-          bonoId
-        )
-        .single();
-
-    if (
-      error ||
-      !bono
-    ) {
-      throw new Error(
-        "No se pudo actualizar el bono."
-      );
-    }
-
-    const nuevas =
-      Number(
-        bono.clases_restantes
-      ) + diferencia;
-
-    const restantes =
-      Math.max(
-        0,
-        Math.min(
-          Number(
-            bono.numero_clases
-          ),
-          nuevas
-        )
-      );
-
-    const {
-      error:
-        errorActualizar,
-    } =
-      await supabase
-        .from("bonos")
-        .update({
-          clases_restantes:
-            restantes,
-          activo:
-            restantes >
-            0,
-        })
-        .eq(
-          "id",
-          bonoId
-        );
-
-    if (
-      errorActualizar
-    ) {
-      throw new Error(
-        "No se pudo actualizar el bono."
-      );
-    }
-  }
-
-
-  async function ajustarBonosDeParticipantes(
-    participantes: {
-      usa_bono: boolean;
-      bono_id: string | null;
-    }[],
-    diferencia: number
-  ) {
-    const consumosPorBono =
-      new Map<string, number>();
-
-    for (
-      const participante of
-      participantes
-    ) {
-      if (
-        !participante.usa_bono ||
-        !participante.bono_id
-      ) {
-        continue;
-      }
-
-      consumosPorBono.set(
-        participante.bono_id,
-        (
-          consumosPorBono.get(
-            participante.bono_id
-          ) || 0
-        ) + 1
-      );
-    }
-
-    const idsBono =
-      Array.from(
-        consumosPorBono.keys()
-      );
-
-    if (
-      idsBono.length ===
-      0
-    ) {
-      return;
-    }
-
-    const {
-      data:
-        bonosRelacionados,
-      error:
-        errorBonosRelacionados,
-    } =
-      await supabase
-        .from("bonos")
-        .select(
-          "id,grupo_id"
-        )
-        .in(
-          "id",
-          idsBono
-        );
-
-    if (
-      errorBonosRelacionados
-    ) {
-      throw new Error(
-        "No se pudo comprobar el tipo de bono."
-      );
-    }
-
-    for (
-      const bonoId of
-      idsBono
-    ) {
-      const bono =
-        (
-          bonosRelacionados ||
-          []
-        ).find(
-          (item) =>
-            item.id ===
-            bonoId
-        );
-
-      const cantidad =
-        bono?.grupo_id
-          ? 1
-          : consumosPorBono.get(
-              bonoId
-            ) || 0;
-
-      if (
-        cantidad <=
-        0
-      ) {
-        continue;
-      }
-
-      await ajustarBono(
-        bonoId,
-        diferencia *
-          cantidad
-      );
-    }
-  }
-
-  async function sincronizarPagosRapidos(
+  async function actualizarClaseAtomicaAgenda(
     claseTrabajo: ClaseAccionesRapidas,
-    estadoNuevo: string,
-    facturableNueva: boolean,
-    metodoCobro?: string
+    metodosPago: Record<string, string> = {},
+    metodoPagoTotal?: string | null
   ) {
-    const generaCobro =
-      estadoNuevo === "realizada" ||
-      (
-        estadoNuevo === "cancelada" &&
-        facturableNueva
+    const participantes =
+      claseTrabajo.clase_alumnos.map(
+        (participante) => ({
+          id: participante.id,
+          alumno_id:
+            participante.alumno_id,
+          importe: Number(
+            participante.importe || 0
+          ),
+          pagado:
+            participante.pagado,
+          usa_bono:
+            participante.usa_bono,
+          bono_id:
+            participante.bono_id,
+          asistio:
+            participante.asistio,
+        })
       );
-
-    if (
-      !generaCobro ||
-      claseTrabajo.tipo === "club"
-    ) {
-      await supabase
-        .from("pagos")
-        .delete()
-        .eq(
-          "clase_id",
-          claseTrabajo.id
-        );
-
-      return;
-    }
 
     const {
-      data: pagosExistentes,
-      error: errorPagos,
-    } =
-      await supabase
-        .from("pagos")
-        .select(
-          "id,alumno_id,metodo,estado"
-        )
-        .eq(
-          "clase_id",
-          claseTrabajo.id
-        );
-
-    if (errorPagos) {
-      throw new Error(
-        "No se pudieron sincronizar los pagos."
-      );
-    }
-
-    const pagosActuales =
-      pagosExistentes || [];
-
-    if (
-      claseTrabajo.modo_cobro ===
-      "total"
-    ) {
-      const pagosTotales =
-        pagosActuales.filter(
-          (pago) =>
-            pago.alumno_id === null
-        );
-
-      const existenteTotal =
-        pagosTotales[0];
-
-      for (const pago of pagosActuales) {
-        if (
-          pago.alumno_id !== null ||
-          (
-            existenteTotal &&
-            pago.id !== existenteTotal.id
-          )
-        ) {
-          const { error: errorBorrar } =
-            await supabase
-              .from("pagos")
-              .delete()
-              .eq("id", pago.id);
-
-          if (errorBorrar) {
-            throw new Error(
-              "No se pudieron limpiar los pagos anteriores de la clase."
-            );
-          }
-        }
-      }
-
-      const participantesNormales =
-        claseTrabajo.clase_alumnos.filter(
-          (participante) =>
-            !participante.usa_bono
-        );
-
-      const pagado =
-        participantesNormales.length > 0 &&
-        participantesNormales.every(
-          (participante) =>
-            participante.pagado
-        );
-
-      const datosPago = {
-        alumno_id: null,
-        clase_id: claseTrabajo.id,
-        importe: Number(
-          claseTrabajo.importe_total || 0
-        ),
-        metodo:
-          metodoCobro ||
-          existenteTotal?.metodo ||
-          "efectivo",
-        estado: pagado
-          ? "pagado"
-          : "pendiente",
-        fecha_pago:
-          claseTrabajo.fecha,
-        notas:
-          estadoNuevo === "cancelada"
-            ? "Clase completa cancelada facturable · actualizado desde Agenda"
-            : "Clase completa · actualizado desde Agenda",
-      };
-
-      if (existenteTotal) {
-        const { error: errorActualizar } =
-          await supabase
-            .from("pagos")
-            .update(datosPago)
-            .eq(
-              "id",
-              existenteTotal.id
-            );
-
-        if (errorActualizar) {
-          throw new Error(
-            "No se pudo actualizar el pago total de la clase."
-          );
-        }
-      } else {
-        const { error: errorInsertar } =
-          await supabase
-            .from("pagos")
-            .insert(datosPago);
-
-        if (errorInsertar) {
-          throw new Error(
-            "No se pudo crear el pago total de la clase."
-          );
-        }
-      }
-
-      return;
-    }
-
-    for (
-      const pago of pagosActuales
-    ) {
-      if (pago.alumno_id === null) {
-        const { error: errorBorrar } =
-          await supabase
-            .from("pagos")
-            .delete()
-            .eq("id", pago.id);
-
-        if (errorBorrar) {
-          throw new Error(
-            "No se pudo limpiar el pago total anterior."
-          );
-        }
-      }
-    }
-
-    for (
-      const participante of
-      claseTrabajo.clase_alumnos
-    ) {
-      if (participante.usa_bono) {
-        await supabase
-          .from("pagos")
-          .delete()
-          .eq(
-            "clase_id",
-            claseTrabajo.id
-          )
-          .eq(
-            "alumno_id",
-            participante.alumno_id
-          );
-
-        continue;
-      }
-
-      const existente =
-        pagosActuales.find(
-          (pago) =>
-            pago.alumno_id ===
-            participante.alumno_id
-        );
-
-      const datosPago = {
-        alumno_id:
-          participante.alumno_id,
-        clase_id:
+      error,
+    } = await supabase.rpc(
+      "agenda_actualizar_clase_atomica",
+      {
+        p_clase_id:
           claseTrabajo.id,
-        importe: Number(
-          participante.importe || 0
-        ),
-        metodo:
-          metodoCobro ||
-          existente?.metodo ||
-          "efectivo",
-        estado:
-          participante.pagado
-            ? "pagado"
-            : "pendiente",
-        fecha_pago:
-          claseTrabajo.fecha,
-        notas:
-          estadoNuevo === "cancelada"
-            ? "Clase cancelada facturable · actualizado desde Agenda"
-            : "Actualizado desde Agenda",
-      };
-
-      if (existente) {
-        const { error: errorActualizar } =
-          await supabase
-            .from("pagos")
-            .update(datosPago)
-            .eq(
-              "id",
-              existente.id
-            );
-
-        if (errorActualizar) {
-          throw new Error(
-            "No se pudo actualizar un pago."
-          );
-        }
-      } else {
-        const { error: errorInsertar } =
-          await supabase
-            .from("pagos")
-            .insert(datosPago);
-
-        if (errorInsertar) {
-          throw new Error(
-            "No se pudo crear un pago."
-          );
-        }
+        p_estado:
+          claseTrabajo.estado,
+        p_facturable:
+          claseTrabajo.facturable,
+        p_cobrada:
+          claseTrabajo.cobrada,
+        p_observaciones:
+          claseTrabajo.observaciones ||
+          null,
+        p_motivo_cancelacion:
+          claseTrabajo.estado ===
+          "cancelada"
+            ? claseTrabajo.motivo_cancelacion ||
+              null
+            : null,
+        p_participantes:
+          participantes,
+        p_metodos_pago:
+          metodosPago,
+        p_metodo_pago_total:
+          metodoPagoTotal ||
+          null,
       }
+    );
+
+    if (error) {
+      throw new Error(
+        error.message ||
+          "No se pudo actualizar la clase de forma segura."
+      );
     }
   }
 
@@ -1102,63 +742,6 @@ export default function AccionesRapidasClase({
             numeroUsuariosBonoGrupo
           : importeClaseBono;
 
-      const idsActualizarGrupo =
-        bono.grupo_id
-          ? [
-              participante.id,
-              ...otrosConMismoBono.map(
-                (item) => item.id
-              ),
-            ]
-          : [participante.id];
-
-      const {
-        error: errorParticipante,
-      } = await supabase
-        .from("clase_alumnos")
-        .update({
-          usa_bono: true,
-          bono_id: bono.id,
-          pagado: true,
-          importe:
-            importeParticipante,
-        })
-        .eq(
-          "id",
-          participante.id
-        );
-
-      if (errorParticipante) {
-        throw new Error(
-          "No se pudo asignar el bono a la clase."
-        );
-      }
-
-      if (
-        bono.grupo_id &&
-        idsActualizarGrupo.length >
-          1
-      ) {
-        const {
-          error: errorImportesGrupo,
-        } = await supabase
-          .from("clase_alumnos")
-          .update({
-            importe:
-              importeParticipante,
-          })
-          .in(
-            "id",
-            idsActualizarGrupo
-          );
-
-        if (errorImportesGrupo) {
-          throw new Error(
-            "El bono se asignó, pero no se pudo ajustar el valor del bono de grupo."
-          );
-        }
-      }
-
       const participantesActualizados =
         claseTrabajo.clase_alumnos.map(
           (item) => {
@@ -1193,42 +776,16 @@ export default function AccionesRapidasClase({
           }
         );
 
-      const consumeBonoAhora =
-        claseTrabajo.estado ===
-          "realizada" ||
-        (
-          claseTrabajo.estado ===
-            "cancelada" &&
-          claseTrabajo.facturable
-        );
-
-      if (consumeBonoAhora) {
-        const bonoGrupoYaConsumido =
-          Boolean(
-            bono.grupo_id &&
-            otrosConMismoBono.length >
-              0
-          );
-
-        if (!bonoGrupoYaConsumido) {
-          await ajustarBono(
-            bono.id,
-            -1
-          );
-        }
-      }
-
-      const claseActualizada: ClaseAccionesRapidas =
+      const claseActualizada:
+        ClaseAccionesRapidas =
         {
           ...claseTrabajo,
           clase_alumnos:
             participantesActualizados,
         };
 
-      await sincronizarPagosRapidos(
-        claseActualizada,
-        claseActualizada.estado,
-        claseActualizada.facturable
+      await actualizarClaseAtomicaAgenda(
+        claseActualizada
       );
 
       setClaseSeleccionada(
@@ -1288,6 +845,28 @@ export default function AccionesRapidasClase({
     );
 
     try {
+      const {
+        error:
+          errorBorrado,
+      } = await supabase.rpc(
+        "borrar_clases_atomico",
+        {
+          p_clase_ids: [
+            claseTrabajo.id,
+          ],
+          p_serie_id: null,
+        }
+      );
+
+      if (
+        errorBorrado
+      ) {
+        throw new Error(
+          errorBorrado.message ||
+            "No se pudo borrar la clase de forma segura."
+        );
+      }
+
       let avisoGoogle =
         "";
 
@@ -1305,84 +884,14 @@ export default function AccionesRapidasClase({
           "Clase borrada en Manager, pero no se pudo borrar su evento de Google Calendar.";
       }
 
-      const {
-        error:
-          errorPagos,
-      } =
-        await supabase
-          .from("pagos")
-          .delete()
-          .eq(
-            "clase_id",
-            claseTrabajo.id
-          );
-
-      if (
-        errorPagos
-      ) {
-        throw new Error(
-          "No se pudieron eliminar los pagos asociados."
-        );
-      }
-
-      const {
-        error:
-          errorClase,
-      } =
-        await supabase
-          .from("clases")
-          .delete()
-          .eq(
-            "id",
-            claseTrabajo.id
-          );
-
-      if (
-        errorClase
-      ) {
-        throw new Error(
-          "No se pudo borrar la clase."
-        );
-      }
-
-      let avisoBono =
-        "";
-
-      if (
-        claseTrabajo.estado ===
-        "realizada"
-      ) {
-        try {
-          await ajustarBonosDeParticipantes(
-            claseTrabajo.clase_alumnos,
-            1
-          );
-        } catch {
-          avisoBono =
-            "Clase borrada, pero hubo un problema al devolver el bono.";
-        }
-      }
-
       onCerrar();
       await onClaseActualizada();
 
-      const avisos =
-        [
-          avisoBono,
-          avisoGoogle,
-        ]
-          .filter(
-            Boolean
-          )
-          .join(
-            "\n"
-          );
-
       if (
-        avisos
+        avisoGoogle
       ) {
         window.alert(
-          avisos
+          avisoGoogle
         );
       }
     } catch (
@@ -1447,36 +956,6 @@ export default function AccionesRapidasClase({
     );
 
     try {
-      const consumiaBonoAntes =
-        claseTrabajo.estado ===
-          "realizada" ||
-        (
-          claseTrabajo.estado ===
-            "cancelada" &&
-          claseTrabajo.facturable
-        );
-
-      const consumiraBonoAhora =
-        estado ===
-          "realizada" ||
-        (
-          estado ===
-            "cancelada" &&
-          facturableNueva
-        );
-
-      if (
-        consumiaBonoAntes !==
-        consumiraBonoAhora
-      ) {
-        await ajustarBonosDeParticipantes(
-          claseTrabajo.clase_alumnos,
-          consumiraBonoAhora
-            ? -1
-            : 1
-        );
-      }
-
       let participantesActualizados =
         claseTrabajo.clase_alumnos;
 
@@ -1485,56 +964,9 @@ export default function AccionesRapidasClase({
         claseTrabajo.tipo !==
           "club"
       ) {
-        const idsPagoNormal =
-          claseTrabajo.clase_alumnos
-            .filter(
-              (
-                participante
-              ) =>
-                !participante.usa_bono
-            )
-            .map(
-              (
-                participante
-              ) =>
-                participante.id
-            );
-
-        if (
-          idsPagoNormal.length >
-          0
-        ) {
-          const {
-            error:
-              errorCobro,
-          } =
-            await supabase
-              .from(
-                "clase_alumnos"
-              )
-              .update({
-                pagado:
-                  true,
-              })
-              .in(
-                "id",
-                idsPagoNormal
-              );
-
-          if (
-            errorCobro
-          ) {
-            throw new Error(
-              "No se pudo marcar la clase como cobrada."
-            );
-          }
-        }
-
         participantesActualizados =
-          claseTrabajo.clase_alumnos.map(
-            (
-              participante
-            ) =>
+          participantesActualizados.map(
+            (participante) =>
               participante.usa_bono
                 ? participante
                 : {
@@ -1554,56 +986,9 @@ export default function AccionesRapidasClase({
         claseTrabajo.tipo !==
           "club"
       ) {
-        const idsPagoNormal =
-          claseTrabajo.clase_alumnos
-            .filter(
-              (
-                participante
-              ) =>
-                !participante.usa_bono
-            )
-            .map(
-              (
-                participante
-              ) =>
-                participante.id
-            );
-
-        if (
-          idsPagoNormal.length >
-          0
-        ) {
-          const {
-            error:
-              errorPendiente,
-          } =
-            await supabase
-              .from(
-                "clase_alumnos"
-              )
-              .update({
-                pagado:
-                  false,
-              })
-              .in(
-                "id",
-                idsPagoNormal
-              );
-
-          if (
-            errorPendiente
-          ) {
-            throw new Error(
-              "No se pudo actualizar el estado económico."
-            );
-          }
-        }
-
         participantesActualizados =
           participantesActualizados.map(
-            (
-              participante
-            ) =>
+            (participante) =>
               participante.usa_bono
                 ? participante
                 : {
@@ -1655,36 +1040,6 @@ export default function AccionesRapidasClase({
             )
           : null;
 
-      const {
-        error:
-          errorClase,
-      } =
-        await supabase
-          .from("clases")
-          .update({
-            estado,
-            facturable:
-              facturableNueva,
-            cobrada:
-              cobradaNueva,
-            motivo_cancelacion:
-              motivoCancelacionNuevo,
-            observaciones:
-              observacionesNuevas,
-          })
-          .eq(
-            "id",
-            claseTrabajo.id
-          );
-
-      if (
-        errorClase
-      ) {
-        throw new Error(
-          "No se pudo actualizar la clase."
-        );
-      }
-
       const claseActualizada:
         ClaseAccionesRapidas =
         {
@@ -1702,12 +1057,45 @@ export default function AccionesRapidasClase({
             participantesActualizados,
         };
 
-      await sincronizarPagosRapidos(
+      const metodosPago:
+        Record<string, string> =
+        {};
+
+      let metodoPagoTotal:
+        string | null = null;
+
+      if (
+        opciones?.metodoCobro &&
+        claseTrabajo.tipo !==
+          "club"
+      ) {
+        if (
+          claseTrabajo.modo_cobro ===
+          "total"
+        ) {
+          metodoPagoTotal =
+            opciones.metodoCobro;
+        } else {
+          for (
+            const participante of
+            participantesActualizados
+          ) {
+            if (
+              !participante.usa_bono
+            ) {
+              metodosPago[
+                participante.alumno_id
+              ] =
+                opciones.metodoCobro;
+            }
+          }
+        }
+      }
+
+      await actualizarClaseAtomicaAgenda(
         claseActualizada,
-        estado,
-        facturableNueva,
-        opciones
-          ?.metodoCobro
+        metodosPago,
+        metodoPagoTotal
       );
 
       let falloGoogle =
@@ -1841,74 +1229,13 @@ export default function AccionesRapidasClase({
     setMensajeAccion("");
 
     try {
-      let claseTrabajo =
+      const claseTrabajo =
         claseSeleccionada;
-      let cambioARealizada =
-        false;
 
-      if (
+      const cambioARealizada =
         pagado &&
         claseTrabajo.estado ===
-          "programada"
-      ) {
-        await ajustarBonosDeParticipantes(
-          claseTrabajo.clase_alumnos,
-          -1
-        );
-
-        const { error: errorClase } =
-          await supabase
-            .from("clases")
-            .update({
-              estado: "realizada",
-              facturable: true,
-            })
-            .eq(
-              "id",
-              claseTrabajo.id
-            );
-
-        if (errorClase) {
-          throw new Error(
-            "No se pudo marcar la clase como realizada."
-          );
-        }
-
-        claseTrabajo = {
-          ...claseTrabajo,
-          estado: "realizada",
-          facturable: true,
-        };
-        cambioARealizada = true;
-      }
-
-      const idsPagoNormal =
-        claseTrabajo.clase_alumnos
-          .filter(
-            (participante) =>
-              !participante.usa_bono
-          )
-          .map(
-            (participante) =>
-              participante.id
-          );
-
-      if (idsPagoNormal.length > 0) {
-        const { error: errorParticipantes } =
-          await supabase
-            .from("clase_alumnos")
-            .update({ pagado })
-            .in(
-              "id",
-              idsPagoNormal
-            );
-
-        if (errorParticipantes) {
-          throw new Error(
-            "No se pudo actualizar el cobro de la clase."
-          );
-        }
-      }
+          "programada";
 
       const participantesActualizados =
         claseTrabajo.clase_alumnos.map(
@@ -1921,17 +1248,26 @@ export default function AccionesRapidasClase({
                 }
         );
 
-      claseTrabajo = {
-        ...claseTrabajo,
-        clase_alumnos:
-          participantesActualizados,
-      };
+      const claseActualizada:
+        ClaseAccionesRapidas =
+        {
+          ...claseTrabajo,
+          estado:
+            cambioARealizada
+              ? "realizada"
+              : claseTrabajo.estado,
+          facturable:
+            cambioARealizada
+              ? true
+              : claseTrabajo.facturable,
+          clase_alumnos:
+            participantesActualizados,
+        };
 
-      await sincronizarPagosRapidos(
-        claseTrabajo,
-        claseTrabajo.estado,
-        claseTrabajo.facturable,
-        metodoCobro
+      await actualizarClaseAtomicaAgenda(
+        claseActualizada,
+        {},
+        metodoCobro || null
       );
 
       let falloGoogle = false;
@@ -1940,7 +1276,7 @@ export default function AccionesRapidasClase({
         try {
           await sincronizarClaseConGoogleCalendar(
             datosGoogleClase(
-              claseTrabajo,
+              claseActualizada,
               { estado: "realizada" }
             )
           );
@@ -1950,7 +1286,7 @@ export default function AccionesRapidasClase({
       }
 
       setClaseSeleccionada(
-        claseTrabajo
+        claseActualizada
       );
       setParticipanteCobroId(null);
       await onClaseActualizada();
@@ -1994,91 +1330,17 @@ export default function AccionesRapidasClase({
     );
 
     try {
-      let claseTrabajo =
+      const claseTrabajo =
         claseSeleccionada;
 
-      let cambioARealizada =
-        false;
-
-      if (
+      const cambioARealizada =
         pagado &&
         claseTrabajo.estado ===
-          "programada"
-      ) {
-        await ajustarBonosDeParticipantes(
-          claseTrabajo.clase_alumnos,
-          -1
-        );
-
-        const {
-          error:
-            errorClase,
-        } =
-          await supabase
-            .from(
-              "clases"
-            )
-            .update({
-              estado:
-                "realizada",
-              facturable:
-                true,
-            })
-            .eq(
-              "id",
-              claseTrabajo.id
-            );
-
-        if (
-          errorClase
-        ) {
-          throw new Error(
-            "No se pudo marcar la clase como realizada."
-          );
-        }
-
-        claseTrabajo =
-          {
-            ...claseTrabajo,
-            estado:
-              "realizada",
-            facturable:
-              true,
-          };
-
-        cambioARealizada =
-          true;
-      }
-
-      const {
-        error:
-          errorParticipante,
-      } =
-        await supabase
-          .from(
-            "clase_alumnos"
-          )
-          .update({
-            pagado,
-          })
-          .eq(
-            "id",
-            participante.id
-          );
-
-      if (
-        errorParticipante
-      ) {
-        throw new Error(
-          "No se pudo actualizar el cobro."
-        );
-      }
+          "programada";
 
       const participantesActualizados =
         claseTrabajo.clase_alumnos.map(
-          (
-            item
-          ) =>
+          (item) =>
             item.id ===
             participante.id
               ? {
@@ -2088,55 +1350,36 @@ export default function AccionesRapidasClase({
               : item
         );
 
-      claseTrabajo =
+      const claseActualizada:
+        ClaseAccionesRapidas =
         {
           ...claseTrabajo,
+          estado:
+            cambioARealizada
+              ? "realizada"
+              : claseTrabajo.estado,
+          facturable:
+            cambioARealizada
+              ? true
+              : claseTrabajo.facturable,
           clase_alumnos:
             participantesActualizados,
         };
 
-      await sincronizarPagosRapidos(
-        claseTrabajo,
-        claseTrabajo.estado,
-        claseTrabajo.facturable
-      );
+      const metodosPago:
+        Record<string, string> =
+        {};
 
-      if (
-        metodoCobro
-      ) {
-        const {
-          error:
-            errorMetodo,
-        } =
-          await supabase
-            .from(
-              "pagos"
-            )
-            .update({
-              metodo:
-                metodoCobro,
-              estado:
-                pagado
-                  ? "pagado"
-                  : "pendiente",
-            })
-            .eq(
-              "clase_id",
-              claseTrabajo.id
-            )
-            .eq(
-              "alumno_id",
-              participante.alumno_id
-            );
-
-        if (
-          errorMetodo
-        ) {
-          throw new Error(
-            "El cobro se guardó, pero no se pudo guardar la forma de pago."
-          );
-        }
+      if (metodoCobro) {
+        metodosPago[
+          participante.alumno_id
+        ] = metodoCobro;
       }
+
+      await actualizarClaseAtomicaAgenda(
+        claseActualizada,
+        metodosPago
+      );
 
       let falloGoogle =
         false;
@@ -2147,7 +1390,7 @@ export default function AccionesRapidasClase({
         try {
           await sincronizarClaseConGoogleCalendar(
             datosGoogleClase(
-              claseTrabajo,
+              claseActualizada,
               {
                 estado:
                   "realizada",
@@ -2161,7 +1404,7 @@ export default function AccionesRapidasClase({
       }
 
       setClaseSeleccionada(
-        claseTrabajo
+        claseActualizada
       );
 
       setParticipanteCobroId(
