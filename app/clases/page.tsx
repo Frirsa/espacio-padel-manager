@@ -80,6 +80,7 @@ type Clase = {
   estado: string;
   facturable: boolean;
   cobrada: boolean;
+  motivo_cancelacion: string | null;
   observaciones: string | null;
 
   ubicaciones: {
@@ -986,6 +987,12 @@ export default function ClasesPage() {
   ] = useState<boolean | null>(null);
 
   const [
+    motivoCancelacion,
+    setMotivoCancelacion,
+  ] =
+    useState("");
+
+  const [
     observaciones,
     setObservaciones,
   ] =
@@ -1456,6 +1463,7 @@ export default function ClasesPage() {
           estado,
           facturable,
           cobrada,
+          motivo_cancelacion,
           observaciones,
           importe_club,
           coste_pista,
@@ -1680,6 +1688,7 @@ export default function ClasesPage() {
     setGrupoId("");
     setEstado("programada");
     setFacturableCancelacion(null);
+    setMotivoCancelacion("");
     setObservaciones("");
 
     setAlumnosSeleccionados(
@@ -2150,7 +2159,6 @@ export default function ClasesPage() {
     modoPagoAlumnos,
     duracion,
     tarifas,
-    alumnos,
   ]);
 
   useEffect(() => {
@@ -3200,9 +3208,23 @@ export default function ClasesPage() {
         : null
     );
 
+    const motivoLegacy =
+      clase.estado === "cancelada" &&
+      !clase.motivo_cancelacion
+        ? clase.observaciones || ""
+        : "";
+
+    setMotivoCancelacion(
+      clase.motivo_cancelacion ||
+        motivoLegacy
+    );
+
     setObservaciones(
-      clase.observaciones ||
-        ""
+      clase.estado === "cancelada" &&
+      !clase.motivo_cancelacion
+        ? ""
+        : clase.observaciones ||
+            ""
     );
 
     setImporteClub(
@@ -3677,6 +3699,28 @@ export default function ClasesPage() {
         (item) => item.id === ubicacionId
       )?.nombre || null;
 
+    const motivoGoogle =
+      estadoClase === "cancelada"
+        ? motivoCancelacion.trim()
+        : "";
+
+    const observacionesGoogle =
+      observaciones.trim();
+
+    const detalleGoogle =
+      estadoClase === "cancelada"
+        ? [
+            motivoGoogle
+              ? `Motivo de cancelación: ${motivoGoogle}`
+              : "",
+            observacionesGoogle
+              ? `Observaciones: ${observacionesGoogle}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : observacionesGoogle;
+
     return {
       id: claseId,
       google_calendar_event_id: googleEventId || null,
@@ -3685,7 +3729,8 @@ export default function ClasesPage() {
       duracion_minutos: Number(duracion),
       tipo,
       estado: estadoClase,
-      observaciones: observaciones.trim() || null,
+      observaciones:
+        detalleGoogle || null,
       ubicacion,
       alumnos: nombres,
     };
@@ -4663,6 +4708,16 @@ export default function ClasesPage() {
       return;
     }
 
+    if (
+      estado === "cancelada" &&
+      motivoCancelacion.trim().length === 0
+    ) {
+      setMensaje(
+        "❌ Indica el motivo de la cancelación."
+      );
+      return;
+    }
+
     const claseAnterior =
       claseEditandoId
         ? clases.find(
@@ -4973,6 +5028,12 @@ export default function ClasesPage() {
                 : claseAnterior?.cobrada ?? false
             )
           : false,
+
+      motivo_cancelacion:
+        estado === "cancelada"
+          ? motivoCancelacion.trim() ||
+            null
+          : null,
 
       observaciones:
         observaciones.trim() ||
@@ -7685,67 +7746,70 @@ export default function ClasesPage() {
             </div>
           </section>
 
-          <div
-            className={
-              estado === "cancelada"
-                ? "mt-4 rounded-2xl border border-red-200 bg-red-50/70 p-4"
-                : "mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]"
-            }
-          >
+          {estado === "cancelada" && (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50/70 p-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-700">
+                ¿Esta cancelación se cobra?
+              </p>
 
-            <label
-              className={
-                estado === "cancelada"
-                  ? "block text-xs font-bold uppercase tracking-wide text-red-700"
-                  : "block text-xs font-bold uppercase tracking-wide text-slate-600"
-              }
-            >
-              {estado === "cancelada"
-                ? "Motivo de cancelación / anotación"
-                : "Anotación"}
-            </label>
+              <div className="grid max-w-md grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFacturableCancelacion(
+                      true
+                    )
+                  }
+                  className={
+                    facturableCancelacion === true
+                      ? "rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white"
+                      : "rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50"
+                  }
+                >
+                  Se cobra
+                </button>
 
-            {estado === "cancelada" && (
-              <div className="mb-4">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-700">
-                  ¿Esta cancelación se cobra?
-                </p>
-
-                <div className="grid max-w-md grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFacturableCancelacion(
-                        true
-                      )
-                    }
-                    className={
-                      facturableCancelacion === true
-                        ? "rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white"
-                        : "rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50"
-                    }
-                  >
-                    Se cobra
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFacturableCancelacion(
-                        false
-                      )
-                    }
-                    className={
-                      facturableCancelacion === false
-                        ? "rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-bold text-white"
-                        : "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
-                    }
-                  >
-                    No se cobra
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFacturableCancelacion(
+                      false
+                    )
+                  }
+                  className={
+                    facturableCancelacion === false
+                      ? "rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-bold text-white"
+                      : "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  }
+                >
+                  No se cobra
+                </button>
               </div>
-            )}
+
+              <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-red-700">
+                Motivo de cancelación
+              </label>
+
+              <textarea
+                value={
+                  motivoCancelacion
+                }
+                onChange={(e) =>
+                  setMotivoCancelacion(
+                    e.target.value
+                  )
+                }
+                rows={2}
+                placeholder="Indica el motivo de la cancelación..."
+                className="mt-2 w-full resize-none rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-red-300"
+              />
+            </div>
+          )}
+
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
+            <label className="block text-xs font-bold uppercase tracking-wide text-slate-600">
+              Anotación
+            </label>
 
             <textarea
               value={
@@ -7757,22 +7821,13 @@ export default function ClasesPage() {
                 )
               }
               rows={2}
-              placeholder={
-                estado === "cancelada"
-                  ? "Indica el motivo de la cancelación o cualquier anotación..."
-                  : "Añade una anotación sobre esta clase..."
-              }
-              className={
-                estado === "cancelada"
-                  ? "mt-2 w-full resize-none rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-red-300"
-                  : "mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#00A79C]/60"
-              }
+              placeholder="Añade una anotación sobre esta clase..."
+              className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#00A79C]/60"
             />
 
             <p className="mt-2 text-xs text-slate-500">
-              Opcional. La anotación quedará visible en la clase registrada.
+              Opcional. Es independiente del motivo de cancelación.
             </p>
-
           </div>
 
           <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -8203,7 +8258,13 @@ export default function ClasesPage() {
                           </span>
                         )}
 
-                        {clase.observaciones?.trim() && (
+                        {clase.observaciones?.trim() &&
+                          (
+                            clase.estado !== "cancelada" ||
+                            Boolean(
+                              clase.motivo_cancelacion?.trim()
+                            )
+                          ) && (
                           <span
                             className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white"
                             title="Esta clase tiene una anotación"
@@ -8523,36 +8584,37 @@ export default function ClasesPage() {
                       </section>
                     </div>
 
-                    {clase.observaciones && (
-                      <div
-                        className={
-                          clase.estado ===
-                          "cancelada"
-                            ? "border-t border-red-100 bg-red-50/60 px-4 py-3"
-                            : "border-t border-slate-100 bg-[#FBFCFD] px-4 py-3"
-                        }
-                      >
-                        <p
-                          className={
-                            clase.estado ===
-                            "cancelada"
-                              ? "text-[9px] font-bold uppercase tracking-wide text-red-600"
-                              : "text-[9px] font-bold uppercase tracking-wide text-slate-400"
-                          }
-                        >
-                          {clase.estado ===
-                          "cancelada"
-                            ? "Motivo de cancelación / anotación"
-                            : "Anotación"}
+                    {clase.estado === "cancelada" &&
+                      (
+                        clase.motivo_cancelacion?.trim() ||
+                        (
+                          !clase.motivo_cancelacion &&
+                          clase.observaciones?.trim()
+                        )
+                      ) && (
+                      <div className="border-t border-red-100 bg-red-50/60 px-4 py-3">
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-red-600">
+                          Motivo de cancelación
                         </p>
-                        <p
-                          className={
-                            clase.estado ===
-                            "cancelada"
-                              ? "mt-1 text-xs text-red-900"
-                              : "mt-1 text-xs text-slate-600"
-                          }
-                        >
+                        <p className="mt-1 text-xs text-red-900">
+                          {clase.motivo_cancelacion ||
+                            clase.observaciones}
+                        </p>
+                      </div>
+                    )}
+
+                    {clase.observaciones?.trim() &&
+                      (
+                        clase.estado !== "cancelada" ||
+                        Boolean(
+                          clase.motivo_cancelacion?.trim()
+                        )
+                      ) && (
+                      <div className="border-t border-slate-100 bg-[#FBFCFD] px-4 py-3">
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                          Anotación
+                        </p>
+                        <p className="mt-1 text-xs text-slate-600">
                           {clase.observaciones}
                         </p>
                       </div>

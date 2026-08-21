@@ -392,7 +392,13 @@ function IndicadoresClase({
         €
       </span>
 
-      {clase.observaciones?.trim() && (
+      {clase.observaciones?.trim() &&
+                          (
+                            clase.estado !== "cancelada" ||
+                            Boolean(
+                              clase.motivo_cancelacion?.trim()
+                            )
+                          ) && (
         <span
           title="Esta clase tiene una anotación"
           className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
@@ -831,11 +837,15 @@ export default function VistaSemanalAgenda({
 
                     {clase.estado ===
                       "cancelada" &&
-                      clase.observaciones && (
+                      (
+                        clase.motivo_cancelacion ||
+                        clase.observaciones
+                      ) && (
                         <p className="mt-2 line-clamp-2 border-t border-red-200 pt-2 text-[10px] font-semibold leading-snug text-red-700">
                           Cancelación
                           {" · "}
                           {
+                            clase.motivo_cancelacion ||
                             clase.observaciones
                           }
                         </p>
@@ -1108,7 +1118,10 @@ export default function VistaSemanalAgenda({
 
                               {clase.estado ===
                                 "cancelada" &&
-                                clase.observaciones && (
+                                (
+                                  clase.motivo_cancelacion ||
+                                  clase.observaciones
+                                ) && (
 
                                   <div className="mt-3 border-t border-red-200 pt-2">
 
@@ -1118,6 +1131,7 @@ export default function VistaSemanalAgenda({
 
                                     <p className="mt-1 text-[11px] leading-snug text-red-800">
                                       {
+                                        clase.motivo_cancelacion ||
                                         clase.observaciones
                                       }
                                     </p>

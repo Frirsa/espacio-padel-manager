@@ -59,6 +59,7 @@ type Clase = {
   estado: string;
   facturable: boolean;
   cobrada: boolean;
+  motivo_cancelacion: string | null;
   observaciones: string | null;
   modo_cobro: "por_alumno" | "total" | string | null;
   importe_total: number | null;
@@ -355,6 +356,7 @@ export default function AgendaPage() {
         estado,
         facturable,
         cobrada,
+        motivo_cancelacion,
         observaciones,
         modo_cobro,
         importe_total,

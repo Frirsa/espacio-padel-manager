@@ -581,7 +581,13 @@ export default function ListadoAgenda({
                                   "Sin alumnos"}
                               </span>
 
-                              {clase.observaciones?.trim() && (
+                              {clase.observaciones?.trim() &&
+                          (
+                            clase.estado !== "cancelada" ||
+                            Boolean(
+                              clase.motivo_cancelacion?.trim()
+                            )
+                          ) && (
                                 <span
                                   className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white"
                                   title="Esta clase tiene una anotación"
@@ -605,16 +611,22 @@ export default function ListadoAgenda({
 
                             {clase.estado ===
                               "cancelada" &&
-                              clase.observaciones && (
+                              (
+                                clase.motivo_cancelacion ||
+                                clase.observaciones
+                              ) && (
                                 <p
                                   className="mt-1 truncate text-[11px] font-semibold text-red-700"
                                   title={
-                                    clase.observaciones
+                                    clase.motivo_cancelacion ||
+                                    clase.observaciones ||
+                                    undefined
                                   }
                                 >
                                   Cancelación
                                   {" · "}
                                   {
+                                    clase.motivo_cancelacion ||
                                     clase.observaciones
                                   }
                                 </p>

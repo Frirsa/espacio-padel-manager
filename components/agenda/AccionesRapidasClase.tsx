@@ -18,6 +18,7 @@ export type ClaseAccionesRapidas = {
   estado: string;
   facturable: boolean;
   cobrada: boolean;
+  motivo_cancelacion?: string | null;
   observaciones: string | null;
   modo_cobro?: "por_alumno" | "total" | string | null;
   importe_total?: number | null;
@@ -98,10 +99,41 @@ function datosGoogleClase(
   cambios?: Partial<
     Pick<
       ClaseAccionesRapidas,
-      "fecha" | "hora_inicio" | "estado" | "observaciones"
+      "fecha" | "hora_inicio" | "estado" | "observaciones" | "motivo_cancelacion"
     >
   >
 ) {
+  const estadoFinal =
+    cambios?.estado ||
+    clase.estado;
+
+  const observacionesFinales =
+    cambios?.observaciones !==
+    undefined
+      ? cambios.observaciones
+      : clase.observaciones;
+
+  const motivoFinal =
+    cambios?.motivo_cancelacion !==
+    undefined
+      ? cambios.motivo_cancelacion
+      : clase.motivo_cancelacion;
+
+  const detalleGoogle =
+    estadoFinal === "cancelada"
+      ? [
+          motivoFinal?.trim()
+            ? `Motivo de cancelación: ${motivoFinal.trim()}`
+            : "",
+          observacionesFinales?.trim()
+            ? `Observaciones: ${observacionesFinales.trim()}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : observacionesFinales?.trim() ||
+        "";
+
   return {
     id: clase.id,
     google_calendar_event_id:
@@ -116,13 +148,9 @@ function datosGoogleClase(
       clase.duracion_minutos,
     tipo: clase.tipo,
     estado:
-      cambios?.estado ||
-      clase.estado,
+      estadoFinal,
     observaciones:
-      cambios?.observaciones !==
-      undefined
-        ? cambios.observaciones
-        : clase.observaciones,
+      detalleGoogle || null,
     ubicacion:
       clase.ubicaciones
         ?.nombre || null,
@@ -1388,6 +1416,9 @@ export default function AccionesRapidasClase({
       observaciones?:
         | string
         | null;
+      motivo_cancelacion?:
+        | string
+        | null;
     }
   ) {
     const claseTrabajo =
@@ -1612,6 +1643,18 @@ export default function AccionesRapidasClase({
           ? opciones.observaciones
           : claseTrabajo.observaciones;
 
+      const motivoCancelacionNuevo =
+        estado === "cancelada"
+          ? (
+              opciones
+                ?.motivo_cancelacion !==
+              undefined
+                ? opciones.motivo_cancelacion
+                : claseTrabajo.motivo_cancelacion ||
+                  null
+            )
+          : null;
+
       const {
         error:
           errorClase,
@@ -1624,6 +1667,8 @@ export default function AccionesRapidasClase({
               facturableNueva,
             cobrada:
               cobradaNueva,
+            motivo_cancelacion:
+              motivoCancelacionNuevo,
             observaciones:
               observacionesNuevas,
           })
@@ -1649,6 +1694,8 @@ export default function AccionesRapidasClase({
             facturableNueva,
           cobrada:
             cobradaNueva,
+          motivo_cancelacion:
+            motivoCancelacionNuevo,
           observaciones:
             observacionesNuevas,
           clase_alumnos:
@@ -1672,6 +1719,8 @@ export default function AccionesRapidasClase({
             claseTrabajo,
             {
               estado,
+              motivo_cancelacion:
+                motivoCancelacionNuevo,
               observaciones:
                 observacionesNuevas,
             }
@@ -2842,8 +2891,12 @@ export default function AccionesRapidasClase({
                   true
                 );
                 setMotivoCancelacion(
-                  claseSeleccionada.observaciones ||
-                    ""
+                  claseSeleccionada.motivo_cancelacion ||
+                    (
+                      claseSeleccionada.estado === "cancelada"
+                        ? claseSeleccionada.observaciones || ""
+                        : ""
+                    )
                 );
               }}
               className={`rounded-[14px] px-3 py-2.5 text-[14px] font-bold transition disabled:opacity-50 ${
@@ -2866,8 +2919,12 @@ export default function AccionesRapidasClase({
                   false
                 );
                 setMotivoCancelacion(
-                  claseSeleccionada.observaciones ||
-                    ""
+                  claseSeleccionada.motivo_cancelacion ||
+                    (
+                      claseSeleccionada.estado === "cancelada"
+                        ? claseSeleccionada.observaciones || ""
+                        : ""
+                    )
                 );
               }}
               className={`rounded-[14px] px-3 py-2.5 text-[14px] font-bold transition disabled:opacity-50 ${
@@ -2920,7 +2977,7 @@ export default function AccionesRapidasClase({
                     {
                       facturable:
                         cancelacionFacturablePendiente,
-                      observaciones:
+                      motivo_cancelacion:
                         motivoCancelacion.trim(),
                     }
                   )
@@ -2934,7 +2991,10 @@ export default function AccionesRapidasClase({
 
           {claseSeleccionada.estado ===
             "cancelada" &&
-            claseSeleccionada.observaciones &&
+            (
+              claseSeleccionada.motivo_cancelacion ||
+              claseSeleccionada.observaciones
+            ) &&
             cancelacionFacturablePendiente ===
               null && (
               <p className="mt-3 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs leading-5 text-slate-600">
@@ -2942,6 +3002,7 @@ export default function AccionesRapidasClase({
                   Motivo:
                 </span>{" "}
                 {
+                  claseSeleccionada.motivo_cancelacion ||
                   claseSeleccionada.observaciones
                 }
               </p>
