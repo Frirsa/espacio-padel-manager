@@ -2767,391 +2767,6 @@ export default function ClasesPage() {
     return resultado;
   }
 
-  async function ajustarBonos(
-    usoAnterior:
-      Record<
-        string,
-        number
-      >,
-    usoNuevo:
-      Record<
-        string,
-        number
-      >
-  ) {
-    const ids =
-      Array.from(
-        new Set([
-          ...Object.keys(
-            usoAnterior
-          ),
-          ...Object.keys(
-            usoNuevo
-          ),
-        ])
-      );
-
-    for (
-      const bonoId of
-      ids
-    ) {
-      const anterior =
-        usoAnterior[
-          bonoId
-        ] || 0;
-
-      const nuevo =
-        usoNuevo[
-          bonoId
-        ] || 0;
-
-      const diferencia =
-        nuevo -
-        anterior;
-
-      if (
-        diferencia ===
-        0
-      ) {
-        continue;
-      }
-
-      const {
-        data:
-          bonoActual,
-        error,
-      } =
-        await supabase
-          .from(
-            "bonos"
-          )
-          .select(
-            "id,numero_clases,clases_restantes"
-          )
-          .eq(
-            "id",
-            bonoId
-          )
-          .single();
-
-      if (
-        error ||
-        !bonoActual
-      ) {
-        throw new Error(
-          "No se pudo actualizar uno de los bonos."
-        );
-      }
-
-      const nuevasRestantes =
-        Number(
-          bonoActual
-            .clases_restantes
-        ) -
-        diferencia;
-
-      if (
-        nuevasRestantes <
-        0
-      ) {
-        throw new Error(
-          "Uno de los bonos no tiene clases suficientes."
-        );
-      }
-
-      const restantesFinales =
-        Math.min(
-          nuevasRestantes,
-          Number(
-            bonoActual
-              .numero_clases
-          )
-        );
-
-      const {
-        error:
-          errorActualizar,
-      } =
-        await supabase
-          .from(
-            "bonos"
-          )
-          .update({
-            clases_restantes:
-              restantesFinales,
-
-            activo:
-              restantesFinales >
-              0,
-          })
-          .eq(
-            "id",
-            bonoId
-          );
-
-      if (
-        errorActualizar
-      ) {
-        throw new Error(
-          "No se pudo actualizar uno de los bonos."
-        );
-      }
-    }
-  }
-
-  async function sincronizarPagos(
-    claseId: string,
-    estadoClase: string,
-    participantes: {
-      alumno_id: string;
-      importe: number;
-      pagado: boolean;
-      usa_bono: boolean;
-    }[],
-    tipoClase: string,
-    facturableClase: boolean,
-    modoCobro: "por_alumno" | "total",
-    importeTotal: number | null
-  ) {
-    const {
-      data: existentes,
-      error,
-    } =
-      await supabase
-        .from("pagos")
-        .select(
-          "id,alumno_id,metodo,estado"
-        )
-        .eq(
-          "clase_id",
-          claseId
-        );
-
-    if (error) {
-      throw new Error(
-        "No se pudieron comprobar los pagos de la clase."
-      );
-    }
-
-    const pagosExistentes =
-      existentes || [];
-
-    const generaCobro =
-      estadoClase === "realizada" ||
-      (
-        estadoClase === "cancelada" &&
-        facturableClase
-      );
-
-    if (
-      !generaCobro ||
-      tipoClase === "club"
-    ) {
-      const { error: errorBorrar } =
-        await supabase
-          .from("pagos")
-          .delete()
-          .eq(
-            "clase_id",
-            claseId
-          );
-
-      if (errorBorrar) {
-        throw new Error(
-          "No se pudieron actualizar los pagos."
-        );
-      }
-
-      return;
-    }
-
-    if (modoCobro === "total") {
-      const pagosTotales =
-        pagosExistentes.filter(
-          (pago) =>
-            pago.alumno_id === null
-        );
-
-      const pagoTotalExistente =
-        pagosTotales[0];
-
-      for (const pago of pagosExistentes) {
-        if (
-          pago.alumno_id !== null ||
-          (
-            pagoTotalExistente &&
-            pago.id !==
-              pagoTotalExistente.id
-          )
-        ) {
-          const { error: errorBorrar } =
-            await supabase
-              .from("pagos")
-              .delete()
-              .eq("id", pago.id);
-
-          if (errorBorrar) {
-            throw new Error(
-              "No se pudieron limpiar los pagos anteriores de la clase."
-            );
-          }
-        }
-      }
-
-      const normales =
-        participantes.filter(
-          (participante) =>
-            !participante.usa_bono
-        );
-
-      const totalPagado =
-        normales.length > 0 &&
-        normales.every(
-          (participante) =>
-            participante.pagado
-        );
-
-      const datosPago = {
-        alumno_id: null,
-        clase_id: claseId,
-        importe: Number(
-          importeTotal || 0
-        ),
-        metodo:
-          metodoPagoTotal ||
-          pagoTotalExistente?.metodo ||
-          "efectivo",
-        estado: totalPagado
-          ? "pagado"
-          : "pendiente",
-        fecha_pago: fecha,
-        notas:
-          estadoClase === "cancelada"
-            ? "Clase completa cancelada facturable · generado desde Clases"
-            : "Clase completa · generado automáticamente desde Clases",
-      };
-
-      if (pagoTotalExistente) {
-        const { error: errorActualizar } =
-          await supabase
-            .from("pagos")
-            .update(datosPago)
-            .eq(
-              "id",
-              pagoTotalExistente.id
-            );
-
-        if (errorActualizar) {
-          throw new Error(
-            "No se pudo actualizar el pago total de la clase."
-          );
-        }
-      } else {
-        const { error: errorInsertar } =
-          await supabase
-            .from("pagos")
-            .insert(datosPago);
-
-        if (errorInsertar) {
-          throw new Error(
-            "No se pudo crear el pago total de la clase."
-          );
-        }
-      }
-
-      return;
-    }
-
-    const alumnosPagoNormal =
-      participantes
-        .filter(
-          (p) => !p.usa_bono
-        )
-        .map(
-          (p) => p.alumno_id
-        );
-
-    for (
-      const pago of pagosExistentes
-    ) {
-      if (
-        !pago.alumno_id ||
-        !alumnosPagoNormal.includes(
-          pago.alumno_id
-        )
-      ) {
-        await supabase
-          .from("pagos")
-          .delete()
-          .eq("id", pago.id);
-      }
-    }
-
-    for (
-      const participante of participantes
-    ) {
-      if (participante.usa_bono) {
-        continue;
-      }
-
-      const pagoExistente =
-        pagosExistentes.find(
-          (pago) =>
-            pago.alumno_id ===
-            participante.alumno_id
-        );
-
-      const datosPago = {
-        alumno_id:
-          participante.alumno_id,
-        clase_id: claseId,
-        importe:
-          participante.importe,
-        metodo:
-          metodoPagoAlumnos[
-            participante.alumno_id
-          ] || "efectivo",
-        estado:
-          estadoPagoAlumnos[
-            participante.alumno_id
-          ] || "pendiente",
-        fecha_pago: fecha,
-        notas:
-          estadoClase === "cancelada"
-            ? "Clase cancelada facturable · generado desde Clases"
-            : "Generado automáticamente desde Clases",
-      };
-
-      if (pagoExistente) {
-        const { error: errorActualizar } =
-          await supabase
-            .from("pagos")
-            .update(datosPago)
-            .eq(
-              "id",
-              pagoExistente.id
-            );
-
-        if (errorActualizar) {
-          throw new Error(
-            "No se pudo actualizar uno de los pagos."
-          );
-        }
-      } else {
-        const { error: errorInsertar } =
-          await supabase
-            .from("pagos")
-            .insert(datosPago);
-
-        if (errorInsertar) {
-          throw new Error(
-            "No se pudo crear uno de los pagos."
-          );
-        }
-      }
-    }
-  }
-
   function editarClase(
     clase: Clase
   ) {
@@ -4288,47 +3903,6 @@ export default function ClasesPage() {
     void sincronizarEnLotes();
   }
 
-  function acumularUsoBonos(
-    clasesSeleccionadas:
-      Clase[]
-  ) {
-    const total:
-      Record<
-        string,
-        number
-      > = {};
-
-    clasesSeleccionadas.forEach(
-      (clase) => {
-        const uso =
-          contarUsoBonos(
-            clase.clase_alumnos,
-            clase.estado,
-            clase.facturable ?? true
-          );
-
-        Object.entries(
-          uso
-        ).forEach(
-          ([
-            bonoId,
-            cantidad,
-          ]) => {
-            total[bonoId] =
-              (
-                total[
-                  bonoId
-                ] || 0
-              ) +
-              cantidad;
-          }
-        );
-      }
-    );
-
-    return total;
-  }
-
   async function ejecutarBorrado(
     clase: Clase,
     alcance:
@@ -4386,14 +3960,42 @@ export default function ClasesPage() {
             item.id
         );
 
-      const usoAnterior =
-        acumularUsoBonos(
-          clasesABorrar
-        );
+      if (
+        ids.length > 0
+      ) {
+        const {
+          error:
+            errorBorrado,
+        } =
+          await supabase.rpc(
+            "borrar_clases_atomico",
+            {
+              p_clase_ids:
+                ids,
+              p_serie_id:
+                alcance === "serie" &&
+                clase.serie_id
+                  ? clase.serie_id
+                  : null,
+            }
+          );
+
+        if (
+          errorBorrado
+        ) {
+          throw new Error(
+            errorBorrado.message ||
+              "No se pudo borrar la clase de forma segura."
+          );
+        }
+      }
 
       let falloGoogle = false;
 
-      for (const claseABorrar of clasesABorrar) {
+      for (
+        const claseABorrar of
+        clasesABorrar
+      ) {
         try {
           await borrarClaseDeGoogleCalendar({
             id: claseABorrar.id,
@@ -4403,71 +4005,6 @@ export default function ClasesPage() {
         } catch {
           falloGoogle = true;
         }
-      }
-
-      if (
-        ids.length > 0
-      ) {
-        const {
-          error:
-            errorPagos,
-        } =
-          await supabase
-            .from("pagos")
-            .delete()
-            .in(
-              "clase_id",
-              ids
-            );
-
-        if (
-          errorPagos
-        ) {
-          throw new Error(
-            "No se pudieron eliminar los pagos asociados."
-          );
-        }
-
-        const {
-          error:
-            errorClases,
-        } =
-          await supabase
-            .from("clases")
-            .delete()
-            .in(
-              "id",
-              ids
-            );
-
-        if (
-          errorClases
-        ) {
-          throw new Error(
-            errorClases.message
-          );
-        }
-
-        await ajustarBonos(
-          usoAnterior,
-          {}
-        );
-      }
-
-      if (
-        alcance ===
-          "serie" &&
-        clase.serie_id
-      ) {
-        await supabase
-          .from(
-            "series_clases"
-          )
-          .delete()
-          .eq(
-            "id",
-            clase.serie_id
-          );
       }
 
       if (
@@ -5106,101 +4643,44 @@ export default function ClasesPage() {
             );
 
           const {
+            data:
+              claseGuardadaId,
             error:
-              errorActualizarClase,
+              errorGuardarClase,
           } =
-            await supabase
-              .from("clases")
-              .update({
-                ...datosClase,
-                fecha:
-                  fechaObjetivo,
-              })
-              .eq(
-                "id",
-                claseObjetivo.id
-              );
+            await supabase.rpc(
+              "guardar_clase_atomica",
+              {
+                p_clase_id:
+                  claseObjetivo.id,
+                p_datos_clase: {
+                  ...datosClase,
+                  fecha:
+                    fechaObjetivo,
+                },
+                p_participantes:
+                  participantesNuevos,
+                p_uso_anterior:
+                  usoAnteriorObjetivo,
+                p_uso_nuevo:
+                  usoNuevoObjetivo,
+                p_metodos_pago:
+                  metodoPagoAlumnos,
+                p_metodo_pago_total:
+                  metodoPagoTotal ||
+                  null,
+              }
+            );
 
           if (
-            errorActualizarClase
+            errorGuardarClase ||
+            !claseGuardadaId
           ) {
             throw new Error(
-              errorActualizarClase.message
+              errorGuardarClase?.message ||
+                "No se pudo actualizar una de las clases de forma segura."
             );
           }
-
-          const {
-            error:
-              errorBorrarAlumnos,
-          } =
-            await supabase
-              .from(
-                "clase_alumnos"
-              )
-              .delete()
-              .eq(
-                "clase_id",
-                claseObjetivo.id
-              );
-
-          if (
-            errorBorrarAlumnos
-          ) {
-            throw new Error(
-              "No se pudieron actualizar los alumnos de una de las clases."
-            );
-          }
-
-          if (
-            participantesNuevos.length >
-            0
-          ) {
-            const registros =
-              participantesNuevos.map(
-                (
-                  participante
-                ) => ({
-                  clase_id:
-                    claseObjetivo.id,
-                  ...participante,
-                })
-              );
-
-            const {
-              error:
-                errorInsertarAlumnos,
-            } =
-              await supabase
-                .from(
-                  "clase_alumnos"
-                )
-                .insert(
-                  registros
-                );
-
-            if (
-              errorInsertarAlumnos
-            ) {
-              throw new Error(
-                "No se pudieron guardar los alumnos de una de las clases."
-              );
-            }
-          }
-
-          await ajustarBonos(
-            usoAnteriorObjetivo,
-            usoNuevoObjetivo
-          );
-
-          await sincronizarPagos(
-            claseObjetivo.id,
-            estado,
-            participantesNuevos,
-            tipo,
-            facturableNueva,
-            modoCobroFinal,
-            importeTotalFinal
-          );
 
           try {
             await sincronizarClaseConGoogleCalendar(
@@ -5261,153 +4741,57 @@ export default function ClasesPage() {
       }
     }
 
-    let claseGuardada;
-    let errorClase;
-
-    if (
-      claseEditandoId
-    ) {
-      const resultado =
-        await supabase
-          .from(
-            "clases"
-          )
-          .update(
-            datosClase
-          )
-          .eq(
-            "id",
-            claseEditandoId
-          )
-          .select()
-          .single();
-
-      claseGuardada =
-        resultado.data;
-
-      errorClase =
-        resultado.error;
-    } else {
-      const resultado =
-        await supabase
-          .from(
-            "clases"
-          )
-          .insert(
-            datosClase
-          )
-          .select()
-          .single();
-
-      claseGuardada =
-        resultado.data;
-
-      errorClase =
-        resultado.error;
-    }
+    const {
+      data:
+        claseGuardadaId,
+      error:
+        errorClase,
+    } =
+      await supabase.rpc(
+        "guardar_clase_atomica",
+        {
+          p_clase_id:
+            claseEditandoId ||
+            null,
+          p_datos_clase:
+            datosClase,
+          p_participantes:
+            participantesNuevos,
+          p_uso_anterior:
+            usoAnterior,
+          p_uso_nuevo:
+            usoNuevo,
+          p_metodos_pago:
+            metodoPagoAlumnos,
+          p_metodo_pago_total:
+            metodoPagoTotal ||
+            null,
+        }
+      );
 
     if (
       errorClase ||
-      !claseGuardada
+      !claseGuardadaId
     ) {
       setMensaje(
-        "❌ Error al guardar la clase: " +
+        "❌ Error al guardar la clase de forma segura: " +
           (
             errorClase?.message ||
-            ""
+            "Error desconocido"
           )
       );
 
       return;
     }
 
-    if (
-      claseEditandoId
-    ) {
-      const {
-        error,
-      } =
-        await supabase
-          .from(
-            "clase_alumnos"
-          )
-          .delete()
-          .eq(
-            "clase_id",
-            claseEditandoId
-          );
-
-      if (error) {
-        setMensaje(
-          "❌ Error al actualizar los alumnos: " +
-            error.message
-        );
-
-        return;
-      }
-    }
-
-    if (
-      participantesNuevos.length >
-      0
-    ) {
-      const registros =
-        participantesNuevos.map(
-          (
-            participante
-          ) => ({
-            clase_id:
-              claseGuardada.id,
-
-            ...participante,
-          })
-        );
-
-      const {
-        error,
-      } =
-        await supabase
-          .from(
-            "clase_alumnos"
-          )
-          .insert(
-            registros
-          );
-
-      if (error) {
-        setMensaje(
-          "⚠️ Clase guardada, pero hubo un error al añadir alumnos: " +
-            error.message
-        );
-
-        return;
-      }
-    }
-
-    try {
-      await ajustarBonos(
-        usoAnterior,
-        usoNuevo
-      );
-
-      await sincronizarPagos(
-        claseGuardada.id,
-        estado,
-        participantesNuevos,
-        tipo,
-        facturableNueva,
-        modoCobroFinal,
-        importeTotalFinal
-      );
-    } catch {
-      setMensaje(
-        "⚠️ La clase se guardó, pero hubo un problema actualizando bonos o pagos."
-      );
-
-      cargarDatos();
-
-      return;
-    }
+    const claseGuardada = {
+      id: String(
+        claseGuardadaId
+      ),
+      google_calendar_event_id:
+        claseAnterior?.google_calendar_event_id ||
+        null,
+    };
 
     let falloGoogle = false;
 
