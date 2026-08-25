@@ -135,6 +135,7 @@ export default function SincronizarGooglePage() {
     const { data, error } = await supabase
       .from("clases")
       .select(CAMPOS_CLASES)
+      .not("google_calendar_event_id", "is", null)
       .order("fecha", { ascending: true })
       .order("hora_inicio", { ascending: true });
 
