@@ -5752,8 +5752,33 @@ export default function ClasesPage() {
                     nuevaUbicacionId
                   );
 
+                  const nuevaUbicacion =
+                    ubicaciones.find(
+                      (item) =>
+                        item.id ===
+                        nuevaUbicacionId
+                    );
+
+                  let nuevoTipo = tipo;
+
+                  if (
+                    nuevaUbicacion?.tipo ===
+                    "pago"
+                  ) {
+                    nuevoTipo = "propia";
+                    setTipo("propia");
+                  } else if (
+                    nuevaUbicacion?.tipo ===
+                      "privada" ||
+                    nuevaUbicacion?.tipo ===
+                      "urbanizacion"
+                  ) {
+                    nuevoTipo = "privada";
+                    setTipo("privada");
+                  }
+
                   actualizarCostePistaAutomatico(
-                    tipo,
+                    nuevoTipo,
                     nuevaUbicacionId
                   );
                 }}
