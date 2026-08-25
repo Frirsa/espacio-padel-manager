@@ -14,8 +14,8 @@ type RelacionAlumno = {
 };
 
 type UbicacionRelacion =
-  | { nombre: string }
-  | { nombre: string }[]
+  | { nombre: string; tipo: string }
+  | { nombre: string; tipo: string }[]
   | null;
 
 type ClaseSincronizable = {
@@ -41,7 +41,8 @@ const CAMPOS_CLASES = `
   estado,
   observaciones,
   ubicaciones (
-    nombre
+    nombre,
+    tipo
   ),
   clase_alumnos (
     alumnos (
@@ -59,6 +60,16 @@ function nombreUbicacion(valor: UbicacionRelacion) {
   }
 
   return valor.nombre || null;
+}
+
+function tipoUbicacion(valor: UbicacionRelacion) {
+  if (!valor) return null;
+
+  if (Array.isArray(valor)) {
+    return valor[0]?.tipo || null;
+  }
+
+  return valor.tipo || null;
 }
 
 function nombresAlumnos(relaciones: RelacionAlumno[]) {
@@ -162,6 +173,7 @@ export default function SincronizarGooglePage() {
           estado: clase.estado,
           observaciones: clase.observaciones,
           ubicacion: nombreUbicacion(clase.ubicaciones),
+          tipo_ubicacion: tipoUbicacion(clase.ubicaciones),
           alumnos: nombresAlumnos(clase.clase_alumnos),
         });
 
@@ -229,7 +241,7 @@ export default function SincronizarGooglePage() {
       }
 
       const confirmar = window.confirm(
-        `Se van a actualizar ${clases.length} evento(s) de Google Calendar con colores compatibles con Business Calendar: amarillo para club, verde para propia, morado para privada y rojo para cancelada. No se crearán duplicados. ¿Continuar?`
+        `Se van a actualizar ${clases.length} evento(s) de Google Calendar con los colores actuales: naranja para clases de club, verde para clase propia, azul para clase propia en pista de pago, morado para pista privada y rojo para cancelada. Se reutilizarán los eventos ya asociados. ¿Continuar?`
       );
 
       if (!confirmar) {
