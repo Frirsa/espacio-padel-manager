@@ -419,14 +419,14 @@ function colorClasePorTipo(
   }
 
   if (clase.tipo === "privada") {
-    return "border-violet-300 bg-violet-50 text-violet-900";
+    return "border-violet-500 bg-violet-100 text-violet-950";
   }
 
   if (
     clase.tipo === "propia" &&
     clase.ubicaciones?.tipo === "pago"
   ) {
-    return "border-blue-300 bg-blue-50 text-blue-900";
+    return "border-sky-500 bg-sky-100 text-sky-950";
   }
 
   return "border-[#00A79C]/40 bg-[#00A79C]/10 text-[#0B6F69]";
@@ -569,8 +569,8 @@ export default function VistaSemanalAgenda({
             Propia en club
           </span>
 
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1.5 text-blue-800">
-            <span className="h-2 w-2 rounded-full bg-blue-400" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-1.5 text-sky-900">
+            <span className="h-2 w-2 rounded-full bg-sky-500" />
             Pista de pago
           </span>
 
@@ -579,8 +579,8 @@ export default function VistaSemanalAgenda({
             Club
           </span>
 
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1.5 text-violet-800">
-            <span className="h-2 w-2 rounded-full bg-violet-400" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1.5 text-violet-900">
+            <span className="h-2 w-2 rounded-full bg-violet-500" />
             Privada
           </span>
         </div>

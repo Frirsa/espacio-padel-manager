@@ -349,14 +349,14 @@ function colorClasePorTipo(
   }
 
   if (clase.tipo === "privada") {
-    return "border-l-violet-300 bg-violet-50 hover:bg-violet-50/80";
+    return "border-l-violet-500 bg-violet-100 hover:bg-violet-100/80";
   }
 
   if (
     clase.tipo === "propia" &&
     clase.ubicaciones?.tipo === "pago"
   ) {
-    return "border-l-blue-300 bg-blue-50 hover:bg-blue-50/80";
+    return "border-l-sky-500 bg-sky-100 hover:bg-sky-100/80";
   }
 
   return "border-l-[#00A79C]/40 bg-[#00A79C]/10 hover:bg-[#00A79C]/[0.13]";

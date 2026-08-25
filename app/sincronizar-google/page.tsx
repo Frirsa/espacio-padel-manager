@@ -96,6 +96,32 @@ function nombresAlumnos(relaciones: RelacionAlumno[]) {
   return resultado;
 }
 
+function fechaHoyLocal() {
+  const hoy = new Date();
+
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(hoy.getDate()).padStart(2, "0")}`;
+}
+
+function formatearFecha(fecha: string) {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+
+  return new Date(anio, mes - 1, dia).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function textoTipoClase(tipo: string) {
+  if (tipo === "club") return "Club";
+  if (tipo === "propia") return "Propia";
+  if (tipo === "privada") return "Privada";
+  return tipo || "—";
+}
+
 export default function SincronizarGooglePage() {
   const [pendientes, setPendientes] = useState<ClaseSincronizable[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -105,6 +131,7 @@ export default function SincronizarGooglePage() {
   const [correctas, setCorrectas] = useState(0);
   const [errores, setErrores] = useState<string[]>([]);
   const [mensaje, setMensaje] = useState("");
+  const [mostrarDetallePendientes, setMostrarDetallePendientes] = useState(false);
 
   useEffect(() => {
     cargarPendientes();
@@ -261,6 +288,12 @@ export default function SincronizarGooglePage() {
     }
   }
 
+  const hoy = fechaHoyLocal();
+  const pendientesPasadas = pendientes.filter((clase) => clase.fecha < hoy);
+  const pendientesHoyOFuturas = pendientes.filter(
+    (clase) => clase.fecha >= hoy
+  );
+
   return (
     <main className="min-h-screen bg-slate-100 px-5 py-7 sm:px-7 lg:px-9">
       <div className="mx-auto w-full max-w-4xl">
@@ -291,9 +324,100 @@ export default function SincronizarGooglePage() {
                 <p className="mt-1 text-4xl font-bold text-slate-900">
                   {pendientes.length}
                 </p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                      Clases pasadas
+                    </p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">
+                      {pendientesPasadas.length}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                      Hoy y futuras
+                    </p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">
+                      {pendientesHoyOFuturas.length}
+                    </p>
+                  </div>
+                </div>
+
+                {pendientes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMostrarDetallePendientes((actual) => !actual)
+                    }
+                    className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800"
+                  >
+                    {mostrarDetallePendientes
+                      ? "Ocultar detalle"
+                      : "Ver qué clases son"}
+                  </button>
+                )}
               </>
             )}
           </div>
+
+          {!cargando &&
+            mostrarDetallePendientes &&
+            pendientes.length > 0 && (
+              <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+                  <p className="font-bold text-slate-900">
+                    Detalle de clases sin evento de Google
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Solo estamos revisándolas. No se sincroniza nada desde esta lista.
+                  </p>
+                </div>
+
+                <div className="max-h-[520px] divide-y divide-slate-100 overflow-y-auto">
+                  {pendientes.map((clase) => {
+                    const alumnosClase = nombresAlumnos(clase.clase_alumnos);
+                    const ubicacion = nombreUbicacion(clase.ubicaciones);
+                    const tipoLugar = tipoUbicacion(clase.ubicaciones);
+                    const esPasada = clase.fecha < hoy;
+
+                    return (
+                      <div key={clase.id} className="px-5 py-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-bold text-slate-900">
+                              {formatearFecha(clase.fecha)} ·{" "}
+                              {clase.hora_inicio.slice(0, 5)}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-700">
+                              {alumnosClase.length > 0
+                                ? alumnosClase.join(", ")
+                                : "Sin alumno"}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">
+                              {ubicacion || "Sin ubicación"} ·{" "}
+                              {textoTipoClase(clase.tipo)}
+                              {tipoLugar ? ` · ubicación ${tipoLugar}` : ""}
+                            </p>
+                          </div>
+
+                          <span
+                            className={
+                              esPasada
+                                ? "w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
+                                : "w-fit rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800"
+                            }
+                          >
+                            {esPasada ? "Pasada" : "Hoy / futura"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
           {sincronizando && (
             <div className="mt-5 rounded-2xl border border-teal-200 bg-teal-50 p-5">
