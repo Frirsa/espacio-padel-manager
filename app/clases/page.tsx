@@ -1211,12 +1211,19 @@ export default function ClasesPage() {
   const volverAgendaRef =
     useRef<string | null>(null);
 
+  const permitirSalidaRef =
+    useRef(false);
+
   useEffect(() => {
     if (!creandoSerie) {
       return;
     }
 
     const protegerSalida = (evento: BeforeUnloadEvent) => {
+      if (permitirSalidaRef.current) {
+        return;
+      }
+
       evento.preventDefault();
       evento.returnValue = "";
     };
@@ -1381,6 +1388,9 @@ export default function ClasesPage() {
     if (!volver) {
       return false;
     }
+
+    permitirSalidaRef.current =
+      true;
 
     window.location.href =
       volver;
