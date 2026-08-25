@@ -1212,6 +1212,29 @@ export default function ClasesPage() {
     useRef<string | null>(null);
 
   useEffect(() => {
+    if (!creandoSerie) {
+      return;
+    }
+
+    const protegerSalida = (evento: BeforeUnloadEvent) => {
+      evento.preventDefault();
+      evento.returnValue = "";
+    };
+
+    window.addEventListener(
+      "beforeunload",
+      protegerSalida
+    );
+
+    return () => {
+      window.removeEventListener(
+        "beforeunload",
+        protegerSalida
+      );
+    };
+  }, [creandoSerie]);
+
+  useEffect(() => {
     const parametros =
       new URLSearchParams(
         window.location.search
@@ -3309,16 +3332,10 @@ export default function ClasesPage() {
         )
       );
 
-    const ubicacionSeleccionada =
+    const ubicacion =
       ubicaciones.find(
         (item) => item.id === ubicacionId
-      );
-
-    const ubicacion =
-      ubicacionSeleccionada?.nombre || null;
-
-    const tipoUbicacion =
-      ubicacionSeleccionada?.tipo || null;
+      )?.nombre || null;
 
     const motivoGoogle =
       estadoClase === "cancelada"
@@ -3353,7 +3370,6 @@ export default function ClasesPage() {
       observaciones:
         detalleGoogle || null,
       ubicacion,
-      tipo_ubicacion: tipoUbicacion,
       alumnos: nombres,
     };
   }
@@ -3778,77 +3794,116 @@ export default function ClasesPage() {
           )
       );
 
+    setMensaje(
+      `⏳ Serie creada: ${fechasDisponibles.length} clase(s)${avisoFechasOmitidas}. Sincronizando con Google Calendar...`
+    );
+
+    const TAMANO_LOTE =
+      8;
+    const MAX_INTENTOS_GOOGLE =
+      3;
+
+    const esperar =
+      (milisegundos: number) =>
+        new Promise<void>(
+          (resolver) =>
+            window.setTimeout(
+              resolver,
+              milisegundos
+            )
+        );
+
+    const sincronizarConReintentos =
+      async (
+        datosGoogle:
+          (typeof datosGoogleSerie)[number]
+      ) => {
+        for (
+          let intento = 1;
+          intento <=
+          MAX_INTENTOS_GOOGLE;
+          intento += 1
+        ) {
+          try {
+            await sincronizarClaseConGoogleCalendar(
+              datosGoogle
+            );
+
+            return true;
+          } catch {
+            if (
+              intento <
+              MAX_INTENTOS_GOOGLE
+            ) {
+              await esperar(
+                600 * intento
+              );
+            }
+          }
+        }
+
+        return false;
+      };
+
+    let fallosGoogleSerie =
+      0;
+    let procesadasGoogle =
+      0;
+
+    for (
+      let inicio = 0;
+      inicio <
+      datosGoogleSerie.length;
+      inicio +=
+        TAMANO_LOTE
+    ) {
+      const lote =
+        datosGoogleSerie.slice(
+          inicio,
+          inicio +
+            TAMANO_LOTE
+        );
+
+      const resultados =
+        await Promise.all(
+          lote.map(
+            sincronizarConReintentos
+          )
+        );
+
+      fallosGoogleSerie +=
+        resultados.filter(
+          (resultado) =>
+            !resultado
+        ).length;
+
+      procesadasGoogle +=
+        lote.length;
+
+      setMensaje(
+        `⏳ Serie creada: ${fechasDisponibles.length} clase(s)${avisoFechasOmitidas}. Google Calendar: ${procesadasGoogle}/${datosGoogleSerie.length}`
+      );
+    }
+
+    setCreandoSerie(false);
     limpiarFormulario();
     setFormularioAbierto(
       false
     );
-    setCreandoSerie(false);
+
     setMensaje(
-      `✅ Serie creada: ${fechasDisponibles.length} clase(s)${avisoFechasOmitidas}. Sincronizando con Google Calendar...`
+      fallosGoogleSerie > 0
+        ? `✅ Serie creada correctamente: ${fechasDisponibles.length} clase(s) programada(s)${avisoFechasOmitidas} · ⚠️ ${fallosGoogleSerie} clase(s) quedaron pendientes de Google Calendar tras ${MAX_INTENTOS_GOOGLE} intentos.`
+        : `✅ Serie creada correctamente: ${fechasDisponibles.length} clase(s) programada(s)${avisoFechasOmitidas} · Google Calendar sincronizado.`
     );
 
-    const sincronizarEnLotes =
-      async () => {
-        let falloGoogleSerie =
-          false;
+    if (
+      volverAlOrigenSiExiste()
+    ) {
+      return;
+    }
 
-        const TAMANO_LOTE =
-          8;
-
-        for (
-          let inicio = 0;
-          inicio <
-          datosGoogleSerie.length;
-          inicio +=
-            TAMANO_LOTE
-        ) {
-          const lote =
-            datosGoogleSerie.slice(
-              inicio,
-              inicio +
-                TAMANO_LOTE
-            );
-
-          const resultados =
-            await Promise.allSettled(
-              lote.map(
-                (datosGoogle) =>
-                  sincronizarClaseConGoogleCalendar(
-                    datosGoogle
-                  )
-              )
-            );
-
-          if (
-            resultados.some(
-              (resultado) =>
-                resultado.status ===
-                "rejected"
-            )
-          ) {
-            falloGoogleSerie =
-              true;
-          }
-        }
-
-        setMensaje(
-          `✅ Serie creada correctamente: ${fechasDisponibles.length} clase(s) programada(s)${avisoFechasOmitidas}${
-            falloGoogleSerie
-              ? " · ⚠️ Alguna clase no pudo sincronizarse con Google Calendar."
-              : " · Google Calendar sincronizado."
-          }`
-        );
-
-        if (
-          volverAlOrigenSiExiste()
-        ) {
-          return;
-        }
-
-        await cargarDatos();
-      };
-
-    void sincronizarEnLotes();
+    await cargarDatos();
   }
 
   async function ejecutarBorrado(
@@ -7218,7 +7273,20 @@ export default function ClasesPage() {
 
               <button
                 type="button"
+                disabled={
+                  modoCreacion ===
+                    "serie" &&
+                  creandoSerie
+                }
                 onClick={() => {
+                  if (
+                    modoCreacion ===
+                      "serie" &&
+                    creandoSerie
+                  ) {
+                    return;
+                  }
+
                   if (
                     volverAlOrigenSiExiste()
                   ) {
@@ -7231,7 +7299,7 @@ export default function ClasesPage() {
                     false
                   );
                 }}
-                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-[#17324D] transition hover:bg-slate-50"
+                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-[#17324D] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -7250,7 +7318,7 @@ export default function ClasesPage() {
                   : modoCreacion ===
                     "serie"
                   ? creandoSerie
-                    ? "Creando serie..."
+                    ? "Creando y sincronizando..."
                     : "Crear serie"
                   : "Guardar clase"}
               </button>
