@@ -176,8 +176,8 @@ function nombreEtiqueta(clase: ClaseGoogle) {
 function colorGoogleAntiguo(clase: ClaseGoogle) {
   if (clase.estado === "cancelada") return "11"; // rojo
   if (clase.tipo === "club") return "6"; // naranja
-  if (clase.tipo === "privada") return "3"; // violeta
   if (clase.tipo_ubicacion === "pago") return "9"; // azul
+  if (clase.tipo === "privada") return "3"; // violeta
   return "10"; // verde
 }
 
