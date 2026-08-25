@@ -412,14 +412,21 @@ function IndicadoresClase({
 
 
 function colorClasePorTipo(
-  tipo: string
+  clase: Clase
 ) {
-  if (tipo === "club") {
+  if (clase.tipo === "club") {
     return "border-amber-300 bg-amber-50/90 text-amber-950";
   }
 
-  if (tipo === "privada") {
+  if (clase.tipo === "privada") {
     return "border-violet-300 bg-violet-50 text-violet-900";
+  }
+
+  if (
+    clase.tipo === "propia" &&
+    clase.ubicaciones?.tipo === "pago"
+  ) {
+    return "border-blue-300 bg-blue-50 text-blue-900";
   }
 
   return "border-[#00A79C]/40 bg-[#00A79C]/10 text-[#0B6F69]";
@@ -559,7 +566,12 @@ export default function VistaSemanalAgenda({
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-bold md:hidden">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00A79C]/10 px-2.5 py-1.5 text-[#0B6F69]">
             <span className="h-2 w-2 rounded-full bg-[#00A79C]" />
-            Propia
+            Propia en club
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1.5 text-blue-800">
+            <span className="h-2 w-2 rounded-full bg-blue-400" />
+            Pista de pago
           </span>
 
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-amber-800">
@@ -780,9 +792,7 @@ export default function VistaSemanalAgenda({
                         clase.id
                       )
                     }
-                    className={`relative block w-full overflow-hidden rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(
-                      clase.tipo
-                    )}`}
+                    className={`relative block w-full overflow-hidden rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(clase)}`}
                   >
                     {/* SemanaAgendaLineaCanceladaMovilV1 */}
                     {clase.estado === "cancelada" && (
@@ -1056,9 +1066,7 @@ export default function VistaSemanalAgenda({
                                 )
                               }
                               title="Abrir esta clase para editar"
-                              className={`relative block w-full cursor-pointer overflow-hidden rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(
-                                clase.tipo
-                              )}`}
+                              className={`relative block w-full cursor-pointer overflow-hidden rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(clase)}`}
                             >
                               {/* SemanaAgendaLineaCanceladaDesktopV1 */}
                               {clase.estado === "cancelada" && (

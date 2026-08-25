@@ -67,6 +67,7 @@ type Clase = {
 
   ubicaciones: {
     nombre: string;
+    tipo: string;
   } | null;
 
   clase_alumnos: {
@@ -363,7 +364,8 @@ export default function AgendaPage() {
         modo_cobro,
         importe_total,
         ubicaciones (
-          nombre
+          nombre,
+          tipo
         ),
         clase_alumnos (
           id,

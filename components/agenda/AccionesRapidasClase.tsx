@@ -23,7 +23,7 @@ export type ClaseAccionesRapidas = {
   observaciones: string | null;
   modo_cobro?: "por_alumno" | "total" | string | null;
   importe_total?: number | null;
-  ubicaciones: { nombre: string } | null;
+  ubicaciones: { nombre: string; tipo: string } | null;
   clase_alumnos: {
     id: string;
     alumno_id: string;
@@ -155,6 +155,9 @@ function datosGoogleClase(
     ubicacion:
       clase.ubicaciones
         ?.nombre || null,
+    tipo_ubicacion:
+      clase.ubicaciones
+        ?.tipo || null,
     alumnos:
       clase.clase_alumnos
         .map(

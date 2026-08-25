@@ -18,6 +18,7 @@ type ClaseGoogle = {
   estado: string;
   observaciones?: string | null;
   ubicacion?: string | null;
+  tipo_ubicacion?: string | null;
   alumnos?: string[];
 };
 
@@ -174,8 +175,9 @@ function nombreEtiqueta(clase: ClaseGoogle) {
 
 function colorGoogleAntiguo(clase: ClaseGoogle) {
   if (clase.estado === "cancelada") return "11"; // rojo
-  if (clase.tipo === "club") return "5"; // amarillo
-  if (clase.tipo === "privada") return "3"; // morado
+  if (clase.tipo === "club") return "6"; // naranja
+  if (clase.tipo === "privada") return "3"; // violeta
+  if (clase.tipo_ubicacion === "pago") return "9"; // azul
   return "10"; // verde
 }
 

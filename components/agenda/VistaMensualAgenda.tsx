@@ -360,14 +360,21 @@ function IndicadoresClase({
 
 
 function claseColor(
-  tipo: string
+  clase: Clase
 ) {
-  if (tipo === "club") {
+  if (clase.tipo === "club") {
     return "border-amber-300 bg-amber-50/90 text-amber-950";
   }
 
-  if (tipo === "privada") {
+  if (clase.tipo === "privada") {
     return "border-violet-300 bg-violet-50 text-violet-900";
+  }
+
+  if (
+    clase.tipo === "propia" &&
+    clase.ubicaciones?.tipo === "pago"
+  ) {
+    return "border-blue-300 bg-blue-50 text-blue-900";
   }
 
   return "border-[#00A79C]/40 bg-[#00A79C]/10 text-[#0B6F69]";
@@ -575,7 +582,12 @@ export default function VistaMensualAgenda({
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-bold md:hidden">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00A79C]/10 px-2.5 py-1.5 text-[#0B6F69]">
             <span className="h-2 w-2 rounded-full bg-[#00A79C]" />
-            Propia
+            Propia en club
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1.5 text-blue-800">
+            <span className="h-2 w-2 rounded-full bg-blue-400" />
+            Pista de pago
           </span>
 
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-amber-800">
@@ -647,10 +659,21 @@ export default function VistaMensualAgenda({
               const tienePropia =
                 clasesDia.some(
                   (clase) =>
-                    clase.tipo !==
-                      "club" &&
-                    clase.tipo !==
-                      "privada"
+                    clase.tipo ===
+                      "propia" &&
+                    clase.ubicaciones
+                      ?.tipo !==
+                      "pago"
+                );
+
+              const tienePago =
+                clasesDia.some(
+                  (clase) =>
+                    clase.tipo ===
+                      "propia" &&
+                    clase.ubicaciones
+                      ?.tipo ===
+                      "pago"
                 );
 
               const tieneClub =
@@ -721,6 +744,16 @@ export default function VistaMensualAgenda({
                           seleccionado
                             ? "h-1.5 w-1.5 rounded-full bg-white"
                             : "h-1.5 w-1.5 rounded-full bg-[#00A79C]"
+                        }
+                      />
+                    )}
+
+                    {tienePago && (
+                      <span
+                        className={
+                          seleccionado
+                            ? "h-1.5 w-1.5 rounded-full bg-blue-200"
+                            : "h-1.5 w-1.5 rounded-full bg-blue-400"
                         }
                       />
                     )}
@@ -860,9 +893,7 @@ export default function VistaMensualAgenda({
                         clase.id
                       )
                     }
-                    className={`relative block w-full rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${claseColor(
-                      clase.tipo
-                    )}`}
+                    className={`relative block w-full rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${claseColor(clase)}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <p className="min-w-0 text-sm font-extrabold tracking-tight text-[#17324D]">
@@ -1138,9 +1169,7 @@ export default function VistaMensualAgenda({
                               )
                             }
                             title="Abrir esta clase para editar"
-                            className={`relative block w-full cursor-pointer rounded-lg border border-l-[3px] px-1.5 py-1.5 pr-12 text-left text-[9px] leading-tight shadow-[0_1px_4px_rgba(15,23,42,0.03)] transition hover:shadow-sm ${claseColor(
-                              clase.tipo
-                            )}`}
+                            className={`relative block w-full cursor-pointer rounded-lg border border-l-[3px] px-1.5 py-1.5 pr-12 text-left text-[9px] leading-tight shadow-[0_1px_4px_rgba(15,23,42,0.03)] transition hover:shadow-sm ${claseColor(clase)}`}
                           >
 
                             <IndicadoresClase

@@ -10,6 +10,7 @@ export type ClaseGoogleCalendar = {
   estado: string;
   observaciones?: string | null;
   ubicacion?: string | null;
+  tipo_ubicacion?: string | null;
   alumnos?: string[];
 };
 

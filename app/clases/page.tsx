@@ -3309,10 +3309,16 @@ export default function ClasesPage() {
         )
       );
 
-    const ubicacion =
+    const ubicacionSeleccionada =
       ubicaciones.find(
         (item) => item.id === ubicacionId
-      )?.nombre || null;
+      );
+
+    const ubicacion =
+      ubicacionSeleccionada?.nombre || null;
+
+    const tipoUbicacion =
+      ubicacionSeleccionada?.tipo || null;
 
     const motivoGoogle =
       estadoClase === "cancelada"
@@ -3347,6 +3353,7 @@ export default function ClasesPage() {
       observaciones:
         detalleGoogle || null,
       ubicacion,
+      tipo_ubicacion: tipoUbicacion,
       alumnos: nombres,
     };
   }

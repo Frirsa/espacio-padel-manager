@@ -342,14 +342,21 @@ function fechaEnPeriodo(
 }
 
 function colorClasePorTipo(
-  tipo: string
+  clase: Clase
 ) {
-  if (tipo === "club") {
+  if (clase.tipo === "club") {
     return "border-l-amber-300 bg-amber-50/90 hover:bg-amber-50";
   }
 
-  if (tipo === "privada") {
+  if (clase.tipo === "privada") {
     return "border-l-violet-300 bg-violet-50 hover:bg-violet-50/80";
+  }
+
+  if (
+    clase.tipo === "propia" &&
+    clase.ubicaciones?.tipo === "pago"
+  ) {
+    return "border-l-blue-300 bg-blue-50 hover:bg-blue-50/80";
   }
 
   return "border-l-[#00A79C]/40 bg-[#00A79C]/10 hover:bg-[#00A79C]/[0.13]";
@@ -537,7 +544,7 @@ export default function ListadoAgenda({
                           )
                         }
                         className={`relative block w-full overflow-hidden border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
-                          clase.tipo
+                          clase
                         )}`}
                       >
                         {/* ListaAgendaLineaCanceladaV1 */}

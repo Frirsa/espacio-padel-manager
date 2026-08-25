@@ -20,7 +20,7 @@ type Clase = {
   facturable: boolean;
   cobrada: boolean;
   observaciones: string | null;
-  ubicaciones: { nombre: string } | null;
+  ubicaciones: { nombre: string; tipo: string } | null;
   clase_alumnos: {
     id: string;
     alumno_id: string;
@@ -201,6 +201,7 @@ function datosGoogleClase(
         ? cambios.observaciones
         : clase.observaciones,
     ubicacion: clase.ubicaciones?.nombre || null,
+    tipo_ubicacion: clase.ubicaciones?.tipo || null,
     alumnos: clase.clase_alumnos
       .map((participante) => {
         const alumno = participante.alumnos;
@@ -349,6 +350,13 @@ function colorClase(clase: Clase) {
 
   if (clase.tipo === "privada") {
     return "border-violet-300 bg-violet-50 text-violet-900";
+  }
+
+  if (
+    clase.tipo === "propia" &&
+    clase.ubicaciones?.tipo === "pago"
+  ) {
+    return "border-blue-300 bg-blue-50 text-blue-900";
   }
 
   return "border-[#00A79C]/40 bg-[#00A79C]/10 text-[#0B6F69]";
@@ -1759,7 +1767,11 @@ export default function VistaHorarioAgenda({
         <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00A79C]/10 px-2.5 py-1.5 text-[#0B6F69]">
             <span className="h-2 w-2 rounded-full bg-[#00A79C]" />
-            Propia
+            Propia en club
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1.5 text-blue-800">
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            Pista de pago
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-amber-800">
             <span className="h-2 w-2 rounded-full bg-amber-400" />
