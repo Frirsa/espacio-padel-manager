@@ -57,7 +57,7 @@ function formatearHora(
 function textoHorario(
   periodo: Pick<
     NoDisponibilidad,
-    "hora_inicio" | "hora_fin"
+    "fecha_inicio" | "fecha_fin" | "hora_inicio" | "hora_fin"
   >
 ) {
   if (
@@ -67,11 +67,15 @@ function textoHorario(
     return "Todo el día";
   }
 
-  return `${formatearHora(
+  if (periodo.fecha_inicio === periodo.fecha_fin) {
+    return `${formatearHora(periodo.hora_inicio)}–${formatearHora(periodo.hora_fin)}`;
+  }
+
+  return `Desde ${formatearHora(
     periodo.hora_inicio
-  )}–${formatearHora(
+  )} del primer día · hasta ${formatearHora(
     periodo.hora_fin
-  )}`;
+  )} del último`;
 }
 
 function formatearFechaControl(
@@ -413,9 +417,12 @@ export default function NoDisponibilidadPage() {
         return;
       }
 
-      if (horaFin <= horaInicio) {
+      if (
+        final === fechaInicio &&
+        horaFin <= horaInicio
+      ) {
         setMensaje(
-          "❌ La hora final debe ser posterior a la hora de inicio."
+          "❌ Si empieza y termina el mismo día, la hora final debe ser posterior a la hora de inicio."
         );
         return;
       }
@@ -757,7 +764,7 @@ export default function NoDisponibilidadPage() {
                   </h2>
 
                   <p className="mt-1 text-xs leading-relaxed text-white/50">
-                    El día completo o solo el tramo elegido quedará bloqueado en Agenda y al crear nuevas clases o series.
+                    Puedes bloquear días completos o un periodo continuo desde una fecha y hora hasta otra.
                   </p>
                 </div>
 
@@ -840,7 +847,7 @@ export default function NoDisponibilidadPage() {
                         : "h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-100"
                     }
                   >
-                    Horario concreto
+                    Periodo con horas
                   </button>
                 </div>
               </div>
@@ -873,7 +880,11 @@ export default function NoDisponibilidadPage() {
                     <input
                       type="time"
                       value={horaFin}
-                      min={horaInicio || undefined}
+                      min={
+                        (fechaFin || fechaInicio) === fechaInicio
+                          ? horaInicio || undefined
+                          : undefined
+                      }
                       onChange={(e) =>
                         setHoraFin(
                           e.target.value
@@ -917,20 +928,21 @@ export default function NoDisponibilidadPage() {
                       </p>
 
                       <p className="mt-1 text-xs font-bold text-red-800">
-                        {formatearFecha(
-                          fechaInicio
-                        )}
-                        {" → "}
-                        {formatearFecha(
-                          fechaFin ||
-                            fechaInicio
-                        )}
+                        {todoElDia
+                          ? `${formatearFecha(fechaInicio)} → ${formatearFecha(
+                              fechaFin || fechaInicio
+                            )}`
+                          : `${formatearFecha(fechaInicio)} ${
+                              horaInicio || "--:--"
+                            } → ${formatearFecha(
+                              fechaFin || fechaInicio
+                            )} ${horaFin || "--:--"}`}
                       </p>
 
                       <p className="mt-1 text-[11px] font-semibold text-red-700">
                         {todoElDia
-                          ? "Todo el día"
-                          : `${horaInicio || "--:--"}–${horaFin || "--:--"}`}
+                          ? "Días completos"
+                          : "Periodo continuo"}
                       </p>
 
                       <p className="mt-1 text-[11px] text-red-700/70">

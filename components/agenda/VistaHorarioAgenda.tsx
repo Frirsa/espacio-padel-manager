@@ -657,6 +657,72 @@ export default function VistaHorarioAgenda({
     );
   }
 
+  function rangoBloqueoEnFecha(
+    fecha: string,
+    bloqueo: NoDisponibilidad
+  ) {
+    if (
+      fecha < bloqueo.fecha_inicio ||
+      fecha > bloqueo.fecha_fin
+    ) {
+      return null;
+    }
+
+    if (
+      !bloqueo.hora_inicio ||
+      !bloqueo.hora_fin
+    ) {
+      return {
+        inicio: 0,
+        fin: 24 * 60,
+        todoElDia: true,
+      };
+    }
+
+    const inicio =
+      minutosDesdeMedianoche(
+        bloqueo.hora_inicio
+      );
+
+    const fin =
+      minutosDesdeMedianoche(
+        bloqueo.hora_fin
+      );
+
+    if (
+      bloqueo.fecha_inicio ===
+      bloqueo.fecha_fin
+    ) {
+      return {
+        inicio,
+        fin,
+        todoElDia: false,
+      };
+    }
+
+    if (fecha === bloqueo.fecha_inicio) {
+      return {
+        inicio,
+        fin: 24 * 60,
+        todoElDia: false,
+      };
+    }
+
+    if (fecha === bloqueo.fecha_fin) {
+      return {
+        inicio: 0,
+        fin,
+        todoElDia: false,
+      };
+    }
+
+    return {
+      inicio: 0,
+      fin: 24 * 60,
+      todoElDia: true,
+    };
+  }
+
   function noDisponibleTodoElDia(
     fecha: string
   ) {
@@ -664,8 +730,10 @@ export default function VistaHorarioAgenda({
       fecha
     ).find(
       (bloqueo) =>
-        !bloqueo.hora_inicio ||
-        !bloqueo.hora_fin
+        rangoBloqueoEnFecha(
+          fecha,
+          bloqueo
+        )?.todoElDia === true
     );
   }
 
@@ -682,11 +750,7 @@ export default function VistaHorarioAgenda({
 
     if (hora === undefined) {
       return (
-        bloqueos.find(
-          (bloqueo) =>
-            !bloqueo.hora_inicio ||
-            !bloqueo.hora_fin
-        ) ||
+        noDisponibleTodoElDia(fecha) ||
         bloqueos[0]
       );
     }
@@ -701,68 +765,62 @@ export default function VistaHorarioAgenda({
 
     return bloqueos.find(
       (bloqueo) => {
-        if (
-          !bloqueo.hora_inicio ||
-          !bloqueo.hora_fin
-        ) {
-          return true;
+        const rango =
+          rangoBloqueoEnFecha(
+            fecha,
+            bloqueo
+          );
+
+        if (!rango) {
+          return false;
         }
-
-        const [
-          horaInicioBloqueo,
-          minutoInicioBloqueo,
-        ] =
-          bloqueo.hora_inicio
-            .slice(0, 5)
-            .split(":")
-            .map(Number);
-
-        const [
-          horaFinBloqueo,
-          minutoFinBloqueo,
-        ] =
-          bloqueo.hora_fin
-            .slice(0, 5)
-            .split(":")
-            .map(Number);
-
-        const inicioBloqueo =
-          horaInicioBloqueo *
-            60 +
-          minutoInicioBloqueo;
-
-        const finBloqueo =
-          horaFinBloqueo *
-            60 +
-          minutoFinBloqueo;
 
         return (
           inicioClase <
-            finBloqueo &&
+            rango.fin &&
           finClase >
-            inicioBloqueo
+            rango.inicio
         );
       }
     );
   }
 
   function textoNoDisponibilidad(
+    fecha: string,
     bloqueo: NoDisponibilidad
   ) {
-    if (
-      !bloqueo.hora_inicio ||
-      !bloqueo.hora_fin
-    ) {
+    const rango =
+      rangoBloqueoEnFecha(
+        fecha,
+        bloqueo
+      );
+
+    if (!rango || rango.todoElDia) {
       return "Todo el día";
     }
 
-    return `${bloqueo.hora_inicio.slice(
-      0,
-      5
-    )}–${bloqueo.hora_fin.slice(
-      0,
-      5
-    )}`;
+    if (
+      bloqueo.fecha_inicio ===
+      bloqueo.fecha_fin
+    ) {
+      return `${bloqueo.hora_inicio!.slice(
+        0,
+        5
+      )}–${bloqueo.hora_fin!.slice(
+        0,
+        5
+      )}`;
+    }
+
+    if (fecha === bloqueo.fecha_inicio) {
+      return `desde ${bloqueo.hora_inicio!.slice(0, 5)}`;
+    }
+
+    if (fecha === bloqueo.fecha_fin) {
+      return `hasta ${bloqueo.hora_fin!.slice(0, 5)}`;
+    }
+
+    return "Todo el día";
   }
 
   function bloqueosParciales(
@@ -771,33 +829,34 @@ export default function VistaHorarioAgenda({
     return bloqueosDelDia(
       fecha
     ).filter(
-      (bloqueo) =>
-        Boolean(
-          bloqueo.hora_inicio &&
-            bloqueo.hora_fin
-        )
+      (bloqueo) => {
+        const rango =
+          rangoBloqueoEnFecha(
+            fecha,
+            bloqueo
+          );
+
+        return Boolean(
+          rango &&
+            !rango.todoElDia
+        );
+      }
     );
   }
 
   function posicionBloqueoHorario(
+    fecha: string,
     bloqueo: NoDisponibilidad
   ) {
-    if (
-      !bloqueo.hora_inicio ||
-      !bloqueo.hora_fin
-    ) {
+    const rango =
+      rangoBloqueoEnFecha(
+        fecha,
+        bloqueo
+      );
+
+    if (!rango || rango.todoElDia) {
       return null;
     }
-
-    const inicio =
-      minutosDesdeMedianoche(
-        bloqueo.hora_inicio
-      );
-
-    const fin =
-      minutosDesdeMedianoche(
-        bloqueo.hora_fin
-      );
 
     const inicioVisible =
       horaInicio * 60;
@@ -807,13 +866,13 @@ export default function VistaHorarioAgenda({
 
     const inicioAjustado =
       Math.max(
-        inicio,
+        rango.inicio,
         inicioVisible
       );
 
     const finAjustado =
       Math.min(
-        fin,
+        rango.fin,
         finVisible
       );
 
@@ -2092,6 +2151,7 @@ export default function VistaHorarioAgenda({
               )
                 ? "Día no disponible"
                 : `No disponible ${textoNoDisponibilidad(
+                    fechaMovil,
                     noDisponible(
                       fechaMovil
                     )!
@@ -2248,6 +2308,7 @@ export default function VistaHorarioAgenda({
               (bloqueo) => {
                 const posicion =
                   posicionBloqueoHorario(
+                    fechaMovil,
                     bloqueo
                   );
 
@@ -2270,6 +2331,7 @@ export default function VistaHorarioAgenda({
                   >
                     No disponible ·{" "}
                     {textoNoDisponibilidad(
+                      fechaMovil,
                       bloqueo
                     )}
                     {bloqueo.motivo
@@ -2511,9 +2573,7 @@ export default function VistaHorarioAgenda({
                   {nd && (
                     <div className="mt-1 rounded-md bg-red-100 px-1 py-1 text-[9px] font-bold text-red-700">
                       NO DISPONIBLE
-                      {nd.hora_inicio && nd.hora_fin
-                        ? ` ${textoNoDisponibilidad(nd)}`
-                        : ""}
+                      {` ${textoNoDisponibilidad(iso, nd)}`}
                       {nd.motivo ? ` · ${nd.motivo}` : ""}
                     </div>
                   )}
@@ -2593,6 +2653,7 @@ export default function VistaHorarioAgenda({
                   ).map((bloqueo) => {
                     const posicion =
                       posicionBloqueoHorario(
+                        fecha,
                         bloqueo
                       );
 
@@ -2609,7 +2670,7 @@ export default function VistaHorarioAgenda({
                           height: posicion.height,
                         }}
                       >
-                        No disponible · {textoNoDisponibilidad(bloqueo)}
+                        No disponible · {textoNoDisponibilidad(fecha, bloqueo)}
                         {bloqueo.motivo ? ` · ${bloqueo.motivo}` : ""}
                       </div>
                     );

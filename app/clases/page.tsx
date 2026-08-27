@@ -133,16 +133,82 @@ function minutosDesdeHora(
   return horas * 60 + minutos;
 }
 
-function bloqueoAfectaClase(
+function rangoBloqueoEnFecha(
   bloqueo: NoDisponibilidad,
-  horaClase: string,
-  duracionClase: number
+  fechaClase: string
 ) {
+  if (
+    fechaClase < bloqueo.fecha_inicio ||
+    fechaClase > bloqueo.fecha_fin
+  ) {
+    return null;
+  }
+
   if (
     !bloqueo.hora_inicio ||
     !bloqueo.hora_fin
   ) {
-    return true;
+    return {
+      inicio: 0,
+      fin: 24 * 60,
+      todoElDia: true,
+    };
+  }
+
+  const inicio = minutosDesdeHora(
+    bloqueo.hora_inicio
+  );
+  const fin = minutosDesdeHora(
+    bloqueo.hora_fin
+  );
+
+  if (
+    bloqueo.fecha_inicio ===
+    bloqueo.fecha_fin
+  ) {
+    return {
+      inicio,
+      fin,
+      todoElDia: false,
+    };
+  }
+
+  if (fechaClase === bloqueo.fecha_inicio) {
+    return {
+      inicio,
+      fin: 24 * 60,
+      todoElDia: false,
+    };
+  }
+
+  if (fechaClase === bloqueo.fecha_fin) {
+    return {
+      inicio: 0,
+      fin,
+      todoElDia: false,
+    };
+  }
+
+  return {
+    inicio: 0,
+    fin: 24 * 60,
+    todoElDia: true,
+  };
+}
+
+function bloqueoAfectaClase(
+  bloqueo: NoDisponibilidad,
+  fechaClase: string,
+  horaClase: string,
+  duracionClase: number
+) {
+  const rango = rangoBloqueoEnFecha(
+    bloqueo,
+    fechaClase
+  );
+
+  if (!rango) {
+    return false;
   }
 
   const inicioClase =
@@ -154,24 +220,15 @@ function bloqueoAfectaClase(
     inicioClase +
     duracionClase;
 
-  const inicioBloqueo =
-    minutosDesdeHora(
-      bloqueo.hora_inicio
-    );
-
-  const finBloqueo =
-    minutosDesdeHora(
-      bloqueo.hora_fin
-    );
-
   return (
-    inicioClase < finBloqueo &&
-    finClase > inicioBloqueo
+    inicioClase < rango.fin &&
+    finClase > rango.inicio
   );
 }
 
 function textoHorarioBloqueo(
-  bloqueo: NoDisponibilidad
+  bloqueo: NoDisponibilidad,
+  fechaClase: string
 ) {
   if (
     !bloqueo.hora_inicio ||
@@ -180,13 +237,28 @@ function textoHorarioBloqueo(
     return "";
   }
 
-  return ` de ${bloqueo.hora_inicio.slice(
-    0,
-    5
-  )} a ${bloqueo.hora_fin.slice(
-    0,
-    5
-  )}`;
+  if (
+    bloqueo.fecha_inicio ===
+    bloqueo.fecha_fin
+  ) {
+    return ` de ${bloqueo.hora_inicio.slice(
+      0,
+      5
+    )} a ${bloqueo.hora_fin.slice(
+      0,
+      5
+    )}`;
+  }
+
+  if (fechaClase === bloqueo.fecha_inicio) {
+    return ` desde las ${bloqueo.hora_inicio.slice(0, 5)}`;
+  }
+
+  if (fechaClase === bloqueo.fecha_fin) {
+    return ` hasta las ${bloqueo.hora_fin.slice(0, 5)}`;
+  }
+
+  return "";
 }
 
 function estadoEconomicoClase(
@@ -3280,6 +3352,7 @@ export default function ClasesPage() {
         (bloqueo) =>
           bloqueoAfectaClase(
             bloqueo,
+            fechaComprobar,
             horaComprobar,
             duracionComprobar
           )
@@ -3340,6 +3413,7 @@ export default function ClasesPage() {
                 item.fecha_fin &&
               bloqueoAfectaClase(
                 item,
+                fechaSerie,
                 horaComprobar,
                 duracionComprobar
               )
@@ -3579,7 +3653,8 @@ export default function ClasesPage() {
             );
 
           return `${dia}/${mes}/${anio}${textoHorarioBloqueo(
-            bloqueo
+            bloqueo,
+            bloqueo.fechaCoincidente
           )}${
             bloqueo.motivo
               ? ` (${bloqueo.motivo})`
@@ -4340,7 +4415,8 @@ export default function ClasesPage() {
       if (bloqueo) {
         setMensaje(
           `❌ No puedes crear la clase en ese horario. Está marcado como no disponible${textoHorarioBloqueo(
-            bloqueo
+            bloqueo,
+            fecha
           )}${
             bloqueo.motivo
               ? `: ${bloqueo.motivo}`

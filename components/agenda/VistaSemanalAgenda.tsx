@@ -24,35 +24,82 @@ type Props = {
   ) => void;
 };
 
-function bloqueoTodoElDia(
-  periodo: NoDisponibilidad
+function minutosHora(
+  hora: string
 ) {
-  return (
-    !periodo.hora_inicio ||
-    !periodo.hora_fin
-  );
+  const [h, m] = hora
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
+
+  return h * 60 + m;
 }
 
-function textoNoDisponibilidad(
+function rangoBloqueoEnFecha(
+  fecha: string,
   periodo: NoDisponibilidad
 ) {
   if (
-    bloqueoTodoElDia(
-      periodo
-    )
+    fecha < periodo.fecha_inicio ||
+    fecha > periodo.fecha_fin
   ) {
+    return null;
+  }
+
+  if (
+    !periodo.hora_inicio ||
+    !periodo.hora_fin
+  ) {
+    return { inicio: 0, fin: 1440, todoElDia: true };
+  }
+
+  const inicio = minutosHora(periodo.hora_inicio);
+  const fin = minutosHora(periodo.hora_fin);
+
+  if (periodo.fecha_inicio === periodo.fecha_fin) {
+    return { inicio, fin, todoElDia: false };
+  }
+
+  if (fecha === periodo.fecha_inicio) {
+    return { inicio, fin: 1440, todoElDia: false };
+  }
+
+  if (fecha === periodo.fecha_fin) {
+    return { inicio: 0, fin, todoElDia: false };
+  }
+
+  return { inicio: 0, fin: 1440, todoElDia: true };
+}
+
+function bloqueoTodoElDia(
+  fecha: string,
+  periodo: NoDisponibilidad
+) {
+  return rangoBloqueoEnFecha(fecha, periodo)?.todoElDia === true;
+}
+
+function textoNoDisponibilidad(
+  fecha: string,
+  periodo: NoDisponibilidad
+) {
+  if (bloqueoTodoElDia(fecha, periodo)) {
     return "Todo el día";
   }
 
-  return `${periodo.hora_inicio!.slice(
-    0,
-    5
-  )}–${periodo.hora_fin!.slice(
-    0,
-    5
-  )}`;
-}
+  if (periodo.fecha_inicio === periodo.fecha_fin) {
+    return `${periodo.hora_inicio!.slice(0, 5)}–${periodo.hora_fin!.slice(0, 5)}`;
+  }
 
+  if (fecha === periodo.fecha_inicio) {
+    return `desde ${periodo.hora_inicio!.slice(0, 5)}`;
+  }
+
+  if (fecha === periodo.fecha_fin) {
+    return `hasta ${periodo.hora_fin!.slice(0, 5)}`;
+  }
+
+  return "Todo el día";
+}
 
 function nombreAlumnoAgenda(
   alumno:
@@ -540,7 +587,11 @@ export default function VistaSemanalAgenda({
 
   const noDisponibleMovilTodoElDia =
     bloqueosDiaMovil.find(
-      bloqueoTodoElDia
+      (periodo) =>
+        bloqueoTodoElDia(
+          fechaMovil,
+          periodo
+        )
     );
 
   const noDisponibleMovil =
@@ -757,6 +808,7 @@ export default function VistaSemanalAgenda({
               {noDisponibleMovilTodoElDia
                 ? "Día no disponible"
                 : `No disponible ${textoNoDisponibilidad(
+                    fechaMovil,
                     noDisponibleMovil
                   )}`}
               {noDisponibleMovil.motivo
@@ -960,7 +1012,11 @@ export default function VistaSemanalAgenda({
 
               const noDisponibleTodoElDia =
                 bloqueosDia.find(
-                  bloqueoTodoElDia
+                  (periodo) =>
+                    bloqueoTodoElDia(
+                      fechaDia,
+                      periodo
+                    )
                 );
 
               const noDisponible =
@@ -1043,6 +1099,7 @@ export default function VistaSemanalAgenda({
                           {noDisponibleTodoElDia
                             ? "NO DISPONIBLE"
                             : `NO DISPONIBLE ${textoNoDisponibilidad(
+                                fechaDia,
                                 noDisponible
                               )}`}
                         </p>

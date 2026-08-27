@@ -343,33 +343,78 @@ function fechaEnPeriodo(
   );
 }
 
-function bloqueoTodoElDia(
+function minutosHora(
+  hora: string
+) {
+  const [h, m] = hora
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
+
+  return h * 60 + m;
+}
+
+function rangoBloqueoEnFecha(
+  fecha: string,
   periodo: NoDisponibilidad
 ) {
-  return (
+  if (!fechaEnPeriodo(fecha, periodo)) {
+    return null;
+  }
+
+  if (
     !periodo.hora_inicio ||
     !periodo.hora_fin
-  );
+  ) {
+    return { inicio: 0, fin: 1440, todoElDia: true };
+  }
+
+  const inicio = minutosHora(periodo.hora_inicio);
+  const fin = minutosHora(periodo.hora_fin);
+
+  if (periodo.fecha_inicio === periodo.fecha_fin) {
+    return { inicio, fin, todoElDia: false };
+  }
+
+  if (fecha === periodo.fecha_inicio) {
+    return { inicio, fin: 1440, todoElDia: false };
+  }
+
+  if (fecha === periodo.fecha_fin) {
+    return { inicio: 0, fin, todoElDia: false };
+  }
+
+  return { inicio: 0, fin: 1440, todoElDia: true };
+}
+
+function bloqueoTodoElDia(
+  fecha: string,
+  periodo: NoDisponibilidad
+) {
+  return rangoBloqueoEnFecha(fecha, periodo)?.todoElDia === true;
 }
 
 function textoNoDisponibilidad(
+  fecha: string,
   periodo: NoDisponibilidad
 ) {
-  if (
-    bloqueoTodoElDia(
-      periodo
-    )
-  ) {
+  if (bloqueoTodoElDia(fecha, periodo)) {
     return "Todo el día";
   }
 
-  return `${periodo.hora_inicio!.slice(
-    0,
-    5
-  )}–${periodo.hora_fin!.slice(
-    0,
-    5
-  )}`;
+  if (periodo.fecha_inicio === periodo.fecha_fin) {
+    return `${periodo.hora_inicio!.slice(0, 5)}–${periodo.hora_fin!.slice(0, 5)}`;
+  }
+
+  if (fecha === periodo.fecha_inicio) {
+    return `desde ${periodo.hora_inicio!.slice(0, 5)}`;
+  }
+
+  if (fecha === periodo.fecha_fin) {
+    return `hasta ${periodo.hora_fin!.slice(0, 5)}`;
+  }
+
+  return "Todo el día";
 }
 
 function colorClasePorTipo(
@@ -450,7 +495,11 @@ export default function ListadoAgenda({
 
           const noDisponibleTodoElDia =
             bloqueosDia.find(
-              bloqueoTodoElDia
+              (periodo) =>
+                bloqueoTodoElDia(
+                  fecha,
+                  periodo
+                )
             );
 
           const noDisponible =
@@ -502,6 +551,7 @@ export default function ListadoAgenda({
                       {noDisponibleTodoElDia
                         ? "No disponible"
                         : `No disp. ${textoNoDisponibilidad(
+                            fecha,
                             noDisponible
                           )}`}
                     </span>
@@ -540,6 +590,7 @@ export default function ListadoAgenda({
                     {noDisponibleTodoElDia
                       ? "Día bloqueado"
                       : `No disponible ${textoNoDisponibilidad(
+                          fecha,
                           noDisponible
                         )}`}
                     {noDisponible.motivo
