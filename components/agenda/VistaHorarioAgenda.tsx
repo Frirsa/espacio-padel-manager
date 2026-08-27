@@ -2321,7 +2321,7 @@ export default function VistaHorarioAgenda({
                     key={
                       bloqueo.id
                     }
-                    className="pointer-events-none absolute left-0 right-0 z-[1] overflow-hidden border-y border-red-200 bg-red-100/75 px-2 py-1 text-[10px] font-bold text-red-700"
+                    className="pointer-events-none absolute left-0 right-0 z-[1] overflow-hidden border-y border-red-200 bg-red-50/40 px-2 py-1 text-[10px] font-bold text-red-700"
                     style={{
                       top:
                         posicion.top,
@@ -2664,7 +2664,7 @@ export default function VistaHorarioAgenda({
                     return (
                       <div
                         key={bloqueo.id}
-                        className="pointer-events-none absolute left-0 right-0 z-[1] overflow-hidden border-y border-red-200 bg-red-100/75 px-1.5 py-1 text-[9px] font-bold leading-tight text-red-700"
+                        className="pointer-events-none absolute left-0 right-0 z-[1] overflow-hidden border-y border-red-200 bg-red-50/40 px-1.5 py-1 text-[9px] font-bold leading-tight text-red-700"
                         style={{
                           top: posicion.top,
                           height: posicion.height,
