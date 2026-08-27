@@ -11,6 +11,8 @@ type NoDisponibilidad = {
   id: string;
   fecha_inicio: string;
   fecha_fin: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
   motivo: string | null;
 };
 
@@ -341,6 +343,35 @@ function fechaEnPeriodo(
   );
 }
 
+function bloqueoTodoElDia(
+  periodo: NoDisponibilidad
+) {
+  return (
+    !periodo.hora_inicio ||
+    !periodo.hora_fin
+  );
+}
+
+function textoNoDisponibilidad(
+  periodo: NoDisponibilidad
+) {
+  if (
+    bloqueoTodoElDia(
+      periodo
+    )
+  ) {
+    return "Todo el día";
+  }
+
+  return `${periodo.hora_inicio!.slice(
+    0,
+    5
+  )}–${periodo.hora_fin!.slice(
+    0,
+    5
+  )}`;
+}
+
 function colorClasePorTipo(
   clase: Clase
 ) {
@@ -408,14 +439,23 @@ export default function ListadoAgenda({
           const esHoy =
             fecha === hoy;
 
-          const noDisponible =
-            noDisponibilidades.find(
+          const bloqueosDia =
+            noDisponibilidades.filter(
               (periodo) =>
                 fechaEnPeriodo(
                   fecha,
                   periodo
                 )
             );
+
+          const noDisponibleTodoElDia =
+            bloqueosDia.find(
+              bloqueoTodoElDia
+            );
+
+          const noDisponible =
+            noDisponibleTodoElDia ||
+            bloqueosDia[0];
 
           return (
             <section
@@ -457,11 +497,17 @@ export default function ListadoAgenda({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  {noDisponible ? (
+                  {noDisponible && (
                     <span className="rounded-full bg-red-100 px-2.5 py-1.5 text-[10px] font-bold text-red-700">
-                      No disponible
+                      {noDisponibleTodoElDia
+                        ? "No disponible"
+                        : `No disp. ${textoNoDisponibilidad(
+                            noDisponible
+                          )}`}
                     </span>
-                  ) : (
+                  )}
+
+                  {!noDisponibleTodoElDia && (
                     <button
                       type="button"
                       onClick={() => {
@@ -491,7 +537,11 @@ export default function ListadoAgenda({
               {noDisponible && (
                 <div className="border-b border-red-200 bg-red-50 px-4 py-2">
                   <p className="text-xs font-semibold text-red-700">
-                    Día bloqueado
+                    {noDisponibleTodoElDia
+                      ? "Día bloqueado"
+                      : `No disponible ${textoNoDisponibilidad(
+                          noDisponible
+                        )}`}
                     {noDisponible.motivo
                       ? ` · ${noDisponible.motivo}`
                       : ""}

@@ -9,6 +9,8 @@ type NoDisponibilidad = {
   id: string;
   fecha_inicio: string;
   fecha_fin: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
   motivo: string | null;
 };
 
@@ -21,6 +23,35 @@ type Props = {
     fecha: string
   ) => void;
 };
+
+function bloqueoTodoElDia(
+  periodo: NoDisponibilidad
+) {
+  return (
+    !periodo.hora_inicio ||
+    !periodo.hora_fin
+  );
+}
+
+function textoNoDisponibilidad(
+  periodo: NoDisponibilidad
+) {
+  if (
+    bloqueoTodoElDia(
+      periodo
+    )
+  ) {
+    return "Todo el día";
+  }
+
+  return `${periodo.hora_inicio!.slice(
+    0,
+    5
+  )}–${periodo.hora_fin!.slice(
+    0,
+    5
+  )}`;
+}
 
 function crearFecha(
   fecha: string
@@ -505,14 +536,23 @@ export default function VistaMensualAgenda({
           )
       );
 
-  const noDisponibleMovil =
-    noDisponibilidades.find(
+  const bloqueosDiaMovil =
+    noDisponibilidades.filter(
       (periodo) =>
         fechaMovil >=
           periodo.fecha_inicio &&
         fechaMovil <=
           periodo.fecha_fin
     );
+
+  const noDisponibleMovilTodoElDia =
+    bloqueosDiaMovil.find(
+      bloqueoTodoElDia
+    );
+
+  const noDisponibleMovil =
+    noDisponibleMovilTodoElDia ||
+    bloqueosDiaMovil[0];
 
   function seleccionarDiaMovil(
     fecha: string
@@ -802,7 +842,7 @@ export default function VistaMensualAgenda({
           <button
             type="button"
             disabled={Boolean(
-              noDisponibleMovil
+              noDisponibleMovilTodoElDia
             )}
             onClick={() =>
               crearClase(
@@ -818,7 +858,11 @@ export default function VistaMensualAgenda({
         {noDisponibleMovil && (
           <div className="border-b border-red-200 bg-red-50 px-4 py-2.5">
             <p className="text-xs font-bold text-red-700">
-              Día no disponible
+              {noDisponibleMovilTodoElDia
+                ? "Día no disponible"
+                : `No disponible ${textoNoDisponibilidad(
+                    noDisponibleMovil
+                  )}`}
               {noDisponibleMovil.motivo
                 ? ` · ${noDisponibleMovil.motivo}`
                 : ""}
@@ -828,7 +872,7 @@ export default function VistaMensualAgenda({
 
         <div
           className={
-            noDisponibleMovil
+            noDisponibleMovilTodoElDia
               ? "space-y-2.5 bg-red-50/20 p-3"
               : "space-y-2.5 p-3"
           }
@@ -1001,12 +1045,23 @@ export default function VistaMensualAgenda({
               fechaDia ===
               hoy;
 
-            const noDisponible =
-              noDisponibilidades.find(
+            const bloqueosDia =
+              noDisponibilidades.filter(
                 (periodo) =>
-                  fechaDia >= periodo.fecha_inicio &&
-                  fechaDia <= periodo.fecha_fin
+                  fechaDia >=
+                    periodo.fecha_inicio &&
+                  fechaDia <=
+                    periodo.fecha_fin
               );
+
+            const noDisponibleTodoElDia =
+              bloqueosDia.find(
+                bloqueoTodoElDia
+              );
+
+            const noDisponible =
+              noDisponibleTodoElDia ||
+              bloqueosDia[0];
 
             const clasesDia =
               clases
@@ -1043,7 +1098,7 @@ export default function VistaMensualAgenda({
                   fechaDia
                 }
                 className={
-                  noDisponible
+                  noDisponibleTodoElDia
                     ? "min-h-[165px] border-b border-r border-red-200 bg-red-50/70 p-1.5"
                     : esHoy
                     ? "min-h-[165px] border-b border-r border-slate-200 bg-[#E8F7F5] p-1.5"
@@ -1059,7 +1114,7 @@ export default function VistaMensualAgenda({
 
                     <button
                       type="button"
-                      disabled={Boolean(noDisponible)}
+                      disabled={Boolean(noDisponibleTodoElDia)}
                       onClick={() =>
                         crearClase(
                           fechaDia
@@ -1081,7 +1136,7 @@ export default function VistaMensualAgenda({
 
                     <button
                       type="button"
-                      disabled={Boolean(noDisponible)}
+                      disabled={Boolean(noDisponibleTodoElDia)}
                       onClick={() =>
                         crearClase(
                           fechaDia
@@ -1119,7 +1174,11 @@ export default function VistaMensualAgenda({
 
                 {noDisponible && (
                   <div className="mt-1 rounded-md bg-red-100 px-1.5 py-1 text-[9px] font-bold text-red-700">
-                    NO DISPONIBLE
+                    {noDisponibleTodoElDia
+                      ? "NO DISPONIBLE"
+                      : `NO DISPONIBLE ${textoNoDisponibilidad(
+                          noDisponible
+                        )}`}
                     {noDisponible.motivo
                       ? ` · ${noDisponible.motivo}`
                       : ""}

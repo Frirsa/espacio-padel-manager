@@ -42,6 +42,8 @@ type NoDisponibilidad = {
   id: string;
   fecha_inicio: string;
   fecha_fin: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
   motivo: string | null;
 };
 
@@ -643,10 +645,197 @@ export default function VistaHorarioAgenda({
       clasesDiaMovil
     );
 
-  function noDisponible(fecha:string) {
-    return noDisponibilidades.find(
-      n => fecha >= n.fecha_inicio && fecha <= n.fecha_fin
+  function bloqueosDelDia(
+    fecha: string
+  ) {
+    return noDisponibilidades.filter(
+      (bloqueo) =>
+        fecha >=
+          bloqueo.fecha_inicio &&
+        fecha <=
+          bloqueo.fecha_fin
     );
+  }
+
+  function noDisponibleTodoElDia(
+    fecha: string
+  ) {
+    return bloqueosDelDia(
+      fecha
+    ).find(
+      (bloqueo) =>
+        !bloqueo.hora_inicio ||
+        !bloqueo.hora_fin
+    );
+  }
+
+  function noDisponible(
+    fecha: string,
+    hora?: number,
+    minuto = 0,
+    duracionMinutos = 30
+  ) {
+    const bloqueos =
+      bloqueosDelDia(
+        fecha
+      );
+
+    if (hora === undefined) {
+      return (
+        bloqueos.find(
+          (bloqueo) =>
+            !bloqueo.hora_inicio ||
+            !bloqueo.hora_fin
+        ) ||
+        bloqueos[0]
+      );
+    }
+
+    const inicioClase =
+      hora * 60 +
+      minuto;
+
+    const finClase =
+      inicioClase +
+      duracionMinutos;
+
+    return bloqueos.find(
+      (bloqueo) => {
+        if (
+          !bloqueo.hora_inicio ||
+          !bloqueo.hora_fin
+        ) {
+          return true;
+        }
+
+        const [
+          horaInicioBloqueo,
+          minutoInicioBloqueo,
+        ] =
+          bloqueo.hora_inicio
+            .slice(0, 5)
+            .split(":")
+            .map(Number);
+
+        const [
+          horaFinBloqueo,
+          minutoFinBloqueo,
+        ] =
+          bloqueo.hora_fin
+            .slice(0, 5)
+            .split(":")
+            .map(Number);
+
+        const inicioBloqueo =
+          horaInicioBloqueo *
+            60 +
+          minutoInicioBloqueo;
+
+        const finBloqueo =
+          horaFinBloqueo *
+            60 +
+          minutoFinBloqueo;
+
+        return (
+          inicioClase <
+            finBloqueo &&
+          finClase >
+            inicioBloqueo
+        );
+      }
+    );
+  }
+
+  function textoNoDisponibilidad(
+    bloqueo: NoDisponibilidad
+  ) {
+    if (
+      !bloqueo.hora_inicio ||
+      !bloqueo.hora_fin
+    ) {
+      return "Todo el día";
+    }
+
+    return `${bloqueo.hora_inicio.slice(
+      0,
+      5
+    )}–${bloqueo.hora_fin.slice(
+      0,
+      5
+    )}`;
+  }
+
+  function bloqueosParciales(
+    fecha: string
+  ) {
+    return bloqueosDelDia(
+      fecha
+    ).filter(
+      (bloqueo) =>
+        Boolean(
+          bloqueo.hora_inicio &&
+            bloqueo.hora_fin
+        )
+    );
+  }
+
+  function posicionBloqueoHorario(
+    bloqueo: NoDisponibilidad
+  ) {
+    if (
+      !bloqueo.hora_inicio ||
+      !bloqueo.hora_fin
+    ) {
+      return null;
+    }
+
+    const inicio =
+      minutosDesdeMedianoche(
+        bloqueo.hora_inicio
+      );
+
+    const fin =
+      minutosDesdeMedianoche(
+        bloqueo.hora_fin
+      );
+
+    const inicioVisible =
+      horaInicio * 60;
+
+    const finVisible =
+      horaFin * 60;
+
+    const inicioAjustado =
+      Math.max(
+        inicio,
+        inicioVisible
+      );
+
+    const finAjustado =
+      Math.min(
+        fin,
+        finVisible
+      );
+
+    if (
+      finAjustado <=
+      inicioAjustado
+    ) {
+      return null;
+    }
+
+    return {
+      top:
+        ((inicioAjustado -
+          inicioVisible) /
+          60) *
+        altoHora,
+      height:
+        ((finAjustado -
+          inicioAjustado) /
+          60) *
+        altoHora,
+    };
   }
 
   function editarClase(
@@ -1434,11 +1623,14 @@ export default function VistaHorarioAgenda({
 
     if (
       noDisponible(
-        fechaNueva
+        fechaNueva,
+        hora,
+        minuto,
+        clase.duracion_minutos
       )
     ) {
       setMensajeMovimiento(
-        "❌ No puedes mover una clase a un día no disponible."
+        "❌ No puedes mover la clase a ese horario porque coincide con una no disponibilidad."
       );
 
       setTimeout(
@@ -1602,7 +1794,7 @@ export default function VistaHorarioAgenda({
     evento.preventDefault();
 
     if (
-      noDisponible(
+      noDisponibleTodoElDia(
         fecha
       )
     ) {
@@ -1683,7 +1875,10 @@ export default function VistaHorarioAgenda({
   ) {
     if (
       noDisponible(
-        fecha
+        fecha,
+        hora,
+        minuto,
+        30
       )
     ) {
       return;
@@ -1892,7 +2087,15 @@ export default function VistaHorarioAgenda({
             fechaMovil
           ) && (
             <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
-              Día no disponible
+              {noDisponibleTodoElDia(
+                fechaMovil
+              )
+                ? "Día no disponible"
+                : `No disponible ${textoNoDisponibilidad(
+                    noDisponible(
+                      fechaMovil
+                    )!
+                  )}`}
               {noDisponible(
                 fechaMovil
               )?.motivo
@@ -1946,7 +2149,7 @@ export default function VistaHorarioAgenda({
 
           <div
             className={
-              noDisponible(
+              noDisponibleTodoElDia(
                 fechaMovil
               )
                 ? "relative bg-red-50/35"
@@ -1973,7 +2176,10 @@ export default function VistaHorarioAgenda({
                   type="button"
                   disabled={Boolean(
                     noDisponible(
-                      fechaMovil
+                      fechaMovil,
+                      hora,
+                      0,
+                      30
                     )
                   )}
                   onClick={() =>
@@ -2003,7 +2209,10 @@ export default function VistaHorarioAgenda({
                   type="button"
                   disabled={Boolean(
                     noDisponible(
-                      fechaMovil
+                      fechaMovil,
+                      hora,
+                      30,
+                      30
                     )
                   )}
                   onClick={() =>
@@ -2032,6 +2241,44 @@ export default function VistaHorarioAgenda({
                 />
               </div>
             ))}
+
+            {bloqueosParciales(
+              fechaMovil
+            ).map(
+              (bloqueo) => {
+                const posicion =
+                  posicionBloqueoHorario(
+                    bloqueo
+                  );
+
+                if (!posicion) {
+                  return null;
+                }
+
+                return (
+                  <div
+                    key={
+                      bloqueo.id
+                    }
+                    className="pointer-events-none absolute left-0 right-0 z-[1] overflow-hidden border-y border-red-200 bg-red-100/75 px-2 py-1 text-[10px] font-bold text-red-700"
+                    style={{
+                      top:
+                        posicion.top,
+                      height:
+                        posicion.height,
+                    }}
+                  >
+                    No disponible ·{" "}
+                    {textoNoDisponibilidad(
+                      bloqueo
+                    )}
+                    {bloqueo.motivo
+                      ? ` · ${bloqueo.motivo}`
+                      : ""}
+                  </div>
+                );
+              }
+            )}
 
             {clasesDiaMovil.map(
               (clase) => {
@@ -2263,7 +2510,11 @@ export default function VistaHorarioAgenda({
 
                   {nd && (
                     <div className="mt-1 rounded-md bg-red-100 px-1 py-1 text-[9px] font-bold text-red-700">
-                      NO DISPONIBLE{nd.motivo ? ` · ${nd.motivo}` : ""}
+                      NO DISPONIBLE
+                      {nd.hora_inicio && nd.hora_fin
+                        ? ` ${textoNoDisponibilidad(nd)}`
+                        : ""}
+                      {nd.motivo ? ` · ${nd.motivo}` : ""}
                     </div>
                   )}
                 </div>
@@ -2287,6 +2538,7 @@ export default function VistaHorarioAgenda({
             {dias.map(d=>{
               const fecha=fechaLocalISO(d);
               const nd=noDisponible(fecha);
+              const ndTodoDia=noDisponibleTodoElDia(fecha);
               const clasesDia=clases.filter(c=>c.fecha===fecha);
               const disposicionClasesDia=
                 calcularDisposicionClasesAgenda(clasesDia);
@@ -2294,7 +2546,7 @@ export default function VistaHorarioAgenda({
                 <div
                   key={fecha}
                   onDragOver={(evento) => {
-                    if (!nd) {
+                    if (!ndTodoDia) {
                       evento.preventDefault();
                       evento.dataTransfer.dropEffect =
                         "move";
@@ -2307,7 +2559,7 @@ export default function VistaHorarioAgenda({
                     )
                   }
                   className={
-                    nd
+                    ndTodoDia
                       ? "relative border-r border-slate-200 bg-red-50/40"
                       : fecha === hoy
                       ? "relative border-r border-slate-200 bg-[#00A79C]/[0.025]"
@@ -2319,22 +2571,49 @@ export default function VistaHorarioAgenda({
                     <div key={h}>
                       <button
                         type="button"
-                        disabled={!!nd}
+                        disabled={Boolean(noDisponible(fecha,h,0,30))}
                         onClick={()=>crearClase(fecha,h)}
                         className="absolute left-0 right-0 border-t border-slate-200 transition hover:bg-[#00A79C]/[0.06] disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora,height:altoHora/2}}
-                        title={nd ? "Día no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:00`}
+                        title={noDisponible(fecha,h,0,30) ? "Horario no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:00`}
                       />
                       <button
                         type="button"
-                        disabled={!!nd}
+                        disabled={Boolean(noDisponible(fecha,h,30,30))}
                         onClick={()=>crearClase(fecha,h,30)}
                         className="absolute left-0 right-0 border-t border-dashed border-slate-100 transition hover:bg-[#00A79C]/[0.06] disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora+altoHora/2,height:altoHora/2}}
-                        title={nd ? "Día no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:30`}
+                        title={noDisponible(fecha,h,30,30) ? "Horario no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:30`}
                       />
                     </div>
                   ))}
+
+                  {bloqueosParciales(
+                    fecha
+                  ).map((bloqueo) => {
+                    const posicion =
+                      posicionBloqueoHorario(
+                        bloqueo
+                      );
+
+                    if (!posicion) {
+                      return null;
+                    }
+
+                    return (
+                      <div
+                        key={bloqueo.id}
+                        className="pointer-events-none absolute left-0 right-0 z-[1] overflow-hidden border-y border-red-200 bg-red-100/75 px-1.5 py-1 text-[9px] font-bold leading-tight text-red-700"
+                        style={{
+                          top: posicion.top,
+                          height: posicion.height,
+                        }}
+                      >
+                        No disponible · {textoNoDisponibilidad(bloqueo)}
+                        {bloqueo.motivo ? ` · ${bloqueo.motivo}` : ""}
+                      </div>
+                    );
+                  })}
 
                   {clasesDia.map(clase=>{
                     const [h,m]=clase.hora_inicio.split(":").map(Number);

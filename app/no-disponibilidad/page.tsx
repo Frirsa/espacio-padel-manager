@@ -7,6 +7,8 @@ type NoDisponibilidad = {
   id: string;
   fecha_inicio: string;
   fecha_fin: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
   motivo: string | null;
   created_at: string;
 };
@@ -40,6 +42,36 @@ function formatearFecha(
     fecha.split("-");
 
   return `${dia}/${mes}/${anio}`;
+}
+
+function formatearHora(
+  hora: string | null
+) {
+  if (!hora) {
+    return "";
+  }
+
+  return hora.slice(0, 5);
+}
+
+function textoHorario(
+  periodo: Pick<
+    NoDisponibilidad,
+    "hora_inicio" | "hora_fin"
+  >
+) {
+  if (
+    !periodo.hora_inicio ||
+    !periodo.hora_fin
+  ) {
+    return "Todo el día";
+  }
+
+  return `${formatearHora(
+    periodo.hora_inicio
+  )}–${formatearHora(
+    periodo.hora_fin
+  )}`;
 }
 
 function formatearFechaControl(
@@ -291,6 +323,15 @@ export default function NoDisponibilidadPage() {
   const [fechaFin, setFechaFin] =
     useState("");
 
+  const [todoElDia, setTodoElDia] =
+    useState(true);
+
+  const [horaInicio, setHoraInicio] =
+    useState("");
+
+  const [horaFin, setHoraFin] =
+    useState("");
+
   const [motivo, setMotivo] =
     useState("");
 
@@ -364,6 +405,22 @@ export default function NoDisponibilidadPage() {
       return;
     }
 
+    if (!todoElDia) {
+      if (!horaInicio || !horaFin) {
+        setMensaje(
+          "❌ Indica la hora de inicio y la hora final."
+        );
+        return;
+      }
+
+      if (horaFin <= horaInicio) {
+        setMensaje(
+          "❌ La hora final debe ser posterior a la hora de inicio."
+        );
+        return;
+      }
+    }
+
     setGuardando(true);
 
     let error;
@@ -378,6 +435,14 @@ export default function NoDisponibilidadPage() {
             fecha_inicio:
               fechaInicio,
             fecha_fin: final,
+            hora_inicio:
+              todoElDia
+                ? null
+                : horaInicio,
+            hora_fin:
+              todoElDia
+                ? null
+                : horaFin,
             motivo:
               motivo.trim() ||
               null,
@@ -399,6 +464,14 @@ export default function NoDisponibilidadPage() {
             fecha_inicio:
               fechaInicio,
             fecha_fin: final,
+            hora_inicio:
+              todoElDia
+                ? null
+                : horaInicio,
+            hora_fin:
+              todoElDia
+                ? null
+                : horaFin,
             motivo:
               motivo.trim() ||
               null,
@@ -420,6 +493,9 @@ export default function NoDisponibilidadPage() {
 
     setFechaInicio("");
     setFechaFin("");
+    setTodoElDia(true);
+    setHoraInicio("");
+    setHoraFin("");
     setMotivo("");
     setPeriodoEditandoId(
       null
@@ -449,6 +525,32 @@ export default function NoDisponibilidadPage() {
       periodo.fecha_fin
     );
 
+    const tieneHorario =
+      Boolean(
+        periodo.hora_inicio &&
+          periodo.hora_fin
+      );
+
+    setTodoElDia(
+      !tieneHorario
+    );
+
+    setHoraInicio(
+      tieneHorario
+        ? formatearHora(
+            periodo.hora_inicio
+          )
+        : ""
+    );
+
+    setHoraFin(
+      tieneHorario
+        ? formatearHora(
+            periodo.hora_fin
+          )
+        : ""
+    );
+
     setMotivo(
       periodo.motivo || ""
     );
@@ -468,6 +570,9 @@ export default function NoDisponibilidadPage() {
 
     setFechaInicio("");
     setFechaFin("");
+    setTodoElDia(true);
+    setHoraInicio("");
+    setHoraFin("");
     setMotivo("");
     setMensaje("");
   }
@@ -597,7 +702,7 @@ export default function NoDisponibilidadPage() {
               </h1>
 
               <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-white/60 sm:mt-2 sm:text-sm">
-                Bloquea vacaciones, viajes o cualquier periodo en el que no puedas impartir clases.
+                Bloquea días completos o tramos horarios en los que no puedas impartir clases.
               </p>
             </div>
 
@@ -652,7 +757,7 @@ export default function NoDisponibilidadPage() {
                   </h2>
 
                   <p className="mt-1 text-xs leading-relaxed text-white/50">
-                    El periodo quedará bloqueado en Agenda y al crear nuevas clases o series.
+                    El día completo o solo el tramo elegido quedará bloqueado en Agenda y al crear nuevas clases o series.
                   </p>
                 </div>
 
@@ -704,6 +809,85 @@ export default function NoDisponibilidadPage() {
 
               <div>
                 <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                  Tipo de bloqueo
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTodoElDia(true);
+                      setHoraInicio("");
+                      setHoraFin("");
+                    }}
+                    className={
+                      todoElDia
+                        ? "h-10 rounded-xl bg-[#0F2742] px-3 text-xs font-bold text-white"
+                        : "h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-100"
+                    }
+                  >
+                    Todo el día
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTodoElDia(false)
+                    }
+                    className={
+                      !todoElDia
+                        ? "h-10 rounded-xl bg-[#00A79C] px-3 text-xs font-bold text-white"
+                        : "h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-100"
+                    }
+                  >
+                    Horario concreto
+                  </button>
+                </div>
+              </div>
+
+              {!todoElDia && (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                      Hora inicio
+                    </label>
+
+                    <input
+                      type="time"
+                      value={horaInicio}
+                      onChange={(e) =>
+                        setHoraInicio(
+                          e.target.value
+                        )
+                      }
+                      required
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                      Hora final
+                    </label>
+
+                    <input
+                      type="time"
+                      value={horaFin}
+                      min={horaInicio || undefined}
+                      onChange={(e) =>
+                        setHoraFin(
+                          e.target.value
+                        )
+                      }
+                      required
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
                   Motivo
                 </label>
 
@@ -741,6 +925,12 @@ export default function NoDisponibilidadPage() {
                           fechaFin ||
                             fechaInicio
                         )}
+                      </p>
+
+                      <p className="mt-1 text-[11px] font-semibold text-red-700">
+                        {todoElDia
+                          ? "Todo el día"
+                          : `${horaInicio || "--:--"}–${horaFin || "--:--"}`}
                       </p>
 
                       <p className="mt-1 text-[11px] text-red-700/70">
@@ -962,6 +1152,12 @@ export default function NoDisponibilidadPage() {
                             <p className="mt-1 text-xs font-semibold text-red-700">
                               {periodo.motivo ||
                                 "No disponible"}
+                            </p>
+
+                            <p className="mt-1 text-[11px] font-bold text-slate-500">
+                              {textoHorario(
+                                periodo
+                              )}
                             </p>
                           </div>
                         </div>

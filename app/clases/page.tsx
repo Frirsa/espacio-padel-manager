@@ -112,6 +112,83 @@ type Tarifa = {
   } | null;
 };
 
+type NoDisponibilidad = {
+  id: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
+  motivo: string | null;
+};
+
+function minutosDesdeHora(
+  hora: string
+) {
+  const [horas, minutos] =
+    hora
+      .slice(0, 5)
+      .split(":")
+      .map(Number);
+
+  return horas * 60 + minutos;
+}
+
+function bloqueoAfectaClase(
+  bloqueo: NoDisponibilidad,
+  horaClase: string,
+  duracionClase: number
+) {
+  if (
+    !bloqueo.hora_inicio ||
+    !bloqueo.hora_fin
+  ) {
+    return true;
+  }
+
+  const inicioClase =
+    minutosDesdeHora(
+      horaClase
+    );
+
+  const finClase =
+    inicioClase +
+    duracionClase;
+
+  const inicioBloqueo =
+    minutosDesdeHora(
+      bloqueo.hora_inicio
+    );
+
+  const finBloqueo =
+    minutosDesdeHora(
+      bloqueo.hora_fin
+    );
+
+  return (
+    inicioClase < finBloqueo &&
+    finClase > inicioBloqueo
+  );
+}
+
+function textoHorarioBloqueo(
+  bloqueo: NoDisponibilidad
+) {
+  if (
+    !bloqueo.hora_inicio ||
+    !bloqueo.hora_fin
+  ) {
+    return "";
+  }
+
+  return ` de ${bloqueo.hora_inicio.slice(
+    0,
+    5
+  )} a ${bloqueo.hora_fin.slice(
+    0,
+    5
+  )}`;
+}
+
 function estadoEconomicoClase(
   clase: Clase,
   pagos: PagoClase[]
@@ -3170,27 +3247,50 @@ export default function ClasesPage() {
   }
 
   async function obtenerNoDisponibilidad(
-    fechaComprobar: string
+    fechaComprobar: string,
+    horaComprobar: string,
+    duracionComprobar: number
   ) {
     const {
       data,
       error,
     } = await supabase
       .from("no_disponibilidades")
-      .select("id,fecha_inicio,fecha_fin,motivo")
-      .lte("fecha_inicio", fechaComprobar)
-      .gte("fecha_fin", fechaComprobar)
-      .limit(1);
+      .select(
+        "id,fecha_inicio,fecha_fin,hora_inicio,hora_fin,motivo"
+      )
+      .lte(
+        "fecha_inicio",
+        fechaComprobar
+      )
+      .gte(
+        "fecha_fin",
+        fechaComprobar
+      );
 
     if (error) {
       return null;
     }
 
-    return data?.[0] || null;
+    return (
+      (
+        (data ||
+          []) as NoDisponibilidad[]
+      ).find(
+        (bloqueo) =>
+          bloqueoAfectaClase(
+            bloqueo,
+            horaComprobar,
+            duracionComprobar
+          )
+      ) || null
+    );
   }
 
   async function obtenerNoDisponibilidadesSerie(
-    fechasSerie: string[]
+    fechasSerie: string[],
+    horaComprobar: string,
+    duracionComprobar: number
   ) {
     if (fechasSerie.length === 0) {
       return [];
@@ -3209,7 +3309,9 @@ export default function ClasesPage() {
       error,
     } = await supabase
       .from("no_disponibilidades")
-      .select("id,fecha_inicio,fecha_fin,motivo")
+      .select(
+        "id,fecha_inicio,fecha_fin,hora_inicio,hora_fin,motivo"
+      )
       .lte(
         "fecha_inicio",
         ultimaFecha
@@ -3223,15 +3325,24 @@ export default function ClasesPage() {
       return [];
     }
 
+    const bloqueos =
+      (data ||
+        []) as NoDisponibilidad[];
+
     return fechasSerie.flatMap(
       (fechaSerie) => {
         const bloqueo =
-          (data || []).find(
+          bloqueos.find(
             (item) =>
               fechaSerie >=
                 item.fecha_inicio &&
               fechaSerie <=
-                item.fecha_fin
+                item.fecha_fin &&
+              bloqueoAfectaClase(
+                item,
+                horaComprobar,
+                duracionComprobar
+              )
           );
 
         if (!bloqueo) {
@@ -3342,10 +3453,18 @@ export default function ClasesPage() {
         )
       );
 
-    const ubicacion =
+    const ubicacionSeleccionada =
       ubicaciones.find(
         (item) => item.id === ubicacionId
-      )?.nombre || null;
+      );
+
+    const ubicacion =
+      ubicacionSeleccionada?.nombre ||
+      null;
+
+    const tipoUbicacion =
+      ubicacionSeleccionada?.tipo ||
+      null;
 
     const motivoGoogle =
       estadoClase === "cancelada"
@@ -3380,6 +3499,8 @@ export default function ClasesPage() {
       observaciones:
         detalleGoogle || null,
       ubicacion,
+      tipo_ubicacion:
+        tipoUbicacion,
       alumnos: nombres,
     };
   }
@@ -3424,7 +3545,9 @@ export default function ClasesPage() {
 
     const bloqueosSerie =
       await obtenerNoDisponibilidadesSerie(
-        fechas
+        fechas,
+        hora,
+        Number(duracion)
       );
 
     const fechasBloqueadas =
@@ -3455,7 +3578,9 @@ export default function ClasesPage() {
               "-"
             );
 
-          return `${dia}/${mes}/${anio}${
+          return `${dia}/${mes}/${anio}${textoHorarioBloqueo(
+            bloqueo
+          )}${
             bloqueo.motivo
               ? ` (${bloqueo.motivo})`
               : ""
@@ -4207,12 +4332,16 @@ export default function ClasesPage() {
     if (!claseEditandoId) {
       const bloqueo =
         await obtenerNoDisponibilidad(
-          fecha
+          fecha,
+          hora,
+          Number(duracion)
         );
 
       if (bloqueo) {
         setMensaje(
-          `❌ No puedes crear una clase ese día. Está marcado como no disponible${
+          `❌ No puedes crear la clase en ese horario. Está marcado como no disponible${textoHorarioBloqueo(
+            bloqueo
+          )}${
             bloqueo.motivo
               ? `: ${bloqueo.motivo}`
               : "."

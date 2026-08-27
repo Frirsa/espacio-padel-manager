@@ -9,6 +9,8 @@ type NoDisponibilidad = {
   id: string;
   fecha_inicio: string;
   fecha_fin: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
   motivo: string | null;
 };
 
@@ -21,6 +23,35 @@ type Props = {
     fecha: string
   ) => void;
 };
+
+function bloqueoTodoElDia(
+  periodo: NoDisponibilidad
+) {
+  return (
+    !periodo.hora_inicio ||
+    !periodo.hora_fin
+  );
+}
+
+function textoNoDisponibilidad(
+  periodo: NoDisponibilidad
+) {
+  if (
+    bloqueoTodoElDia(
+      periodo
+    )
+  ) {
+    return "Todo el día";
+  }
+
+  return `${periodo.hora_inicio!.slice(
+    0,
+    5
+  )}–${periodo.hora_fin!.slice(
+    0,
+    5
+  )}`;
+}
 
 
 function nombreAlumnoAgenda(
@@ -498,14 +529,23 @@ export default function VistaSemanalAgenda({
           )
       );
 
-  const noDisponibleMovil =
-    noDisponibilidades.find(
+  const bloqueosDiaMovil =
+    noDisponibilidades.filter(
       (periodo) =>
         fechaMovil >=
           periodo.fecha_inicio &&
         fechaMovil <=
           periodo.fecha_fin
     );
+
+  const noDisponibleMovilTodoElDia =
+    bloqueosDiaMovil.find(
+      bloqueoTodoElDia
+    );
+
+  const noDisponibleMovil =
+    noDisponibleMovilTodoElDia ||
+    bloqueosDiaMovil[0];
 
   const fechaMovilDate =
     crearFecha(
@@ -698,7 +738,7 @@ export default function VistaSemanalAgenda({
           <button
             type="button"
             disabled={Boolean(
-              noDisponibleMovil
+              noDisponibleMovilTodoElDia
             )}
             onClick={() =>
               crearClase(
@@ -714,7 +754,11 @@ export default function VistaSemanalAgenda({
         {noDisponibleMovil && (
           <div className="border-b border-red-200 bg-red-50 px-4 py-2.5">
             <p className="text-xs font-bold text-red-700">
-              Día no disponible
+              {noDisponibleMovilTodoElDia
+                ? "Día no disponible"
+                : `No disponible ${textoNoDisponibilidad(
+                    noDisponibleMovil
+                  )}`}
               {noDisponibleMovil.motivo
                 ? ` · ${noDisponibleMovil.motivo}`
                 : ""}
@@ -724,7 +768,7 @@ export default function VistaSemanalAgenda({
 
         <div
           className={
-            noDisponibleMovil
+            noDisponibleMovilTodoElDia
               ? "space-y-2.5 bg-red-50/25 p-3"
               : "space-y-2.5 p-3"
           }
@@ -734,7 +778,7 @@ export default function VistaSemanalAgenda({
             <button
               type="button"
               disabled={Boolean(
-                noDisponibleMovil
+                noDisponibleMovilTodoElDia
               )}
               onClick={() =>
                 crearClase(
@@ -747,7 +791,7 @@ export default function VistaSemanalAgenda({
                 Sin clases
               </p>
 
-              {!noDisponibleMovil && (
+              {!noDisponibleMovilTodoElDia && (
                 <p className="mt-1 text-xs font-bold text-[#00A79C]">
                   + Crear clase
                 </p>
@@ -905,12 +949,23 @@ export default function VistaSemanalAgenda({
                 fechaDia ===
                 hoy;
 
-              const noDisponible =
-                noDisponibilidades.find(
+              const bloqueosDia =
+                noDisponibilidades.filter(
                   (periodo) =>
-                    fechaDia >= periodo.fecha_inicio &&
-                    fechaDia <= periodo.fecha_fin
+                    fechaDia >=
+                      periodo.fecha_inicio &&
+                    fechaDia <=
+                      periodo.fecha_fin
                 );
+
+              const noDisponibleTodoElDia =
+                bloqueosDia.find(
+                  bloqueoTodoElDia
+                );
+
+              const noDisponible =
+                noDisponibleTodoElDia ||
+                bloqueosDia[0];
 
               return (
                 <div
@@ -955,7 +1010,7 @@ export default function VistaSemanalAgenda({
 
                     <button
                       type="button"
-                      disabled={Boolean(noDisponible)}
+                      disabled={Boolean(noDisponibleTodoElDia)}
                       onClick={() =>
                         crearClase(
                           fechaDia
@@ -976,7 +1031,7 @@ export default function VistaSemanalAgenda({
 
                   <div
                     className={
-                      noDisponible
+                      noDisponibleTodoElDia
                         ? "space-y-3 bg-red-50/70 p-3"
                         : "space-y-3 p-3"
                     }
@@ -985,7 +1040,11 @@ export default function VistaSemanalAgenda({
                     {noDisponible && (
                       <div className="rounded-xl border border-red-200 bg-red-100 px-3 py-2 text-center">
                         <p className="text-xs font-bold text-red-700">
-                          NO DISPONIBLE
+                          {noDisponibleTodoElDia
+                            ? "NO DISPONIBLE"
+                            : `NO DISPONIBLE ${textoNoDisponibilidad(
+                                noDisponible
+                              )}`}
                         </p>
                         {noDisponible.motivo && (
                           <p className="mt-1 text-[10px] text-red-600">
@@ -1000,14 +1059,14 @@ export default function VistaSemanalAgenda({
 
                       <button
                         type="button"
-                        disabled={Boolean(noDisponible)}
+                        disabled={Boolean(noDisponibleTodoElDia)}
                         onClick={() =>
                           crearClase(
                             fechaDia
                           )
                         }
                         className={
-                          noDisponible
+                          noDisponibleTodoElDia
                             ? "block w-full cursor-not-allowed rounded-xl border border-dashed border-red-200 bg-red-50 px-2 py-5 text-center opacity-60"
                             : "block w-full rounded-xl border border-dashed border-slate-200 px-2 py-5 text-center transition hover:border-[#00A79C]/30 hover:bg-[#E8F7F5]"
                         }

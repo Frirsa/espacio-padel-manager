@@ -44,6 +44,8 @@ type NoDisponibilidad = {
   id: string;
   fecha_inicio: string;
   fecha_fin: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
   motivo: string | null;
 };
 
@@ -407,7 +409,7 @@ export default function AgendaPage() {
       data: noDisponibilidadData,
     } = await supabase
       .from("no_disponibilidades")
-      .select("id,fecha_inicio,fecha_fin,motivo")
+      .select("id,fecha_inicio,fecha_fin,hora_inicio,hora_fin,motivo")
       .order("fecha_inicio", { ascending: true });
 
     setNoDisponibilidades(
