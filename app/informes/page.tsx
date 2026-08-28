@@ -1664,179 +1664,156 @@ const ingresoMedio =
     }
   }
   return (
-    <main className="min-h-screen bg-slate-100 px-5 py-7 sm:px-7 lg:px-9">
+    <main className="min-h-screen bg-[#F6F8FA] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
       <div className="mx-auto w-full max-w-[1540px]">
 
-        <div className="mb-7">
-          <h1 className="text-4xl font-bold text-slate-900">
-            Informes
-          </h1>
+        {/* CABECERA + CONTROLES PRINCIPALES */}
+        <section className="overflow-hidden rounded-2xl bg-[#0F2742] p-5 text-white shadow-[0_14px_34px_rgba(15,39,66,0.16)] sm:p-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
+              Gestión
+            </p>
 
-          <p className="mt-2 text-slate-600">
-            Consulta, analiza y exporta la información de tu actividad
-          </p>
-        </div>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Informes
+            </h1>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-7">
-
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#09a9a3]">
-                Informes mensuales
-              </p>
-
-              <h2 className="mt-1 text-xl font-bold text-slate-900">
-                Selecciona el informe y el periodo
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Los datos se actualizan automáticamente según el mes elegido
-              </p>
-            </div>
-
+            <p className="mt-2 text-sm text-white/55">
+              Consulta, analiza y exporta la información de tu actividad.
+            </p>
           </div>
 
-          <div
-            className={`mt-6 grid gap-4 ${
-              tipoInforme === "iql"
-                ? "md:grid-cols-2 lg:grid-cols-4"
-                : "md:grid-cols-3"
-            }`}
-          >
-
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                Informe
-              </label>
-
-              <select
-                value={tipoInforme}
-                onChange={(e) =>
-                  setTipoInforme(
-                    e.target.value as TipoInforme
-                  )
-                }
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-              >
-                <option value="iql">
-                  Liquidación mensual IQL
-                </option>
-
-                <option value="economico">
-                  Informe mensual completo
-                </option>
-
-                <option value="pendientes">
-                  Pendientes de cobro
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                Mes
-              </label>
-
-              <input
-                type="month"
-                value={mes}
-                onChange={(e) =>
-                  setMes(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
-              />
-            </div>
-
-            {tipoInforme ===
-              "iql" && (
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <div
+              className={`grid gap-3 ${
+                tipoInforme === "iql"
+                  ? "md:grid-cols-2 xl:grid-cols-[1.35fr_1fr_1.15fr_auto]"
+                  : "md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_auto]"
+              }`}
+            >
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Modelo PDF
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/45">
+                  Informe
                 </label>
-
                 <select
-                  value={modeloPdfIQL}
+                  value={tipoInforme}
                   onChange={(e) =>
-                    setModeloPdfIQL(
-                      e.target.value as
-                        "actual" | "simplificado"
+                    setTipoInforme(
+                      e.target.value as TipoInforme
                     )
                   }
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-[#09a9a3] focus:ring-2 focus:ring-teal-100"
+                  className="w-full rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-[#17324D] outline-none transition focus:border-[#4DD4CA] focus:ring-2 focus:ring-[#4DD4CA]/20"
                 >
-                  <option value="actual">
-                    Modelo actual
+                  <option value="iql">
+                    Liquidación mensual IQL
                   </option>
-
-                  <option value="simplificado">
-                    Modelo simplificado
+                  <option value="economico">
+                    Informe mensual completo
+                  </option>
+                  <option value="pendientes">
+                    Pendientes de cobro
                   </option>
                 </select>
               </div>
-            )}
 
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={generarPDF}
-                disabled={
-                  cargando ||
-                  generando
+              <div>
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/45">
+                  Mes
+                </label>
+                <input
+                  type="month"
+                  value={mes}
+                  onChange={(e) =>
+                    setMes(e.target.value)
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-[#17324D] outline-none transition focus:border-[#4DD4CA] focus:ring-2 focus:ring-[#4DD4CA]/20"
+                />
+              </div>
+
+              {tipoInforme === "iql" && (
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/45">
+                    Modelo PDF
+                  </label>
+                  <select
+                    value={modeloPdfIQL}
+                    onChange={(e) =>
+                      setModeloPdfIQL(
+                        e.target.value as
+                          | "actual"
+                          | "simplificado"
+                      )
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-[#17324D] outline-none transition focus:border-[#4DD4CA] focus:ring-2 focus:ring-[#4DD4CA]/20"
+                  >
+                    <option value="actual">
+                      Modelo actual
+                    </option>
+                    <option value="simplificado">
+                      Modelo simplificado
+                    </option>
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={generarPDF}
+                  disabled={cargando || generando}
+                  className="w-full rounded-xl bg-[#09A9A3] px-5 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(9,169,163,0.24)] transition hover:bg-[#078B86] disabled:cursor-not-allowed disabled:opacity-50 xl:min-w-[160px]"
+                >
+                  {generando
+                    ? "Generando PDF..."
+                    : "Generar PDF"}
+                </button>
+              </div>
+            </div>
+
+            {mensaje && (
+              <div
+                className={
+                  mensaje.startsWith("❌")
+                    ? "mt-3 rounded-xl border border-red-300/25 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100"
+                    : "mt-3 rounded-xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100"
                 }
-                className="w-full rounded-xl bg-[#09a9a3] px-5 py-3 font-bold text-white transition hover:bg-[#078b86] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {generando
-                  ? "Generando PDF..."
-                  : "Generar PDF"}
-              </button>
-            </div>
-
+                {mensaje}
+              </div>
+            )}
           </div>
-
-          {mensaje && (
-            <div
-              className={
-                mensaje.startsWith("❌")
-                  ? "mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
-                  : "mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700"
-              }
-            >
-              {mensaje}
-            </div>
-          )}
-
         </section>
-<section className="mt-8 rounded-2xl border border-purple-200 bg-purple-50 p-5">
-  <div className="flex items-center justify-between gap-4">
-    <div>
-      <p className="text-xs font-bold uppercase tracking-wide text-purple-600">
-        Ingresos extra del mes
-      </p>
 
-      <p className="mt-2 text-sm text-purple-700">
-        Propinas u otros ingresos excepcionales asociados a clases
-      </p>
-    </div>
+        {/* RESUMEN DESTACADO */}
+        <section className="mt-5 rounded-2xl border border-violet-100 bg-white p-5 shadow-[0_8px_24px_rgba(15,39,66,0.06)] sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-violet-600">
+                Ingresos extra del mes
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Propinas u otros ingresos excepcionales asociados a clases.
+              </p>
+            </div>
 
-    <p className="text-3xl font-bold text-purple-700">
-      {ingresosExtraGeneral.toFixed(2)} €
-    </p>
-  </div>
-</section>
+            <div className="rounded-xl bg-violet-50 px-4 py-3 text-right">
+              <p className="text-2xl font-bold tracking-tight text-violet-700 sm:text-3xl">
+                {ingresosExtraGeneral.toFixed(2)} €
+              </p>
+            </div>
+          </div>
+        </section>
 
 {tipoInforme === "economico" && (
-<section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+<section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,39,66,0.06)]">
 
   <div className="border-b border-slate-200 px-6 py-5">
 
-    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#09a9a3]">
+    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#09A9A3]">
       Comprobación económica
     </p>
 
-    <h2 className="mt-1 text-xl font-bold text-slate-900">
+    <h2 className="mt-1 text-xl font-bold text-[#17324D]">
       Desglose del mes
     </h2>
 
@@ -1864,7 +1841,7 @@ const ingresoMedio =
       <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
         Propias · pista de pago
       </p>
-      <p className="mt-2 text-2xl font-bold text-[#078b86]">
+      <p className="mt-2 text-2xl font-bold text-[#078B86]">
         {ingresosClasesPropiasPago.toFixed(2)} €
       </p>
       <p className="mt-1 text-xs text-slate-500">
@@ -1902,7 +1879,7 @@ const ingresoMedio =
 
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
 
-      <h3 className="font-bold text-slate-900">
+      <h3 className="font-bold text-[#17324D]">
         Cómo se generan los ingresos propios
       </h3>
 
@@ -1912,7 +1889,7 @@ const ingresoMedio =
           <span className="text-sm text-slate-600">
             Pago normal
           </span>
-          <strong className="text-slate-900">
+          <strong className="text-[#17324D]">
             {ingresosPagoNormalGenerado.toFixed(2)} €
           </strong>
         </div>
@@ -1921,7 +1898,7 @@ const ingresoMedio =
           <span className="text-sm text-slate-600">
             Valor consumido de bonos
           </span>
-          <strong className="text-slate-900">
+          <strong className="text-[#17324D]">
             {ingresosPorBonoConsumido.toFixed(2)} €
           </strong>
         </div>
@@ -1931,7 +1908,7 @@ const ingresoMedio =
             <span className="text-sm font-bold text-slate-700">
               Total clases propias
             </span>
-            <strong className="text-[#078b86]">
+            <strong className="text-[#078B86]">
               {(ingresosClasesPropiasPago + ingresosClasesPrivadas).toFixed(2)} €
             </strong>
           </div>
@@ -1943,7 +1920,7 @@ const ingresoMedio =
 
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
 
-      <h3 className="font-bold text-slate-900">
+      <h3 className="font-bold text-[#17324D]">
         Resultado del periodo
       </h3>
 
@@ -1978,7 +1955,7 @@ const ingresoMedio =
 
         <div className="border-t border-slate-200 pt-3">
           <div className="flex items-center justify-between gap-4">
-            <span className="font-bold text-slate-900">
+            <span className="font-bold text-[#17324D]">
               Resultado neto generado
             </span>
             <strong
@@ -2076,15 +2053,15 @@ variacionHoras={
   variacionHoras
 }
 />
-<section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+<section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,39,66,0.06)]">
 
   <div className="border-b border-slate-200 px-6 py-5">
 
-    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#09a9a3]">
+    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#09A9A3]">
       Evolución del mes
     </p>
 
-    <h2 className="mt-1 text-xl font-bold text-slate-900">
+    <h2 className="mt-1 text-xl font-bold text-[#17324D]">
       Acumulado diario
     </h2>
 
@@ -2185,7 +2162,7 @@ variacionHoras={
                   className="text-sm text-slate-700"
                 >
 
-                  <td className="px-6 py-4 font-semibold text-slate-900">
+                  <td className="px-6 py-4 font-semibold text-[#17324D]">
                     {numeroDia}/{numeroMes}/{anio}
                   </td>
 
@@ -2209,7 +2186,7 @@ variacionHoras={
                     {dia.horas.toFixed(1)}
                   </td>
 
-                  <td className="px-4 py-4 text-center font-semibold text-slate-900">
+                  <td className="px-4 py-4 text-center font-semibold text-[#17324D]">
                     {dia.ingresos.toFixed(2)} €
                   </td>
 
@@ -2224,7 +2201,7 @@ variacionHoras={
                   <td
                     className={
                       dia.saldoClub >= 0
-                        ? "px-4 py-4 text-center font-bold text-[#078b86]"
+                        ? "px-4 py-4 text-center font-bold text-[#078B86]"
                         : "px-4 py-4 text-center font-bold text-red-600"
                     }
                   >
@@ -2256,7 +2233,7 @@ variacionHoras={
                   <td
                     className={
                       dia.acumulado >= 0
-                        ? "px-6 py-4 text-center text-base font-bold text-[#09a9a3]"
+                        ? "px-6 py-4 text-center text-base font-bold text-[#09A9A3]"
                         : "px-6 py-4 text-center text-base font-bold text-red-600"
                     }
                   >
@@ -2273,7 +2250,7 @@ variacionHoras={
 
         <tfoot className="border-t-2 border-slate-200 bg-slate-50">
 
-          <tr className="font-bold text-slate-900">
+          <tr className="font-bold text-[#17324D]">
 
             <td className="px-6 py-4">
               TOTAL MES
@@ -2314,7 +2291,7 @@ variacionHoras={
             <td
               className={
                 totalSaldoClub >= 0
-                  ? "px-4 py-4 text-center text-[#078b86]"
+                  ? "px-4 py-4 text-center text-[#078B86]"
                   : "px-4 py-4 text-center text-red-600"
               }
             >
@@ -2337,7 +2314,7 @@ variacionHoras={
               {resultadoPeriodo.toFixed(2)} €
             </td>
 
-            <td className="px-6 py-4 text-center text-[#09a9a3]">
+            <td className="px-6 py-4 text-center text-[#09A9A3]">
               {resultadoPeriodo.toFixed(2)} €
             </td>
 
