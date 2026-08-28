@@ -373,10 +373,28 @@ export async function generarPdfIQLSimplificado(
         },
         3: {
           cellWidth: 25,
-          halign: "right",
           textColor: turquesa,
           fontStyle: "bold",
         },
+      },
+      didParseCell: (data) => {
+        if (data.section === "head") {
+          data.cell.styles.halign = "center";
+        }
+
+        if (data.section === "body") {
+          if (
+            data.column.index === 0 ||
+            data.column.index === 1 ||
+            data.column.index === 3
+          ) {
+            data.cell.styles.halign = "center";
+          }
+
+          if (data.column.index === 2) {
+            data.cell.styles.halign = "left";
+          }
+        }
       },
       didDrawPage: (data) => {
         if (
@@ -513,10 +531,18 @@ export async function generarPdfIQLSimplificado(
         },
         2: {
           cellWidth: 25,
-          halign: "right",
           textColor: rojo,
           fontStyle: "bold",
         },
+      },
+      didParseCell: (data) => {
+        if (data.section === "head") {
+          data.cell.styles.halign = "center";
+        }
+
+        if (data.section === "body") {
+          data.cell.styles.halign = "center";
+        }
       },
       didDrawPage: (data) => {
         if (
