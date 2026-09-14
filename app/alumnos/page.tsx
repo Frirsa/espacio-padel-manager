@@ -8,6 +8,7 @@ import {
 
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { sincronizarClaseConGoogleCalendar } from "../../lib/googleCalendarClient";
 
 import FichaAlumno from "../../components/alumnos/FichaAlumno";
 import HistorialAlumno from "../../components/alumnos/HistorialAlumno";
@@ -78,6 +79,28 @@ type ClaseAlumnoResumen = {
       nombre: string;
     } | null;
   } | null;
+};
+
+
+type ClaseGoogleAlumno = {
+  id: string;
+  google_calendar_event_id: string | null;
+  fecha: string;
+  hora_inicio: string;
+  duracion_minutos: number;
+  tipo: string;
+  estado: string;
+  observaciones: string | null;
+  ubicaciones: {
+    nombre: string;
+    tipo: string;
+  } | null;
+  clase_alumnos: {
+    alumnos: {
+      nombre: string;
+      apellidos: string | null;
+    } | null;
+  }[];
 };
 
 export default function AlumnosPage() {
@@ -478,12 +501,281 @@ export default function AlumnosPage() {
     );
   }
 
+  function fechaLocalHoy() {
+    const hoy =
+      new Date();
+
+    const anio =
+      hoy.getFullYear();
+
+    const mes =
+      String(
+        hoy.getMonth() + 1
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const dia =
+      String(
+        hoy.getDate()
+      ).padStart(
+        2,
+        "0"
+      );
+
+    return `${anio}-${mes}-${dia}`;
+  }
+
+  async function sincronizarClasesFuturasPorCambioNombre(
+    alumnoId: string
+  ) {
+    const {
+      data: relaciones,
+      error: errorRelaciones,
+    } = await supabase
+      .from("clase_alumnos")
+      .select("clase_id")
+      .eq(
+        "alumno_id",
+        alumnoId
+      );
+
+    if (errorRelaciones) {
+      throw new Error(
+        errorRelaciones.message
+      );
+    }
+
+    const idsClases =
+      Array.from(
+        new Set(
+          (
+            relaciones ||
+            []
+          )
+            .map(
+              (relacion) =>
+                relacion.clase_id
+            )
+            .filter(Boolean)
+        )
+      ) as string[];
+
+    if (
+      idsClases.length === 0
+    ) {
+      return {
+        actualizadas: 0,
+        fallidas: 0,
+      };
+    }
+
+    const hoy =
+      fechaLocalHoy();
+
+    const {
+      data: clasesData,
+      error: errorClases,
+    } = await supabase
+      .from("clases")
+      .select(`
+        id,
+        google_calendar_event_id,
+        fecha,
+        hora_inicio,
+        duracion_minutos,
+        tipo,
+        estado,
+        observaciones,
+        ubicaciones (
+          nombre,
+          tipo
+        ),
+        clase_alumnos (
+          alumnos (
+            nombre,
+            apellidos
+          )
+        )
+      `)
+      .in(
+        "id",
+        idsClases
+      )
+      .gte(
+        "fecha",
+        hoy
+      )
+      .not(
+        "google_calendar_event_id",
+        "is",
+        null
+      )
+      .order(
+        "fecha",
+        {
+          ascending: true,
+        }
+      )
+      .order(
+        "hora_inicio",
+        {
+          ascending: true,
+        }
+      );
+
+    if (errorClases) {
+      throw new Error(
+        errorClases.message
+      );
+    }
+
+    const ahora =
+      new Date();
+
+    const clasesFuturas =
+      (
+        (clasesData ||
+          []) as unknown as ClaseGoogleAlumno[]
+      ).filter(
+        (clase) => {
+          const fechaHora =
+            new Date(
+              `${clase.fecha}T${clase.hora_inicio}`
+            );
+
+          return (
+            fechaHora.getTime() >=
+            ahora.getTime()
+          );
+        }
+      );
+
+    let actualizadas =
+      0;
+
+    let fallidas =
+      0;
+
+    for (
+      const clase of clasesFuturas
+    ) {
+      try {
+        await sincronizarClaseConGoogleCalendar(
+          {
+            id:
+              clase.id,
+            google_calendar_event_id:
+              clase.google_calendar_event_id,
+            fecha:
+              clase.fecha,
+            hora_inicio:
+              clase.hora_inicio,
+            duracion_minutos:
+              Number(
+                clase.duracion_minutos ||
+                  60
+              ),
+            tipo:
+              clase.tipo,
+            estado:
+              clase.estado,
+            observaciones:
+              clase.observaciones,
+            ubicacion:
+              clase.ubicaciones
+                ?.nombre ||
+              null,
+            tipo_ubicacion:
+              clase.ubicaciones
+                ?.tipo ||
+              null,
+            alumnos:
+              clase.clase_alumnos
+                .map(
+                  (
+                    participante
+                  ) => {
+                    const alumno =
+                      participante.alumnos;
+
+                    if (!alumno) {
+                      return "";
+                    }
+
+                    return `${alumno.nombre} ${
+                      alumno.apellidos ||
+                      ""
+                    }`.trim();
+                  }
+                )
+                .filter(
+                  Boolean
+                ),
+          }
+        );
+
+        actualizadas +=
+          1;
+      } catch {
+        fallidas +=
+          1;
+      }
+    }
+
+    return {
+      actualizadas,
+      fallidas,
+    };
+  }
+
   async function guardarAlumno(
     e: FormEvent
   ) {
     e.preventDefault();
 
     setMensaje("");
+
+    const alumnoAnterior =
+      alumnoEditandoId
+        ? alumnos.find(
+            (alumno) =>
+              alumno.id ===
+              alumnoEditandoId
+          ) ||
+          null
+        : null;
+
+    const nombreAnterior =
+      (
+        alumnoAnterior?.nombre ||
+        ""
+      ).trim();
+
+    const apellidosAnteriores =
+      (
+        alumnoAnterior?.apellidos ||
+        ""
+      ).trim();
+
+    const nombreNuevo =
+      nombre.trim();
+
+    const apellidosNuevos =
+      apellidos.trim();
+
+    const cambioNombre =
+      Boolean(
+        alumnoEditandoId &&
+        alumnoAnterior &&
+        (
+          nombreAnterior !==
+            nombreNuevo ||
+          apellidosAnteriores !==
+            apellidosNuevos
+        )
+      );
 
     let fotoFinal:
       string | null = null;
@@ -506,9 +798,10 @@ export default function AlumnosPage() {
     }
 
     const datos = {
-      nombre,
+      nombre:
+        nombreNuevo,
       apellidos:
-        apellidos || null,
+        apellidosNuevos || null,
       apodo:
         apodo.trim() || null,
       fecha_nacimiento:
@@ -579,9 +872,50 @@ export default function AlumnosPage() {
     const alumnoQueSeEstabaEditando =
       alumnoEditandoId;
 
+    let mensajeGoogle =
+      "";
+
+    if (
+      alumnoEditandoId &&
+      cambioNombre
+    ) {
+      try {
+        const resultadoGoogle =
+          await sincronizarClasesFuturasPorCambioNombre(
+            alumnoEditandoId
+          );
+
+        if (
+          resultadoGoogle.fallidas >
+          0
+        ) {
+          mensajeGoogle =
+            ` · ⚠️ Google Calendar: ${resultadoGoogle.actualizadas} clase(s) actualizada(s) y ${resultadoGoogle.fallidas} con error.`;
+        } else if (
+          resultadoGoogle.actualizadas >
+          0
+        ) {
+          mensajeGoogle =
+            ` · Google Calendar actualizado en ${resultadoGoogle.actualizadas} clase(s) futura(s).`;
+        }
+      } catch (
+        errorGoogle
+      ) {
+        const texto =
+          errorGoogle instanceof Error
+            ? errorGoogle.message
+            : "Error desconocido";
+
+        mensajeGoogle =
+          " · ⚠️ El alumno se guardó, pero no se pudieron actualizar sus clases futuras en Google Calendar: " +
+          texto;
+      }
+    }
+
     setMensaje(
       alumnoEditandoId
-        ? "✅ Alumno actualizado correctamente"
+        ? "✅ Alumno actualizado correctamente" +
+            mensajeGoogle
         : "✅ Alumno creado correctamente"
     );
 
