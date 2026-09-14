@@ -631,25 +631,10 @@ export default function AlumnosPage() {
       );
     }
 
-    const ahora =
-      new Date();
-
     const clasesFuturas =
       (
         (clasesData ||
           []) as unknown as ClaseGoogleAlumno[]
-      ).filter(
-        (clase) => {
-          const fechaHora =
-            new Date(
-              `${clase.fecha}T${clase.hora_inicio}`
-            );
-
-          return (
-            fechaHora.getTime() >=
-            ahora.getTime()
-          );
-        }
       );
 
     let actualizadas =
