@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { calcularEconomiaClase } from "../../lib/economia";
 
 type UbicacionClub = {
   id: string;
   nombre: string;
+  es_club_referencia: boolean | null;
 };
 
 type ClaseClub = {
@@ -13,18 +15,36 @@ type ClaseClub = {
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
+  tipo: string;
   estado: string;
   facturable: boolean;
   cobrada: boolean;
   importe_club: number;
+  coste_pista: number;
+  ingreso_extra: number;
+  modo_cobro: string | null;
+  importe_total: number | null;
   fecha_cobro_club: string | null;
   metodo_cobro_club: string | null;
+  ubicaciones: {
+    es_club_referencia: boolean | null;
+  } | null;
   clase_alumnos: {
+    importe: number;
+    usa_bono: boolean;
     alumnos: {
       nombre: string;
       apellidos: string | null;
     } | null;
   }[];
+};
+
+type LiquidacionClub = {
+  id: string;
+  fecha_cobro: string;
+  metodo: string;
+  importe: number;
+  numero_clases: number;
 };
 
 function mesActual() {
@@ -371,7 +391,7 @@ function CampoFechaCobroClub({
   return (
     <div>
       <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
-        Fecha de cobro
+        Fecha de liquidación
       </span>
 
       <div className="relative">
@@ -416,6 +436,7 @@ export default function CobrosClub() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState("");
+  const [liquidacion, setLiquidacion] = useState<LiquidacionClub | null>(null);
 
   useEffect(() => {
     cargarClubs();
@@ -435,7 +456,7 @@ export default function CobrosClub() {
 
     const { data, error } = await supabase
       .from("ubicaciones")
-      .select("id,nombre")
+      .select("id,nombre,es_club_referencia")
       .eq("tipo", "club")
       .eq("activa", true)
       .order("nombre");
@@ -460,6 +481,7 @@ export default function CobrosClub() {
     const { inicio, fin } = limitesMes(mes);
     setCargando(true);
     setMensaje("");
+    setLiquidacion(null);
 
     const { data, error } = await supabase
       .from("clases")
@@ -468,20 +490,29 @@ export default function CobrosClub() {
         fecha,
         hora_inicio,
         duracion_minutos,
+        tipo,
         estado,
         facturable,
         cobrada,
         importe_club,
+        coste_pista,
+        ingreso_extra,
+        modo_cobro,
+        importe_total,
         fecha_cobro_club,
         metodo_cobro_club,
+        ubicaciones (
+          es_club_referencia
+        ),
         clase_alumnos (
+          importe,
+          usa_bono,
           alumnos (
             nombre,
             apellidos
           )
         )
       `)
-      .eq("tipo", "club")
       .eq("ubicacion_id", clubId)
       .gte("fecha", inicio)
       .lt("fecha", fin)
@@ -495,45 +526,121 @@ export default function CobrosClub() {
       return;
     }
 
+    const periodo = `${mes}-01`;
+
+    const {
+      data: liquidacionData,
+      error: errorLiquidacion,
+    } = await supabase
+      .from("cobros_club")
+      .select(`
+        id,
+        fecha_cobro,
+        metodo,
+        importe,
+        numero_clases
+      `)
+      .eq("ubicacion_id", clubId)
+      .eq("periodo", periodo)
+      .maybeSingle();
+
+    if (errorLiquidacion) {
+      setMensaje(
+        "❌ No se pudo cargar la liquidación mensual: " +
+          errorLiquidacion.message
+      );
+      setClases([]);
+      setCargando(false);
+      return;
+    }
+
     setClases((data || []) as unknown as ClaseClub[]);
+    setLiquidacion(
+      liquidacionData
+        ? {
+            ...liquidacionData,
+            importe: Number(liquidacionData.importe || 0),
+            numero_clases: Number(liquidacionData.numero_clases || 0),
+          }
+        : null
+    );
     setCargando(false);
   }
 
   const clasesFacturables = useMemo(
     () =>
-      clases.filter(
-        (clase) =>
-          clase.facturable &&
-          (clase.estado === "realizada" || clase.estado === "cancelada")
-      ),
+      clases.filter((clase) => {
+        const economia = calcularEconomiaClase(clase);
+        return clase.tipo === "club" && economia.cuentaEconomicamente;
+      }),
     [clases]
   );
 
   const pendientes = clasesFacturables.filter((clase) => !clase.cobrada);
   const cobradas = clasesFacturables.filter((clase) => clase.cobrada);
 
-  const totalMes = clasesFacturables.reduce(
-    (total, clase) => total + Number(clase.importe_club || 0),
+  const totalMes = clases.reduce(
+    (total, clase) =>
+      total + calcularEconomiaClase(clase).clubGenerado,
     0
   );
 
   const totalPendiente = pendientes.reduce(
-    (total, clase) => total + Number(clase.importe_club || 0),
+    (total, clase) =>
+      total + calcularEconomiaClase(clase).clubGenerado,
     0
   );
 
   const totalCobrado = cobradas.reduce(
-    (total, clase) => total + Number(clase.importe_club || 0),
+    (total, clase) =>
+      total + calcularEconomiaClase(clase).clubCobrado,
     0
   );
 
+  const pistasPagadasClub = clases.reduce(
+    (total, clase) =>
+      total + calcularEconomiaClase(clase).pistasPagadasClub,
+    0
+  );
+
+  const saldoNetoMes = totalMes - pistasPagadasClub;
+
   const clubSeleccionado = clubs.find((club) => club.id === clubId);
 
+  const saldoAbsoluto = Math.abs(saldoNetoMes);
+
+  const textoSaldo =
+    saldoNetoMes > 0.005
+      ? `${saldoAbsoluto.toFixed(2)} € a favor de Espacio Pádel Academy`
+      : saldoNetoMes < -0.005
+      ? `${saldoAbsoluto.toFixed(2)} € a favor de ${clubSeleccionado?.nombre || "club"}`
+      : "Saldo 0,00 €";
+
+  const textoLiquidacion =
+    liquidacion
+      ? liquidacion.importe > 0.005
+        ? `${Math.abs(liquidacion.importe).toFixed(2)} € a favor de Espacio Pádel Academy`
+        : liquidacion.importe < -0.005
+        ? `${Math.abs(liquidacion.importe).toFixed(2)} € a favor de ${clubSeleccionado?.nombre || "club"}`
+        : "Saldo 0,00 €"
+      : "";
+
   async function marcarMesCobrado() {
-    if (pendientes.length === 0 || !clubId || !mes) return;
+    if (
+      !clubId ||
+      !mes ||
+      clasesFacturables.length === 0 ||
+      liquidacion
+    ) {
+      return;
+    }
 
     const confirmar = window.confirm(
-      `Se marcarán como cobradas ${pendientes.length} clase(s) por un total de ${totalPendiente.toFixed(2)} €. ¿Continuar?`
+      `Se cerrará la liquidación mensual de ${clubSeleccionado?.nombre || "club"}.\n\n` +
+        `Club generado: ${totalMes.toFixed(2)} €\n` +
+        `Pistas pagadas: ${pistasPagadasClub.toFixed(2)} €\n` +
+        `Saldo: ${textoSaldo}\n\n` +
+        `Se marcarán como cobradas ${pendientes.length} clase(s) pendiente(s). ¿Continuar?`
     );
 
     if (!confirmar) return;
@@ -541,21 +648,23 @@ export default function CobrosClub() {
     setGuardando(true);
     setMensaje("");
 
-    const ids = pendientes.map((clase) => clase.id);
+    if (pendientes.length > 0) {
+      const ids = pendientes.map((clase) => clase.id);
 
-    const { error: errorClases } = await supabase
-      .from("clases")
-      .update({
-        cobrada: true,
-        fecha_cobro_club: fechaCobro,
-        metodo_cobro_club: metodo,
-      })
-      .in("id", ids);
+      const { error: errorClases } = await supabase
+        .from("clases")
+        .update({
+          cobrada: true,
+          fecha_cobro_club: fechaCobro,
+          metodo_cobro_club: metodo,
+        })
+        .in("id", ids);
 
-    if (errorClases) {
-      setMensaje("❌ No se pudo registrar el cobro: " + errorClases.message);
-      setGuardando(false);
-      return;
+      if (errorClases) {
+        setMensaje("❌ No se pudo cerrar la liquidación: " + errorClases.message);
+        setGuardando(false);
+        return;
+      }
     }
 
     const periodo = `${mes}-01`;
@@ -568,7 +677,7 @@ export default function CobrosClub() {
           periodo,
           fecha_cobro: fechaCobro,
           metodo,
-          importe: totalMes,
+          importe: saldoNetoMes,
           numero_clases: clasesFacturables.length,
           updated_at: new Date().toISOString(),
         },
@@ -577,7 +686,7 @@ export default function CobrosClub() {
 
     if (errorLiquidacion) {
       setMensaje(
-        "⚠️ Las clases se han marcado como cobradas, pero no se pudo guardar el resumen mensual: " +
+        "⚠️ Las clases se han marcado como cobradas, pero no se pudo guardar la liquidación mensual: " +
           errorLiquidacion.message
       );
       setGuardando(false);
@@ -586,7 +695,7 @@ export default function CobrosClub() {
     }
 
     setMensaje(
-      `✅ Cobro de ${clubSeleccionado?.nombre || "club"} registrado: ${totalPendiente.toFixed(2)} €`
+      `✅ Liquidación de ${clubSeleccionado?.nombre || "club"} cerrada: ${textoSaldo}`
     );
 
     setGuardando(false);
@@ -625,7 +734,7 @@ export default function CobrosClub() {
               </h2>
 
               <p className="mt-1 text-sm text-white/55">
-                Revisa las clases facturables del mes y registra la liquidación completa.
+                Compensa clases del club y pistas pagadas para cerrar el saldo real del mes.
               </p>
             </div>
           </div>
@@ -656,34 +765,40 @@ export default function CobrosClub() {
 
           <div className="rounded-xl border border-[#4DD4CA]/20 bg-[#00A79C]/15 px-3 py-3 sm:px-4">
             <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#85E6DF]">
-              Total mes
+              Club generado
             </p>
             <p className="mt-1 whitespace-nowrap text-xl font-bold text-[#85E6DF]">
-              {totalMes.toFixed(
-                2
-              )} €
+              {totalMes.toFixed(2)} €
             </p>
           </div>
 
-          <div className="rounded-xl border border-emerald-300/15 bg-emerald-400/10 px-3 py-3 sm:px-4">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-emerald-200/80">
-              Cobrado
+          <div className="rounded-xl border border-amber-300/20 bg-amber-400/10 px-3 py-3 sm:px-4">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-amber-200/80">
+              Pistas pagadas
             </p>
             <p className="mt-1 whitespace-nowrap text-xl font-bold text-white">
-              {totalCobrado.toFixed(
-                2
-              )} €
+              {pistasPagadasClub.toFixed(2)} €
             </p>
           </div>
 
-          <div className="rounded-xl border border-red-300/20 bg-red-400/10 px-3 py-3 sm:px-4">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-red-200/80">
-              Pendiente
+          <div
+            className={
+              saldoNetoMes >= 0
+                ? "rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-3 sm:px-4"
+                : "rounded-xl border border-red-300/20 bg-red-400/10 px-3 py-3 sm:px-4"
+            }
+          >
+            <p
+              className={
+                saldoNetoMes >= 0
+                  ? "text-[9px] font-bold uppercase tracking-[0.1em] text-emerald-200/80"
+                  : "text-[9px] font-bold uppercase tracking-[0.1em] text-red-200/80"
+              }
+            >
+              Saldo neto
             </p>
             <p className="mt-1 whitespace-nowrap text-xl font-bold text-white">
-              {totalPendiente.toFixed(
-                2
-              )} €
+              {saldoNetoMes.toFixed(2)} €
             </p>
           </div>
         </div>
@@ -725,7 +840,22 @@ export default function CobrosClub() {
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+          <div className="space-y-3">
+            {liquidacion && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 sm:px-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-600">
+                  Mes liquidado
+                </p>
+                <p className="mt-1 text-sm font-bold text-emerald-800">
+                  {textoLiquidacion}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-emerald-700/80">
+                  Liquidado el {formatearFecha(liquidacion.fecha_cobro)} · {liquidacion.metodo}
+                </p>
+              </div>
+            )}
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-[#FBFCFD] px-4 py-3.5">
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#00A79C]">
@@ -744,7 +874,7 @@ export default function CobrosClub() {
                 {clasesFacturables.length ===
                 1
                   ? "clase"
-                  : "clases"}
+                  : "clases"} · {totalPendiente.toFixed(2)} € pendiente bruto
               </span>
             </div>
 
@@ -980,35 +1110,27 @@ export default function CobrosClub() {
                   }
                   disabled={
                     guardando ||
-                    pendientes.length ===
-                      0
+                    clasesFacturables.length ===
+                      0 ||
+                    Boolean(liquidacion)
                   }
                   className="h-11 rounded-xl bg-[#00A79C] px-5 text-sm font-bold text-white transition hover:bg-[#008F86] disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {guardando
                     ? "Guardando..."
-                    : pendientes.length ===
-                      0
-                    ? "Mes cobrado"
-                    : `Marcar ${totalPendiente.toFixed(
-                        2
-                      )} € como cobrado`}
+                    : liquidacion
+                    ? "Mes liquidado"
+                    : `Liquidar mes · ${textoSaldo}`}
                 </button>
               </div>
 
-              {pendientes.length >
-                0 && (
-                <p className="mt-3 text-xs text-slate-500">
-                  Se marcarán únicamente las{" "}
-                  {pendientes.length}{" "}
-                  {pendientes.length ===
-                  1
-                    ? "clase pendiente"
-                    : "clases pendientes"}{" "}
-                  de este mes.
+              {!liquidacion && (
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  La liquidación mensual compensa el importe generado por las clases del club con las pistas pagadas en el club de referencia. Al confirmar se cerrarán globalmente las {pendientes.length} clase(s) de club que sigan pendientes.
                 </p>
               )}
             </div>
+          </div>
           </div>
         )}
 
