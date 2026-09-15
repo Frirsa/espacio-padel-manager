@@ -3632,17 +3632,15 @@ export default function BonosPage() {
                           )
                       );
                   const usos =
-                    bono.grupo_id
-                      ? usosBrutos.filter(
-                          (uso, indice, lista) =>
-                            !!uso.clases?.id &&
-                            lista.findIndex(
-                              (otro) =>
-                                otro.clases?.id ===
-                                uso.clases?.id
-                            ) === indice
-                        )
-                      : usosBrutos;
+                    usosBrutos.filter(
+                      (uso, indice, lista) =>
+                        !!uso.clases?.id &&
+                        lista.findIndex(
+                          (otro) =>
+                            otro.clases?.id ===
+                            uso.clases?.id
+                        ) === indice
+                    );
 
                   const usadas =
                     usos.length;
