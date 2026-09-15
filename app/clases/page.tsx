@@ -2922,26 +2922,12 @@ export default function ClasesPage() {
                 participante.bono_id
             );
 
-          if (bono?.grupo_id) {
-            // Un bono de grupo representa clases del grupo completo:
-            // aunque varios integrantes usen el mismo bono en la clase,
-            // solo se descuenta una clase del bono.
-            resultado[
-              participante.bono_id
-            ] = 1;
-          } else {
-            // Bonos individuales/compartidos mantienen la lógica histórica:
-            // cada participante que usa el bono consume una clase.
-            resultado[
-              participante.bono_id
-            ] =
-              (
-                resultado[
-                  participante
-                    .bono_id
-                ] || 0
-              ) + 1;
-          }
+          // Un mismo bono representa una sesión, no una unidad por alumno.
+          // Si varios alumnos autorizados usan el mismo bono en la misma clase,
+          // el bono se descuenta una sola vez.
+          resultado[
+            participante.bono_id
+          ] = 1;
         }
       }
     );
@@ -3777,11 +3763,7 @@ export default function ClasesPage() {
                             bono.numero_clases
                           );
 
-                        if (!bono.grupo_id) {
-                          return importeClaseBono;
-                        }
-
-                        const usuariosMismoBonoGrupo =
+                        const usuariosMismoBono =
                           alumnosSeleccionados.filter(
                             (id) =>
                               modoPagoAlumnos[
@@ -3792,10 +3774,10 @@ export default function ClasesPage() {
                               ] === bono.id
                           ).length;
 
-                        return usuariosMismoBonoGrupo >
+                        return usuariosMismoBono >
                           0
                           ? importeClaseBono /
-                              usuariosMismoBonoGrupo
+                              usuariosMismoBono
                           : importeClaseBono;
                       })()
                     : modoCobroFinalSerie ===
@@ -4610,11 +4592,7 @@ export default function ClasesPage() {
                             bono.numero_clases
                           );
 
-                        if (!bono.grupo_id) {
-                          return importeClaseBono;
-                        }
-
-                        const usuariosMismoBonoGrupo =
+                        const usuariosMismoBono =
                           alumnosSeleccionados.filter(
                             (id) =>
                               modoPagoAlumnos[
@@ -4625,10 +4603,10 @@ export default function ClasesPage() {
                               ] === bono.id
                           ).length;
 
-                        return usuariosMismoBonoGrupo >
+                        return usuariosMismoBono >
                           0
                           ? importeClaseBono /
-                              usuariosMismoBonoGrupo
+                              usuariosMismoBono
                           : importeClaseBono;
                       })()
                     : modoCobroFinal ===
