@@ -802,31 +802,48 @@ export default function Home() {
         );
 
     const {
-      data: clasesClubPendientesData,
+      data: clasesLiquidacionClubData,
     } =
       await supabase
         .from("clases")
-        .select(
-          "id,importe_club"
-        )
-        .eq(
-          "tipo",
-          "club"
-        )
-        .eq(
-          "facturable",
-          true
-        )
-        .eq(
-          "cobrada",
-          false
-        )
+        .select(`
+          id,
+          fecha,
+          ubicacion_id,
+          tipo,
+          estado,
+          facturable,
+          cobrada,
+          importe_club,
+          coste_pista,
+          ingreso_extra,
+          modo_cobro,
+          importe_total,
+          ubicaciones (
+            nombre,
+            es_club_referencia
+          ),
+          clase_alumnos (
+            alumno_id,
+            importe,
+            usa_bono
+          )
+        `)
         .in(
           "estado",
           [
             "realizada",
             "cancelada",
           ]
+        );
+
+    const {
+      data: liquidacionesClubData,
+    } =
+      await supabase
+        .from("cobros_club")
+        .select(
+          "ubicacion_id,periodo"
         );
 
     const {
@@ -881,8 +898,101 @@ export default function Home() {
     const numeroPendientesNormales =
       (pagosPendientesData || []).length;
 
+    const liquidacionesCerradas =
+      new Set(
+        (liquidacionesClubData || []).map(
+          (liquidacion: any) =>
+            `${liquidacion.ubicacion_id}|${liquidacion.periodo}`
+        )
+      );
+
+    const liquidacionesPendientesPorMes =
+      new Map<
+        string,
+        {
+          ubicacionId: string;
+          periodo: string;
+          clubGenerado: number;
+          pistasPagadas: number;
+        }
+      >();
+
+    (
+      clasesLiquidacionClubData ||
+      []
+    )
+      .filter(
+        (clase: any) =>
+          esClaseEconomica(clase) &&
+          clase.ubicacion_id &&
+          clase.ubicaciones?.es_club_referencia === true
+      )
+      .forEach((clase: any) => {
+        const periodo =
+          String(
+            clase.fecha || ""
+          ).slice(0, 7);
+
+        if (!periodo) {
+          return;
+        }
+
+        const clave =
+          `${clase.ubicacion_id}|${periodo}`;
+
+        if (
+          liquidacionesCerradas.has(
+            clave
+          )
+        ) {
+          return;
+        }
+
+        const economia =
+          calcularEconomiaClase(
+            clase
+          );
+
+        const actual =
+          liquidacionesPendientesPorMes.get(
+            clave
+          ) || {
+            ubicacionId:
+              clase.ubicacion_id,
+            periodo,
+            clubGenerado: 0,
+            pistasPagadas: 0,
+          };
+
+        actual.clubGenerado +=
+          economia.clubGenerado;
+
+        actual.pistasPagadas +=
+          economia.pistasPagadasClub;
+
+        liquidacionesPendientesPorMes.set(
+          clave,
+          actual
+        );
+      });
+
+    const liquidacionesClubPendientes =
+      Array.from(
+        liquidacionesPendientesPorMes.values()
+      )
+        .map((liquidacion) => ({
+          ...liquidacion,
+          saldoNeto:
+            liquidacion.clubGenerado -
+            liquidacion.pistasPagadas,
+        }))
+        .filter(
+          (liquidacion) =>
+            liquidacion.saldoNeto > 0
+        );
+
     const numeroPendientesClubCalculado =
-      (clasesClubPendientesData || []).length;
+      liquidacionesClubPendientes.length;
 
     setNumeroPendientesAlumnos(
       numeroPendientesNormales
@@ -915,19 +1025,13 @@ export default function Home() {
       );
 
     const totalPendienteClub =
-      (
-        clasesClubPendientesData ||
-        []
-      ).reduce(
+      liquidacionesClubPendientes.reduce(
         (
           total,
-          clase
+          liquidacion
         ) =>
           total +
-          Number(
-            clase.importe_club ||
-              0
-          ),
+          liquidacion.saldoNeto,
         0
       );
 
@@ -1621,7 +1725,7 @@ export default function Home() {
                         )}
                         {numeroPendientesClub > 0 && (
                           <p>
-                            Clubs: {numeroPendientesClub} · {pendienteClub.toFixed(2)} €
+                            Liquidaciones club: {numeroPendientesClub} · {pendienteClub.toFixed(2)} €
                           </p>
                         )}
                       </div>
