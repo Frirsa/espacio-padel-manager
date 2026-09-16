@@ -902,7 +902,9 @@ export default function Home() {
       new Set(
         (liquidacionesClubData || []).map(
           (liquidacion: any) =>
-            `${liquidacion.ubicacion_id}|${liquidacion.periodo}`
+            `${liquidacion.ubicacion_id}|${String(
+              liquidacion.periodo || ""
+            ).slice(0, 7)}`
         )
       );
 
