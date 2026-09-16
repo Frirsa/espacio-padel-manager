@@ -241,15 +241,28 @@ function estadoEconomicoClase(
         !participante.usa_bono
     );
 
-  if (
-    pagosNormales.length === 0
-  ) {
-    return "cobrada" as const;
-  }
+  const participantesConBono =
+    clase.clase_alumnos.filter(
+      (participante) =>
+        participante.usa_bono
+    );
 
-  return pagosNormales.every(
-    (participante) =>
-      participante.pagado
+  const bonosPagados =
+    participantesConBono.every(
+      (participante) =>
+        participante.bono_estado_cobro ===
+        "pagado"
+    );
+
+  const pagosNormalesCobrados =
+    pagosNormales.every(
+      (participante) =>
+        participante.pagado
+    );
+
+  return (
+    bonosPagados &&
+    pagosNormalesCobrados
   )
     ? "cobrada" as const
     : "pendiente" as const;

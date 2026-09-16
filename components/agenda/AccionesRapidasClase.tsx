@@ -31,6 +31,7 @@ export type ClaseAccionesRapidas = {
     pagado: boolean;
     usa_bono: boolean;
     bono_id: string | null;
+    bono_estado_cobro?: "pagado" | "pendiente" | null;
     asistio: boolean;
     alumnos: {
       id: string;
@@ -49,6 +50,7 @@ type BonoRapido = {
   clases_restantes: number;
   importe_pagado: number;
   activo: boolean;
+  estado_cobro: "pagado" | "pendiente" | null;
   titular_nombre: string;
 };
 
@@ -63,6 +65,22 @@ type Props = {
   onCerrar: () => void;
   onClaseActualizada: () => Promise<void>;
 };
+
+function fechaHoraYaHaLlegado(
+  fechaClase: string,
+  horaClase: string
+) {
+  const [anio, mes, dia] =
+    fechaClase.split("-").map(Number);
+  const [hora, minuto] =
+    horaClase.slice(0, 5).split(":").map(Number);
+
+  const inicioClase = new Date(
+    anio, mes - 1, dia, hora, minuto, 0, 0
+  );
+
+  return inicioClase.getTime() <= Date.now();
+}
 
 function calcularHoraFin(
   horaInicio: string,
@@ -443,7 +461,7 @@ export default function AccionesRapidasClase({
         supabase
           .from("bonos")
           .select(
-            "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,activo"
+            "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,activo,estado_cobro"
           )
           .eq("activo", true)
           .gt("clases_restantes", 0),
@@ -680,8 +698,10 @@ export default function AccionesRapidasClase({
     alumnoId: string
   ) {
     const prefijo =
-      bono.alumno_id ===
-      alumnoId
+      bono.grupo_id
+        ? "Bono de grupo"
+        : bono.alumno_id ===
+          alumnoId
         ? "Bono propio"
         : `Bono de ${bono.titular_nombre}`;
 
@@ -739,16 +759,14 @@ export default function AccionesRapidasClase({
               bono.id
         );
 
-      const numeroUsuariosBonoGrupo =
-        bono.grupo_id
-          ? otrosConMismoBono.length +
-            1
-          : 1;
+      const numeroUsuariosMismoBono =
+        otrosConMismoBono.length +
+        1;
 
       const importeParticipante =
-        bono.grupo_id
+        numeroUsuariosMismoBono > 0
           ? importeClaseBono /
-            numeroUsuariosBonoGrupo
+            numeroUsuariosMismoBono
           : importeClaseBono;
 
       const participantesActualizados =
@@ -762,6 +780,8 @@ export default function AccionesRapidasClase({
                 ...item,
                 usa_bono: true,
                 bono_id: bono.id,
+                bono_estado_cobro:
+                  bono.estado_cobro,
                 pagado: true,
                 importe:
                   importeParticipante,
@@ -769,7 +789,6 @@ export default function AccionesRapidasClase({
             }
 
             if (
-              bono.grupo_id &&
               item.usa_bono &&
               item.bono_id ===
                 bono.id
@@ -1040,6 +1059,19 @@ export default function AccionesRapidasClase({
   ) {
     const claseTrabajo =
       claseSeleccionada;
+
+    if (
+      estado === "realizada" &&
+      !fechaHoraYaHaLlegado(
+        claseTrabajo.fecha,
+        claseTrabajo.hora_inicio
+      )
+    ) {
+      setMensajeAccion(
+        "❌ No puedes marcar como realizada una clase cuya fecha u hora todavía no ha llegado."
+      );
+      return;
+    }
 
     const facturableNueva =
       opciones
@@ -1343,7 +1375,11 @@ export default function AccionesRapidasClase({
       const cambioARealizada =
         pagado &&
         claseTrabajo.estado ===
-          "programada";
+          "programada" &&
+        fechaHoraYaHaLlegado(
+          claseTrabajo.fecha,
+          claseTrabajo.hora_inicio
+        );
 
       const participantesActualizados =
         claseTrabajo.clase_alumnos.map(
@@ -1444,7 +1480,11 @@ export default function AccionesRapidasClase({
       const cambioARealizada =
         pagado &&
         claseTrabajo.estado ===
-          "programada";
+          "programada" &&
+        fechaHoraYaHaLlegado(
+          claseTrabajo.fecha,
+          claseTrabajo.hora_inicio
+        );
 
       const participantesActualizados =
         claseTrabajo.clase_alumnos.map(
@@ -1681,6 +1721,12 @@ export default function AccionesRapidasClase({
     claseSeleccionada.tipo ===
     "club";
 
+  const puedeMarcarRealizada =
+    fechaHoraYaHaLlegado(
+      claseSeleccionada.fecha,
+      claseSeleccionada.hora_inicio
+    );
+
   const estadoTexto =
     claseSeleccionada.estado ===
     "realizada"
@@ -1863,9 +1909,17 @@ export default function AccionesRapidasClase({
                             </p>
 
                             {participante.usa_bono ? (
-                              <p className="mt-0.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-violet-700 sm:text-[13px]">
+                              <p
+                                className={
+                                  participante.bono_estado_cobro === "pagado"
+                                    ? "mt-0.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-700 sm:text-[13px]"
+                                    : "mt-0.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-red-700 sm:text-[13px]"
+                                }
+                              >
                                 <IconoBono />
-                                Bono asignado
+                                {participante.bono_estado_cobro === "pagado"
+                                  ? "Bono pagado"
+                                  : "Bono pendiente"}
                               </p>
                             ) : esCobroTotal ? (
                               <p className="mt-0.5 text-[12px] font-medium text-slate-500 sm:text-[13px]">
@@ -1906,8 +1960,16 @@ export default function AccionesRapidasClase({
                             </button>
 
                             {participante.usa_bono ? (
-                              <span className="inline-flex h-10 w-full items-center justify-center rounded-full border border-violet-200 bg-violet-50 px-2.5 text-[12px] font-bold text-violet-700 sm:text-[13px]">
-                                Bono
+                              <span
+                                className={
+                                  participante.bono_estado_cobro === "pagado"
+                                    ? "inline-flex h-10 w-full items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 text-[12px] font-bold text-emerald-700 sm:text-[13px]"
+                                    : "inline-flex h-10 w-full items-center justify-center rounded-full border border-red-200 bg-red-50 px-2.5 text-[12px] font-bold text-red-700 sm:text-[13px]"
+                                }
+                              >
+                                {participante.bono_estado_cobro === "pagado"
+                                  ? "Bono pagado"
+                                  : "Bono pendiente"}
                               </span>
                             ) : esCobroTotal ? (
                               <span className="inline-flex h-10 w-full items-center justify-center rounded-full border border-[#BDE7DA] bg-[#F6FCFB] px-2.5 text-[12px] font-bold text-[#148C86] sm:text-[13px]">
@@ -2134,7 +2196,8 @@ export default function AccionesRapidasClase({
                     }
                     type="button"
                     disabled={
-                      actualizando
+                      actualizando ||
+                      !puedeMarcarRealizada
                     }
                     onClick={() => {
                       if (esCobroTotal) {
@@ -2194,6 +2257,13 @@ export default function AccionesRapidasClase({
               </p>
             )}
 
+          {!puedeMarcarRealizada &&
+            claseSeleccionada.estado !== "realizada" && (
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+              Esta clase todavía no puede marcarse como realizada porque su fecha u hora no ha llegado.
+            </p>
+          )}
+
           <div className="mt-3">
             {claseSeleccionada.estado ===
             "realizada" ? (
@@ -2204,7 +2274,8 @@ export default function AccionesRapidasClase({
               <button
                 type="button"
                 disabled={
-                  actualizando
+                  actualizando ||
+                  !puedeMarcarRealizada
                 }
                 onClick={() =>
                   cambiarEstadoClase(

@@ -28,6 +28,7 @@ type Clase = {
     pagado: boolean;
     usa_bono: boolean;
     bono_id: string | null;
+    bono_estado_cobro?: "pagado" | "pendiente" | null;
     asistio: boolean;
     alumnos: {
       id: string;
@@ -364,28 +365,54 @@ function colorClase(clase: Clase) {
   return "border-[#00A79C]/40 bg-[#00A79C]/10 text-[#0B6F69]";
 }
 
-function estadoEconomicoClase(clase: Clase) {
+function estadoEconomicoClase(
+  clase: Clase
+) {
   if (!clase.facturable) {
     return "no_facturable" as const;
   }
 
   if (clase.tipo === "club") {
-    return clase.cobrada ? "cobrada" as const : "pendiente" as const;
+    return clase.cobrada
+      ? "cobrada" as const
+      : "pendiente" as const;
   }
 
-  if (clase.clase_alumnos.length === 0) {
+  if (
+    clase.clase_alumnos.length === 0
+  ) {
     return "pendiente" as const;
   }
 
-  const pagosNormales = clase.clase_alumnos.filter(
-    (participante) => !participante.usa_bono
-  );
+  const pagosNormales =
+    clase.clase_alumnos.filter(
+      (participante) =>
+        !participante.usa_bono
+    );
 
-  if (pagosNormales.length === 0) {
-    return "cobrada" as const;
-  }
+  const participantesConBono =
+    clase.clase_alumnos.filter(
+      (participante) =>
+        participante.usa_bono
+    );
 
-  return pagosNormales.every((participante) => participante.pagado)
+  const bonosPagados =
+    participantesConBono.every(
+      (participante) =>
+        participante.bono_estado_cobro ===
+        "pagado"
+    );
+
+  const pagosNormalesCobrados =
+    pagosNormales.every(
+      (participante) =>
+        participante.pagado
+    );
+
+  return (
+    bonosPagados &&
+    pagosNormalesCobrados
+  )
     ? "cobrada" as const
     : "pendiente" as const;
 }

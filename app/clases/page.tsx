@@ -133,6 +133,40 @@ function minutosDesdeHora(
   return horas * 60 + minutos;
 }
 
+function fechaHoraYaHaLlegado(
+  fechaClase: string,
+  horaClase: string
+) {
+  if (!fechaClase || !horaClase) {
+    return false;
+  }
+
+  const [anio, mes, dia] =
+    fechaClase
+      .split("-")
+      .map(Number);
+
+  const [hora, minuto] =
+    horaClase
+      .slice(0, 5)
+      .split(":")
+      .map(Number);
+
+  const inicioClase =
+    new Date(
+      anio,
+      mes - 1,
+      dia,
+      hora,
+      minuto,
+      0,
+      0
+    );
+
+  return inicioClase.getTime() <=
+    Date.now();
+}
+
 function rangoBloqueoEnFecha(
   bloqueo: NoDisponibilidad,
   fechaClase: string
@@ -2619,6 +2653,10 @@ export default function ClasesPage() {
     bono: Bono,
     alumnoId: string
   ) {
+    if (bono.grupo_id) {
+      return `Bono de grupo · ${bono.numero_clases} clases · ${bono.clases_restantes} restantes`;
+    }
+
     const esPropio =
       bono.alumno_id ===
       alumnoId;
@@ -4410,6 +4448,19 @@ export default function ClasesPage() {
     }
 
     if (
+      estado === "realizada" &&
+      !fechaHoraYaHaLlegado(
+        fecha,
+        hora
+      )
+    ) {
+      setMensaje(
+        "❌ No puedes marcar como realizada una clase cuya fecha u hora todavía no ha llegado."
+      );
+      return;
+    }
+
+    if (
       tipo !==
       "club"
     ) {
@@ -4831,11 +4882,29 @@ export default function ClasesPage() {
               claseObjetivo.facturable ?? true
             );
 
+          const estadoObjetivo =
+            estado === "realizada" &&
+            !fechaHoraYaHaLlegado(
+              fechaObjetivo,
+              hora
+            )
+              ? claseObjetivo.estado
+              : estado;
+
+          const facturableObjetivo =
+            estadoObjetivo === "cancelada"
+              ? (
+                  estado === "cancelada"
+                    ? facturableNueva
+                    : claseObjetivo.facturable ?? true
+                )
+              : true;
+
           const usoNuevoObjetivo =
             contarUsoBonos(
               participantesNuevos,
-              estado,
-              facturableNueva
+              estadoObjetivo,
+              facturableObjetivo
             );
 
           const {
@@ -4853,6 +4922,14 @@ export default function ClasesPage() {
                   ...datosClase,
                   fecha:
                     fechaObjetivo,
+                  estado:
+                    estadoObjetivo,
+                  facturable:
+                    facturableObjetivo,
+                  motivo_cancelacion:
+                    estadoObjetivo === "cancelada"
+                      ? datosClase.motivo_cancelacion
+                      : null,
                 },
                 p_participantes:
                   participantesNuevos,
@@ -4884,7 +4961,7 @@ export default function ClasesPage() {
                 claseObjetivo.id,
                 claseObjetivo.google_calendar_event_id,
                 fechaObjetivo,
-                estado
+                estadoObjetivo
               )
             );
           } catch {
@@ -7337,8 +7414,27 @@ export default function ClasesPage() {
                   Programada
                 </option>
 
-                <option value="realizada">
-                  Realizada
+                <option
+                  value="realizada"
+                  disabled={
+                    Boolean(
+                      fecha &&
+                      hora &&
+                      !fechaHoraYaHaLlegado(
+                        fecha,
+                        hora
+                      )
+                    )
+                  }
+                >
+                  {fecha &&
+                  hora &&
+                  !fechaHoraYaHaLlegado(
+                    fecha,
+                    hora
+                  )
+                    ? "Realizada · todavía no disponible"
+                    : "Realizada"}
                 </option>
 
                 <option value="cancelada">

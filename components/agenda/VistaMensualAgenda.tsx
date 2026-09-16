@@ -226,7 +226,9 @@ function calcularHoraFin(
   ).padStart(2, "0")}`;
 }
 
-function estadoEconomicoClase(clase: Clase) {
+function estadoEconomicoClase(
+  clase: Clase
+) {
   if (!clase.facturable) {
     return "no_facturable" as const;
   }
@@ -237,7 +239,9 @@ function estadoEconomicoClase(clase: Clase) {
       : "pendiente" as const;
   }
 
-  if (clase.clase_alumnos.length === 0) {
+  if (
+    clase.clase_alumnos.length === 0
+  ) {
     return "pendiente" as const;
   }
 
@@ -247,13 +251,28 @@ function estadoEconomicoClase(clase: Clase) {
         !participante.usa_bono
     );
 
-  if (pagosNormales.length === 0) {
-    return "cobrada" as const;
-  }
+  const participantesConBono =
+    clase.clase_alumnos.filter(
+      (participante) =>
+        participante.usa_bono
+    );
 
-  return pagosNormales.every(
-    (participante) =>
-      participante.pagado
+  const bonosPagados =
+    participantesConBono.every(
+      (participante) =>
+        participante.bono_estado_cobro ===
+        "pagado"
+    );
+
+  const pagosNormalesCobrados =
+    pagosNormales.every(
+      (participante) =>
+        participante.pagado
+    );
+
+  return (
+    bonosPagados &&
+    pagosNormalesCobrados
   )
     ? "cobrada" as const
     : "pendiente" as const;

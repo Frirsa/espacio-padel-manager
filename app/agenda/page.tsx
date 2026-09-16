@@ -79,6 +79,7 @@ type Clase = {
     pagado: boolean;
     usa_bono: boolean;
     bono_id: string | null;
+    bono_estado_cobro: "pagado" | "pendiente" | null;
     asistio: boolean;
     alumnos: {
       id: string;
@@ -399,9 +400,55 @@ export default function AgendaPage() {
       );
 
     if (!error) {
+      const {
+        data: bonosEstadoData,
+      } = await supabase
+        .from("bonos")
+        .select(
+          "id,estado_cobro"
+        );
+
+      const estadoCobroPorBono =
+        new Map<
+          string,
+          "pagado" | "pendiente" | null
+        >(
+          (bonosEstadoData || []).map(
+            (bono: any) => [
+              bono.id,
+              bono.estado_cobro === "pendiente"
+                ? "pendiente"
+                : bono.estado_cobro === "pagado"
+                ? "pagado"
+                : null,
+            ]
+          )
+        );
+
+      const clasesConEstadoBono =
+        (
+          (data || []) as unknown as Clase[]
+        ).map(
+          (clase) => ({
+            ...clase,
+            clase_alumnos:
+              clase.clase_alumnos.map(
+                (participante) => ({
+                  ...participante,
+                  bono_estado_cobro:
+                    participante.usa_bono &&
+                    participante.bono_id
+                      ? estadoCobroPorBono.get(
+                          participante.bono_id
+                        ) ?? null
+                      : null,
+                })
+              ),
+          })
+        );
+
       setClases(
-        (data ||
-          []) as unknown as Clase[]
+        clasesConEstadoBono
       );
     }
 
