@@ -1250,6 +1250,12 @@ export default function ClasesPage() {
     useState<Record<string, string>>({});
 
   const [
+    bonoExternoAlumnos,
+    setBonoExternoAlumnos,
+  ] =
+    useState<Record<string, boolean>>({});
+
+  const [
     estadoPagoAlumnos,
     setEstadoPagoAlumnos,
   ] =
@@ -1945,6 +1951,10 @@ export default function ClasesPage() {
       {}
     );
 
+    setBonoExternoAlumnos(
+      {}
+    );
+
     setEstadoPagoAlumnos(
       {}
     );
@@ -2597,6 +2607,10 @@ export default function ClasesPage() {
       nuevosBonos
     );
 
+    setBonoExternoAlumnos(
+      {}
+    );
+
     setEstadoPagoAlumnos(
       nuevosEstados
     );
@@ -2739,6 +2753,22 @@ export default function ClasesPage() {
       );
 
       setBonosSeleccionados(
+        (
+          actuales
+        ) => {
+          const copia = {
+            ...actuales,
+          };
+
+          delete copia[
+            alumno.id
+          ];
+
+          return copia;
+        }
+      );
+
+      setBonoExternoAlumnos(
         (
           actuales
         ) => {
@@ -3159,6 +3189,13 @@ export default function ClasesPage() {
       > =
       {};
 
+    const bonosExternos:
+      Record<
+        string,
+        boolean
+      > =
+      {};
+
     const estadosPago:
       Record<
         string,
@@ -3200,6 +3237,20 @@ export default function ClasesPage() {
             participante.alumno_id
           ] =
             participante.bono_id;
+
+          const bonosAutorizadosAlumno =
+            bonosDelAlumno(
+              participante.alumno_id
+            );
+
+          bonosExternos[
+            participante.alumno_id
+          ] =
+            !bonosAutorizadosAlumno.some(
+              (bono) =>
+                bono.id ===
+                participante.bono_id
+            );
         }
 
         const pago =
@@ -3239,6 +3290,10 @@ export default function ClasesPage() {
 
     setBonosSeleccionados(
       bonosElegidos
+    );
+
+    setBonoExternoAlumnos(
+      bonosExternos
     );
 
     setEstadoPagoAlumnos(
@@ -4478,7 +4533,7 @@ export default function ClasesPage() {
           ]
         ) {
           setMensaje(
-            "❌ Hay un alumno marcado con bono pero no tiene bono seleccionado."
+            "❌ Hay un alumno marcado con bono pero no tiene bono seleccionado. Elige uno o activa «Usar otro bono» para esta clase puntual."
           );
 
           return;
@@ -5623,8 +5678,7 @@ export default function ClasesPage() {
 
           </div>
 
-          {!claseEditandoId && (
-            <section className="relative z-10 mt-4 overflow-visible rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
+          <section className="relative z-10 mt-4 overflow-visible rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
 
               <div className="-mx-4 -mt-4 mb-4 flex flex-col gap-2 rounded-t-2xl bg-[#0F2742] px-4 py-3.5 text-white sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -5632,7 +5686,9 @@ export default function ClasesPage() {
                     1. Participantes
                   </p>
                   <p className="mt-1 text-xs text-white/55">
-                    Selecciona un grupo o los alumnos de esta clase.
+                    {claseEditandoId
+                      ? "Modifica los alumnos reales de esta clase."
+                      : "Selecciona un grupo o los alumnos de esta clase."}
                   </p>
                 </div>
 
@@ -5945,7 +6001,6 @@ export default function ClasesPage() {
               </div>
 
             </section>
-          )}
 
           <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
             <div className="border-b border-slate-100 bg-[#0F2742]/[0.035] px-4 py-3.5">
@@ -6333,6 +6388,10 @@ export default function ClasesPage() {
 
                   setBonosSeleccionados(
                     nuevosBonos
+                  );
+
+                  setBonoExternoAlumnos(
+                    {}
                   );
 
                   setEstadoPagoAlumnos(
@@ -6889,6 +6948,31 @@ export default function ClasesPage() {
                             alumno.id
                           );
 
+                        const permiteBonoExterno =
+                          bonoExternoAlumnos[
+                            alumno.id
+                          ] === true;
+
+                        const bonoActualId =
+                          bonosSeleccionados[
+                            alumno.id
+                          ] || "";
+
+                        const bonosExternosDisponibles =
+                          bonos.filter(
+                            (bono) =>
+                              bono.activo &&
+                              (
+                                bono.clases_restantes > 0 ||
+                                bono.id === bonoActualId
+                              )
+                          );
+
+                        const bonosDisponibles =
+                          permiteBonoExterno
+                            ? bonosExternosDisponibles
+                            : bonosAlumno;
+
                         const modo =
                           modoPagoAlumnos[
                             alumno.id
@@ -6945,6 +7029,16 @@ export default function ClasesPage() {
                                           "normal",
                                       })
                                     );
+
+                                    setBonoExternoAlumnos(
+                                      (
+                                        actuales
+                                      ) => ({
+                                        ...actuales,
+                                        [alumno.id]:
+                                          false,
+                                      })
+                                    );
                                   }}
                                   className={
                                     modo ===
@@ -6958,18 +7052,7 @@ export default function ClasesPage() {
 
                                 <button
                                   type="button"
-                                  disabled={
-                                    bonosAlumno.length ===
-                                    0
-                                  }
                                   onClick={() => {
-                                    if (
-                                      bonosAlumno.length ===
-                                      0
-                                    ) {
-                                      return;
-                                    }
-
                                     setModoPagoAlumnos(
                                       (
                                         actuales
@@ -6987,7 +7070,9 @@ export default function ClasesPage() {
                                     if (
                                       !bonosSeleccionados[
                                         alumno.id
-                                      ]
+                                      ] &&
+                                      bonosAlumno.length >
+                                        0
                                     ) {
                                       setBonosSeleccionados(
                                         (
@@ -7005,9 +7090,6 @@ export default function ClasesPage() {
                                     modo ===
                                     "bono"
                                       ? "rounded-md bg-white px-3 py-1.5 text-xs font-bold text-[#008C83] shadow-sm"
-                                      : bonosAlumno.length ===
-                                        0
-                                      ? "cursor-not-allowed rounded-md px-3 py-1.5 text-xs font-semibold text-slate-300"
                                       : "rounded-md px-3 py-1.5 text-xs font-semibold text-slate-500"
                                   }
                                 >
@@ -7023,18 +7105,109 @@ export default function ClasesPage() {
                             {modo ===
                             "bono" ? (
 
-                              <div className="mt-3">
+                              <div className="mt-3 space-y-2.5">
 
-                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                <div className="flex flex-col gap-2 rounded-lg border border-violet-100 bg-violet-50/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700">
+                                      Bono excepcional
+                                    </p>
+                                    <p className="mt-0.5 text-[10px] leading-relaxed text-slate-500">
+                                      Para cargar solo esta clase a un bono de otro alumno o grupo.
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      modoCreacion ===
+                                        "serie" &&
+                                      !claseEditandoId
+                                    }
+                                    onClick={() => {
+                                      const nuevoValor =
+                                        !permiteBonoExterno;
+
+                                      setBonoExternoAlumnos(
+                                        (
+                                          actuales
+                                        ) => ({
+                                          ...actuales,
+                                          [alumno.id]:
+                                            nuevoValor,
+                                        })
+                                      );
+
+                                      if (
+                                        nuevoValor
+                                      ) {
+                                        if (
+                                          !bonoActualId &&
+                                          bonosExternosDisponibles.length >
+                                            0
+                                        ) {
+                                          setBonosSeleccionados(
+                                            (
+                                              actuales
+                                            ) => ({
+                                              ...actuales,
+                                              [alumno.id]:
+                                                bonosExternosDisponibles[0]
+                                                  .id,
+                                            })
+                                          );
+                                        }
+                                      } else {
+                                        const sigueAutorizado =
+                                          bonosAlumno.some(
+                                            (bono) =>
+                                              bono.id ===
+                                              bonoActualId
+                                          );
+
+                                        if (
+                                          !sigueAutorizado
+                                        ) {
+                                          setBonosSeleccionados(
+                                            (
+                                              actuales
+                                            ) => ({
+                                              ...actuales,
+                                              [alumno.id]:
+                                                bonosAlumno[0]
+                                                  ?.id || "",
+                                            })
+                                          );
+                                        }
+                                      }
+                                    }}
+                                    className={
+                                      permiteBonoExterno
+                                        ? "h-9 shrink-0 rounded-lg border border-violet-300 bg-violet-600 px-3 text-[11px] font-bold text-white"
+                                        : "h-9 shrink-0 rounded-lg border border-violet-200 bg-white px-3 text-[11px] font-bold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                    }
+                                  >
+                                    {permiteBonoExterno
+                                      ? "Activado"
+                                      : "Usar otro bono"}
+                                  </button>
+                                </div>
+
+                                {modoCreacion ===
+                                  "serie" &&
+                                  !claseEditandoId && (
+                                  <p className="text-[10px] font-medium text-amber-600">
+                                    Los bonos excepcionales están disponibles solo para clases individuales.
+                                  </p>
+                                )}
+
+                                <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500">
                                   Bono
                                 </label>
 
                                 <select
                                   value={
-                                    bonosSeleccionados[
-                                      alumno.id
-                                    ] ||
-                                    ""
+                                    bonoActualId
                                   }
                                   onChange={(e) =>
                                     setBonosSeleccionados(
@@ -7049,8 +7222,11 @@ export default function ClasesPage() {
                                   }
                                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
                                 >
+                                  <option value="">
+                                    Seleccionar bono
+                                  </option>
 
-                                  {bonosAlumno.map(
+                                  {bonosDisponibles.map(
                                     (
                                       bono
                                     ) => (
@@ -7071,6 +7247,12 @@ export default function ClasesPage() {
                                   )}
 
                                 </select>
+
+                                {permiteBonoExterno && (
+                                  <p className="text-[10px] font-semibold text-violet-700">
+                                    Solo afecta a esta clase: no autoriza permanentemente a este alumno en el bono.
+                                  </p>
+                                )}
 
                               </div>
 
