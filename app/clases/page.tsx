@@ -3856,7 +3856,7 @@ export default function ClasesPage() {
                             bono.numero_clases
                           );
 
-                        const usuariosMismoBono =
+                        const alumnosMismoBono =
                           alumnosSeleccionados.filter(
                             (id) =>
                               modoPagoAlumnos[
@@ -3865,13 +3865,51 @@ export default function ClasesPage() {
                               bonosSeleccionados[
                                 id
                               ] === bono.id
-                          ).length;
+                          );
 
-                        return usuariosMismoBono >
-                          0
-                          ? importeClaseBono /
+                        const usuariosMismoBono =
+                          alumnosMismoBono.length;
+
+                        if (
+                          usuariosMismoBono <= 0
+                        ) {
+                          return importeClaseBono;
+                        }
+
+                        const centimosClase =
+                          Math.round(
+                            importeClaseBono *
+                              100
+                          );
+
+                        const centimosBase =
+                          Math.floor(
+                            centimosClase /
                               usuariosMismoBono
-                          : importeClaseBono;
+                          );
+
+                        const centimosSobrantes =
+                          centimosClase -
+                          centimosBase *
+                            usuariosMismoBono;
+
+                        const posicionAlumno =
+                          alumnosMismoBono.indexOf(
+                            alumnoId
+                          );
+
+                        const centimosAlumno =
+                          centimosBase +
+                          (posicionAlumno >= 0 &&
+                          posicionAlumno <
+                            centimosSobrantes
+                            ? 1
+                            : 0);
+
+                        return (
+                          centimosAlumno /
+                          100
+                        );
                       })()
                     : modoCobroFinalSerie ===
                       "total"
@@ -4698,7 +4736,7 @@ export default function ClasesPage() {
                             bono.numero_clases
                           );
 
-                        const usuariosMismoBono =
+                        const alumnosMismoBono =
                           alumnosSeleccionados.filter(
                             (id) =>
                               modoPagoAlumnos[
@@ -4707,13 +4745,51 @@ export default function ClasesPage() {
                               bonosSeleccionados[
                                 id
                               ] === bono.id
-                          ).length;
+                          );
 
-                        return usuariosMismoBono >
-                          0
-                          ? importeClaseBono /
+                        const usuariosMismoBono =
+                          alumnosMismoBono.length;
+
+                        if (
+                          usuariosMismoBono <= 0
+                        ) {
+                          return importeClaseBono;
+                        }
+
+                        const centimosClase =
+                          Math.round(
+                            importeClaseBono *
+                              100
+                          );
+
+                        const centimosBase =
+                          Math.floor(
+                            centimosClase /
                               usuariosMismoBono
-                          : importeClaseBono;
+                          );
+
+                        const centimosSobrantes =
+                          centimosClase -
+                          centimosBase *
+                            usuariosMismoBono;
+
+                        const posicionAlumno =
+                          alumnosMismoBono.indexOf(
+                            alumnoId
+                          );
+
+                        const centimosAlumno =
+                          centimosBase +
+                          (posicionAlumno >= 0 &&
+                          posicionAlumno <
+                            centimosSobrantes
+                            ? 1
+                            : 0);
+
+                        return (
+                          centimosAlumno /
+                          100
+                        );
                       })()
                     : modoCobroFinal ===
                       "total"
