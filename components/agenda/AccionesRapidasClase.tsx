@@ -15,6 +15,7 @@ export type ClaseAccionesRapidas = {
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
+  grupo_id?: string | null;
   tipo: string;
   estado: string;
   facturable: boolean;
@@ -381,6 +382,13 @@ export default function AccionesRapidasClase({
     );
 
   const [
+    nombreGrupo,
+    setNombreGrupo,
+  ] = useState<string | null>(
+    null
+  );
+
+  const [
     actualizando,
     setActualizando,
   ] =
@@ -617,6 +625,49 @@ export default function AccionesRapidasClase({
     void cargarBonosDisponibles(
       clase
     );
+
+    if (!clase.grupo_id) {
+      setNombreGrupo(null);
+      return;
+    }
+
+    let cancelado = false;
+
+    void (async () => {
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("grupos")
+        .select("nombre")
+        .eq(
+          "id",
+          clase.grupo_id
+        )
+        .maybeSingle();
+
+      if (cancelado) {
+        return;
+      }
+
+      if (
+        error ||
+        !data?.nombre
+      ) {
+        setNombreGrupo(
+          "Grupo"
+        );
+        return;
+      }
+
+      setNombreGrupo(
+        String(data.nombre)
+      );
+    })();
+
+    return () => {
+      cancelado = true;
+    };
   }, [clase]);
 
   function editarClase(
@@ -1791,6 +1842,12 @@ export default function AccionesRapidasClase({
                 {claseSeleccionada.ubicaciones?.nombre || "Sin ubicación"}
               </p>
 
+              {claseSeleccionada.grupo_id && (
+                <span className="inline-flex rounded-full border border-[#BDE7DA] bg-[#F0FBF9] px-3 py-1 text-xs font-extrabold text-[#148C86]">
+                  Grupo · {nombreGrupo || "Cargando..."}
+                </span>
+              )}
+
               <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
                 {estadoTexto}
               </span>
@@ -1826,9 +1883,20 @@ export default function AccionesRapidasClase({
             <section className="rounded-[20px] border border-slate-200 bg-[#FBFCFD] p-3 sm:p-4">
               <div className="flex items-center gap-3 text-[#0DAA9B]">
                 <IconoAlumno />
-                <p className="text-[13px] font-extrabold uppercase tracking-[0.08em]">
-                  Alumnos
-                </p>
+
+                <div>
+                  <p className="text-[13px] font-extrabold uppercase tracking-[0.08em]">
+                    {claseSeleccionada.grupo_id
+                      ? "Grupo"
+                      : "Alumnos"}
+                  </p>
+
+                  {claseSeleccionada.grupo_id && (
+                    <p className="mt-0.5 text-sm font-extrabold normal-case tracking-normal text-[#17324D]">
+                      {nombreGrupo || "Cargando..."}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="mt-3 space-y-2.5">
