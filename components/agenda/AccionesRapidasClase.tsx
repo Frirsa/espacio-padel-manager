@@ -389,6 +389,11 @@ export default function AccionesRapidasClase({
   );
 
   const [
+    participantesGrupo,
+    setParticipantesGrupo,
+  ] = useState<string[]>([]);
+
+  const [
     actualizando,
     setActualizando,
   ] =
@@ -628,6 +633,7 @@ export default function AccionesRapidasClase({
 
     if (!clase.grupo_id) {
       setNombreGrupo(null);
+      setParticipantesGrupo([]);
       return;
     }
 
@@ -639,7 +645,16 @@ export default function AccionesRapidasClase({
         error,
       } = await supabase
         .from("grupos")
-        .select("nombre")
+        .select(`
+          nombre,
+          grupo_alumnos (
+            alumnos (
+              nombre,
+              apellidos,
+              apodo
+            )
+          )
+        `)
         .eq(
           "id",
           clase.grupo_id
@@ -654,14 +669,45 @@ export default function AccionesRapidasClase({
         error ||
         !data?.nombre
       ) {
-        setNombreGrupo(
-          "Grupo"
-        );
+        setNombreGrupo("Grupo");
+        setParticipantesGrupo([]);
         return;
       }
 
       setNombreGrupo(
         String(data.nombre)
+      );
+
+      const nombres =
+        (
+          data.grupo_alumnos ||
+          []
+        )
+          .map((relacion: any) => {
+            const alumno =
+              relacion?.alumnos;
+
+            if (!alumno) {
+              return "";
+            }
+
+            const apodo =
+              String(
+                alumno.apodo || ""
+              ).trim();
+
+            if (apodo) {
+              return apodo;
+            }
+
+            return `${alumno.nombre || ""} ${
+              alumno.apellidos || ""
+            }`.trim();
+          })
+          .filter(Boolean);
+
+      setParticipantesGrupo(
+        nombres
       );
     })();
 
@@ -1772,6 +1818,38 @@ export default function AccionesRapidasClase({
     claseSeleccionada.tipo ===
     "club";
 
+  const participantesClaseGrupo =
+    claseSeleccionada.grupo_id
+      ? claseSeleccionada.clase_alumnos
+          .map((participante) => {
+            const alumno =
+              participante.alumnos;
+
+            if (!alumno) {
+              return "";
+            }
+
+            const apodo =
+              String(
+                alumno.apodo || ""
+              ).trim();
+
+            if (apodo) {
+              return apodo;
+            }
+
+            return `${alumno.nombre || ""} ${
+              alumno.apellidos || ""
+            }`.trim();
+          })
+          .filter(Boolean)
+      : [];
+
+  const nombresParticipantesGrupo =
+    participantesClaseGrupo.length > 0
+      ? participantesClaseGrupo
+      : participantesGrupo;
+
   const puedeMarcarRealizada =
     fechaHoraYaHaLlegado(
       claseSeleccionada.fecha,
@@ -1852,6 +1930,20 @@ export default function AccionesRapidasClase({
                 {estadoTexto}
               </span>
             </div>
+
+            {claseSeleccionada.grupo_id && (
+              <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
+                  Participantes
+                </p>
+
+                <p className="mt-0.5 text-sm font-semibold leading-5 text-[#17324D]">
+                  {nombresParticipantesGrupo.length > 0
+                    ? nombresParticipantesGrupo.join(" · ")
+                    : "Sin participantes"}
+                </p>
+              </div>
+            )}
           </div>
 
           <button
