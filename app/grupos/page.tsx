@@ -722,6 +722,9 @@ export default function GruposPage() {
       mensaje: string;
     }[] = [];
 
+    const clasesParaGoogle:
+      ClaseGrupo[] = [];
+
     const esperar = (
       milisegundos: number
     ) =>
@@ -1096,7 +1099,37 @@ export default function GruposPage() {
       }
 
       actualizadas += 1;
+      clasesParaGoogle.push(
+        clase
+      );
 
+      // La prioridad es completar primero todas las escrituras
+      // en Supabase. Google Calendar se sincroniza después,
+      // para que su latencia no corte una propagación larga.
+      await esperar(20);
+    }
+
+    if (actualizadas > 0) {
+      setMensaje(
+        `✅ ${actualizadas} clase${
+          actualizadas === 1
+            ? ""
+            : "s"
+        } futura${
+          actualizadas === 1
+            ? ""
+            : "s"
+        } actualizada${
+          actualizadas === 1
+            ? ""
+            : "s"
+        } en el Manager. Sincronizando Google Calendar…`
+      );
+    }
+
+    for (
+      const clase of clasesParaGoogle
+    ) {
       try {
         await sincronizarClaseConGoogleCalendar(
           {
@@ -1130,8 +1163,6 @@ export default function GruposPage() {
       } catch {
         googleFallos += 1;
       }
-
-      await esperar(75);
     }
 
     return {
