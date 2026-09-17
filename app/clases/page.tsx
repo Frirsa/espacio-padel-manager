@@ -1383,6 +1383,7 @@ export default function ClasesPage() {
     useRef<
       "una" |
       "siguientes" |
+      "mismo_dia_siguientes" |
       "serie" |
       null
     >(null);
@@ -3856,7 +3857,7 @@ export default function ClasesPage() {
                             bono.numero_clases
                           );
 
-                        const alumnosMismoBono =
+                        const usuariosMismoBono =
                           alumnosSeleccionados.filter(
                             (id) =>
                               modoPagoAlumnos[
@@ -3865,51 +3866,13 @@ export default function ClasesPage() {
                               bonosSeleccionados[
                                 id
                               ] === bono.id
-                          );
+                          ).length;
 
-                        const usuariosMismoBono =
-                          alumnosMismoBono.length;
-
-                        if (
-                          usuariosMismoBono <= 0
-                        ) {
-                          return importeClaseBono;
-                        }
-
-                        const centimosClase =
-                          Math.round(
-                            importeClaseBono *
-                              100
-                          );
-
-                        const centimosBase =
-                          Math.floor(
-                            centimosClase /
+                        return usuariosMismoBono >
+                          0
+                          ? importeClaseBono /
                               usuariosMismoBono
-                          );
-
-                        const centimosSobrantes =
-                          centimosClase -
-                          centimosBase *
-                            usuariosMismoBono;
-
-                        const posicionAlumno =
-                          alumnosMismoBono.indexOf(
-                            alumnoId
-                          );
-
-                        const centimosAlumno =
-                          centimosBase +
-                          (posicionAlumno >= 0 &&
-                          posicionAlumno <
-                            centimosSobrantes
-                            ? 1
-                            : 0);
-
-                        return (
-                          centimosAlumno /
-                          100
-                        );
+                          : importeClaseBono;
                       })()
                     : modoCobroFinalSerie ===
                       "total"
@@ -4234,6 +4197,7 @@ export default function ClasesPage() {
     alcance:
       | "una"
       | "siguientes"
+      | "mismo_dia_siguientes"
       | "serie"
   ) {
     setBorrandoSerie(
@@ -4447,6 +4411,34 @@ export default function ClasesPage() {
     ).padStart(2, "0")}`;
   }
 
+  function diaSemanaDeFecha(
+    fechaValor: string
+  ) {
+    return new Date(
+      `${fechaValor}T12:00:00`
+    ).getDay();
+  }
+
+  function nombreDiaSemana(
+    fechaValor: string
+  ) {
+    const nombres = [
+      "domingo",
+      "lunes",
+      "martes",
+      "miércoles",
+      "jueves",
+      "viernes",
+      "sábado",
+    ];
+
+    return nombres[
+      diaSemanaDeFecha(
+        fechaValor
+      )
+    ];
+  }
+
   function diferenciaDias(
     fechaOrigen: string,
     fechaDestino: string
@@ -4479,6 +4471,7 @@ export default function ClasesPage() {
     alcance:
       | "una"
       | "siguientes"
+      | "mismo_dia_siguientes"
       | "serie"
   ) {
     alcanceEdicionSerieRef.current =
@@ -4736,7 +4729,7 @@ export default function ClasesPage() {
                             bono.numero_clases
                           );
 
-                        const alumnosMismoBono =
+                        const usuariosMismoBono =
                           alumnosSeleccionados.filter(
                             (id) =>
                               modoPagoAlumnos[
@@ -4745,51 +4738,13 @@ export default function ClasesPage() {
                               bonosSeleccionados[
                                 id
                               ] === bono.id
-                          );
+                          ).length;
 
-                        const usuariosMismoBono =
-                          alumnosMismoBono.length;
-
-                        if (
-                          usuariosMismoBono <= 0
-                        ) {
-                          return importeClaseBono;
-                        }
-
-                        const centimosClase =
-                          Math.round(
-                            importeClaseBono *
-                              100
-                          );
-
-                        const centimosBase =
-                          Math.floor(
-                            centimosClase /
+                        return usuariosMismoBono >
+                          0
+                          ? importeClaseBono /
                               usuariosMismoBono
-                          );
-
-                        const centimosSobrantes =
-                          centimosClase -
-                          centimosBase *
-                            usuariosMismoBono;
-
-                        const posicionAlumno =
-                          alumnosMismoBono.indexOf(
-                            alumnoId
-                          );
-
-                        const centimosAlumno =
-                          centimosBase +
-                          (posicionAlumno >= 0 &&
-                          posicionAlumno <
-                            centimosSobrantes
-                            ? 1
-                            : 0);
-
-                        return (
-                          centimosAlumno /
-                          100
-                        );
+                          : importeClaseBono;
                       })()
                     : modoCobroFinal ===
                       "total"
@@ -4968,6 +4923,11 @@ export default function ClasesPage() {
       const referencia =
         `${claseAnterior.fecha} ${claseAnterior.hora_inicio}`;
 
+      const diaSemanaReferencia =
+        diaSemanaDeFecha(
+          claseAnterior.fecha
+        );
+
       const clasesSerie =
         clases
           .filter(
@@ -4976,11 +4936,40 @@ export default function ClasesPage() {
               claseAnterior.serie_id
           )
           .filter(
-            (item) =>
-              alcanceEdicionSerie ===
-                "serie" ||
-              `${item.fecha} ${item.hora_inicio}` >=
-                referencia
+            (item) => {
+              if (
+                alcanceEdicionSerie ===
+                "serie"
+              ) {
+                return true;
+              }
+
+              const esDesdeReferencia =
+                `${item.fecha} ${item.hora_inicio}` >=
+                referencia;
+
+              if (
+                !esDesdeReferencia
+              ) {
+                return false;
+              }
+
+              if (
+                alcanceEdicionSerie ===
+                "mismo_dia_siguientes"
+              ) {
+                return (
+                  item.estado ===
+                    "programada" &&
+                  diaSemanaDeFecha(
+                    item.fecha
+                  ) ===
+                    diaSemanaReferencia
+                );
+              }
+
+              return true;
+            }
           )
           .sort(
             (a, b) =>
@@ -5107,7 +5096,12 @@ export default function ClasesPage() {
           alcanceEdicionSerie ===
             "siguientes"
             ? "✅ Esta clase y las siguientes se han actualizado correctamente"
-            : "✅ Toda la serie se ha actualizado correctamente"
+            : alcanceEdicionSerie ===
+                "mismo_dia_siguientes"
+              ? `✅ Todos los ${nombreDiaSemana(
+                  claseAnterior.fecha
+                )} programados desde esta clase se han actualizado correctamente`
+              : "✅ Toda la serie se ha actualizado correctamente"
         );
 
         if (
@@ -8676,6 +8670,23 @@ export default function ClasesPage() {
                 className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 text-left font-semibold text-amber-900 transition hover:bg-amber-100"
               >
                 Esta clase y las siguientes
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  continuarEdicionSerie(
+                    "mismo_dia_siguientes"
+                  )
+                }
+                className="rounded-xl border border-sky-300 bg-sky-50 px-5 py-3 text-left font-semibold text-sky-900 transition hover:bg-sky-100"
+              >
+                Todos los {nombreDiaSemana(
+                  clasePendienteEditar.fecha
+                )} desde esta clase
+                <span className="mt-1 block text-xs font-medium text-sky-700">
+                  Solo clases programadas del mismo día de la semana
+                </span>
               </button>
 
               <button
