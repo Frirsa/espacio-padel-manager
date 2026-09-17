@@ -341,6 +341,8 @@ export default function GruposPage() {
   const [mensaje, setMensaje] = useState("");
   const [grupoEditandoId, setGrupoEditandoId] =
     useState<string | null>(null);
+  const [actualizandoClasesGrupoId, setActualizandoClasesGrupoId] =
+    useState<string | null>(null);
 
   const [busquedaGrupos, setBusquedaGrupos] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
@@ -546,7 +548,11 @@ export default function GruposPage() {
 
   async function actualizarClasesFuturasDelGrupo(
     grupoId: string,
-    nuevosAlumnos: string[]
+    nuevosAlumnos: string[],
+    opciones?: {
+      motivo?: "cambio" | "reaplicar";
+      nombreGrupo?: string;
+    }
   ) {
     // Consultamos de nuevo Supabase en el momento de propagar el cambio.
     // No dependemos del estado `clases` cargado al abrir la pantalla, porque
@@ -619,25 +625,47 @@ export default function GruposPage() {
       };
     }
 
+    const esReaplicacion =
+      opciones?.motivo ===
+      "reaplicar";
+
+    const nombreParaConfirmar =
+      opciones?.nombreGrupo?.trim() ||
+      "este grupo";
+
     const confirmar =
       window.confirm(
-        `Has cambiado los alumnos del grupo.\n\nHay ${clasesObjetivo.length} clase${
-          clasesObjetivo.length === 1
-            ? ""
-            : "s"
-        } futura${
-          clasesObjetivo.length === 1
-            ? ""
-            : "s"
-        } programada${
-          clasesObjetivo.length === 1
-            ? ""
-            : "s"
-        } asociada${
-          clasesObjetivo.length === 1
-            ? ""
-            : "s"
-        } a este grupo.\n\n¿Quieres actualizar también sus participantes?\n\nLas clases realizadas o canceladas no se modificarán.`
+        esReaplicacion
+          ? `Vas a aplicar los alumnos actuales de "${nombreParaConfirmar}" a ${clasesObjetivo.length} clase${
+              clasesObjetivo.length === 1
+                ? ""
+                : "s"
+            } futura${
+              clasesObjetivo.length === 1
+                ? ""
+                : "s"
+            } programada${
+              clasesObjetivo.length === 1
+                ? ""
+                : "s"
+            }.\n\nLos participantes actuales de esas clases se sustituirán por la composición actual del grupo.\n\nLas clases realizadas o canceladas no se modificarán.\n\n¿Continuar?`
+          : `Has cambiado los alumnos del grupo.\n\nHay ${clasesObjetivo.length} clase${
+              clasesObjetivo.length === 1
+                ? ""
+                : "s"
+            } futura${
+              clasesObjetivo.length === 1
+                ? ""
+                : "s"
+            } programada${
+              clasesObjetivo.length === 1
+                ? ""
+                : "s"
+            } asociada${
+              clasesObjetivo.length === 1
+                ? ""
+                : "s"
+            } a este grupo.\n\n¿Quieres actualizar también sus participantes?\n\nLas clases realizadas o canceladas no se modificarán.`
       );
 
     if (!confirmar) {
@@ -1170,6 +1198,134 @@ export default function GruposPage() {
       googleFallos,
       fallosClases,
     };
+  }
+
+  async function reaplicarAlumnosGrupoEnClasesFuturas(
+    grupo: Grupo
+  ) {
+    if (
+      actualizandoClasesGrupoId
+    ) {
+      return;
+    }
+
+    const alumnosActuales =
+      grupo.grupo_alumnos.map(
+        (item) =>
+          item.alumno_id
+      );
+
+    setActualizandoClasesGrupoId(
+      grupo.id
+    );
+    setMensaje("");
+
+    try {
+      const resultado =
+        await actualizarClasesFuturasDelGrupo(
+          grupo.id,
+          alumnosActuales,
+          {
+            motivo: "reaplicar",
+            nombreGrupo:
+              grupo.nombre,
+          }
+        );
+
+      if (
+        resultado.actualizadas === 0 &&
+        resultado.fallosClases.length === 0
+      ) {
+        setMensaje(
+          "ℹ️ No había clases futuras programadas que actualizar para este grupo."
+        );
+        return;
+      }
+
+      let mensajeResultado =
+        `✅ ${resultado.actualizadas} clase${
+          resultado.actualizadas === 1
+            ? ""
+            : "s"
+        } futura${
+          resultado.actualizadas === 1
+            ? ""
+            : "s"
+        } de "${grupo.nombre}" actualizada${
+          resultado.actualizadas === 1
+            ? ""
+            : "s"
+        } con los alumnos actuales del grupo.`;
+
+      if (
+        resultado.fallosClases.length >
+        0
+      ) {
+        const fechasFallidas =
+          resultado.fallosClases
+            .slice(0, 5)
+            .map(
+              (fallo) =>
+                fallo.fecha
+            )
+            .join(", ");
+
+        mensajeResultado +=
+          ` ⚠️ ${resultado.fallosClases.length} clase${
+            resultado.fallosClases.length === 1
+              ? ""
+              : "s"
+          } no se pudo${
+            resultado.fallosClases.length === 1
+              ? ""
+              : "ieron"
+          } actualizar tras 3 intentos (fecha${
+            resultado.fallosClases.length === 1
+              ? ""
+              : "s"
+          }: ${fechasFallidas}${
+            resultado.fallosClases.length >
+            5
+              ? ", …"
+              : ""
+          }).`;
+      }
+
+      if (
+        resultado.googleFallos > 0
+      ) {
+        mensajeResultado +=
+          ` ⚠️ ${resultado.googleFallos} evento${
+            resultado.googleFallos === 1
+              ? ""
+              : "s"
+          } de Google Calendar no se pudo actualizar.`;
+      } else if (
+        resultado.actualizadas > 0
+      ) {
+        mensajeResultado +=
+          " Google Calendar sincronizado.";
+      }
+
+      setMensaje(
+        mensajeResultado
+      );
+      await cargarDatos();
+    } catch (error) {
+      const texto =
+        error instanceof Error
+          ? error.message
+          : "Error desconocido";
+
+      setMensaje(
+        "❌ No se pudieron reaplicar los alumnos del grupo a sus clases futuras: " +
+          texto
+      );
+    } finally {
+      setActualizandoClasesGrupoId(
+        null
+      );
+    }
   }
 
   async function guardarGrupo(
@@ -2367,6 +2523,28 @@ export default function GruposPage() {
                             Borrar
                           </button>
                         </div>
+
+                        <button
+                          type="button"
+                          disabled={
+                            actualizandoClasesGrupoId !==
+                            null
+                          }
+                          onClick={() =>
+                            reaplicarAlumnosGrupoEnClasesFuturas(
+                              grupo
+                            )
+                          }
+                          className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#00A79C]/60 bg-[#00A79C]/15 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-[#00A79C]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Icono nombre="alumnos" />
+                          <span>
+                            {actualizandoClasesGrupoId ===
+                            grupo.id
+                              ? "Actualizando clases futuras…"
+                              : "Aplicar alumnos actuales a clases futuras"}
+                          </span>
+                        </button>
                       </div>
 
                       {historialAbierto && (
