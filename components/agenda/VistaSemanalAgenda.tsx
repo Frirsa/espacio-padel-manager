@@ -9,8 +9,6 @@ type NoDisponibilidad = {
   id: string;
   fecha_inicio: string;
   fecha_fin: string;
-  hora_inicio: string | null;
-  hora_fin: string | null;
   motivo: string | null;
 };
 
@@ -24,82 +22,6 @@ type Props = {
   ) => void;
 };
 
-function minutosHora(
-  hora: string
-) {
-  const [h, m] = hora
-    .slice(0, 5)
-    .split(":")
-    .map(Number);
-
-  return h * 60 + m;
-}
-
-function rangoBloqueoEnFecha(
-  fecha: string,
-  periodo: NoDisponibilidad
-) {
-  if (
-    fecha < periodo.fecha_inicio ||
-    fecha > periodo.fecha_fin
-  ) {
-    return null;
-  }
-
-  if (
-    !periodo.hora_inicio ||
-    !periodo.hora_fin
-  ) {
-    return { inicio: 0, fin: 1440, todoElDia: true };
-  }
-
-  const inicio = minutosHora(periodo.hora_inicio);
-  const fin = minutosHora(periodo.hora_fin);
-
-  if (periodo.fecha_inicio === periodo.fecha_fin) {
-    return { inicio, fin, todoElDia: false };
-  }
-
-  if (fecha === periodo.fecha_inicio) {
-    return { inicio, fin: 1440, todoElDia: false };
-  }
-
-  if (fecha === periodo.fecha_fin) {
-    return { inicio: 0, fin, todoElDia: false };
-  }
-
-  return { inicio: 0, fin: 1440, todoElDia: true };
-}
-
-function bloqueoTodoElDia(
-  fecha: string,
-  periodo: NoDisponibilidad
-) {
-  return rangoBloqueoEnFecha(fecha, periodo)?.todoElDia === true;
-}
-
-function textoNoDisponibilidad(
-  fecha: string,
-  periodo: NoDisponibilidad
-) {
-  if (bloqueoTodoElDia(fecha, periodo)) {
-    return "Todo el día";
-  }
-
-  if (periodo.fecha_inicio === periodo.fecha_fin) {
-    return `${periodo.hora_inicio!.slice(0, 5)}–${periodo.hora_fin!.slice(0, 5)}`;
-  }
-
-  if (fecha === periodo.fecha_inicio) {
-    return `desde ${periodo.hora_inicio!.slice(0, 5)}`;
-  }
-
-  if (fecha === periodo.fecha_fin) {
-    return `hasta ${periodo.hora_fin!.slice(0, 5)}`;
-  }
-
-  return "Todo el día";
-}
 
 function nombreAlumnoAgenda(
   alumno:
@@ -277,9 +199,7 @@ function nombreDia(
 }
 
 
-function estadoEconomicoClase(
-  clase: Clase
-) {
+function estadoEconomicoClase(clase: Clase) {
   if (!clase.facturable) {
     return "no_facturable" as const;
   }
@@ -290,9 +210,7 @@ function estadoEconomicoClase(
       : "pendiente" as const;
   }
 
-  if (
-    clase.clase_alumnos.length === 0
-  ) {
+  if (clase.clase_alumnos.length === 0) {
     return "pendiente" as const;
   }
 
@@ -302,28 +220,13 @@ function estadoEconomicoClase(
         !participante.usa_bono
     );
 
-  const participantesConBono =
-    clase.clase_alumnos.filter(
-      (participante) =>
-        participante.usa_bono
-    );
+  if (pagosNormales.length === 0) {
+    return "cobrada" as const;
+  }
 
-  const bonosPagados =
-    participantesConBono.every(
-      (participante) =>
-        participante.bono_estado_cobro ===
-        "pagado"
-    );
-
-  const pagosNormalesCobrados =
-    pagosNormales.every(
-      (participante) =>
-        participante.pagado
-    );
-
-  return (
-    bonosPagados &&
-    pagosNormalesCobrados
+  return pagosNormales.every(
+    (participante) =>
+      participante.pagado
   )
     ? "cobrada" as const
     : "pendiente" as const;
@@ -489,13 +392,7 @@ function IndicadoresClase({
         €
       </span>
 
-      {clase.observaciones?.trim() &&
-                          (
-                            clase.estado !== "cancelada" ||
-                            Boolean(
-                              clase.motivo_cancelacion?.trim()
-                            )
-                          ) && (
+      {clase.observaciones?.trim() && (
         <span
           title="Esta clase tiene una anotación"
           className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
@@ -509,21 +406,14 @@ function IndicadoresClase({
 
 
 function colorClasePorTipo(
-  clase: Clase
+  tipo: string
 ) {
-  if (clase.tipo === "club") {
+  if (tipo === "club") {
     return "border-amber-300 bg-amber-50/90 text-amber-950";
   }
 
-  if (clase.tipo === "privada") {
-    return "border-violet-500 bg-violet-100 text-violet-950";
-  }
-
-  if (
-    clase.tipo === "propia" &&
-    clase.ubicaciones?.tipo === "pago"
-  ) {
-    return "border-sky-500 bg-sky-100 text-sky-950";
+  if (tipo === "privada") {
+    return "border-violet-300 bg-violet-50 text-violet-900";
   }
 
   return "border-[#00A79C]/40 bg-[#00A79C]/10 text-[#0B6F69]";
@@ -595,27 +485,14 @@ export default function VistaSemanalAgenda({
           )
       );
 
-  const bloqueosDiaMovil =
-    noDisponibilidades.filter(
+  const noDisponibleMovil =
+    noDisponibilidades.find(
       (periodo) =>
         fechaMovil >=
           periodo.fecha_inicio &&
         fechaMovil <=
           periodo.fecha_fin
     );
-
-  const noDisponibleMovilTodoElDia =
-    bloqueosDiaMovil.find(
-      (periodo) =>
-        bloqueoTodoElDia(
-          fechaMovil,
-          periodo
-        )
-    );
-
-  const noDisponibleMovil =
-    noDisponibleMovilTodoElDia ||
-    bloqueosDiaMovil[0];
 
   const fechaMovilDate =
     crearFecha(
@@ -676,12 +553,7 @@ export default function VistaSemanalAgenda({
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-bold md:hidden">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00A79C]/10 px-2.5 py-1.5 text-[#0B6F69]">
             <span className="h-2 w-2 rounded-full bg-[#00A79C]" />
-            Propia en club
-          </span>
-
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-1.5 text-sky-900">
-            <span className="h-2 w-2 rounded-full bg-sky-500" />
-            Pista de pago
+            Propia
           </span>
 
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-amber-800">
@@ -689,8 +561,8 @@ export default function VistaSemanalAgenda({
             Club
           </span>
 
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1.5 text-violet-900">
-            <span className="h-2 w-2 rounded-full bg-violet-500" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1.5 text-violet-800">
+            <span className="h-2 w-2 rounded-full bg-violet-400" />
             Privada
           </span>
         </div>
@@ -808,7 +680,7 @@ export default function VistaSemanalAgenda({
           <button
             type="button"
             disabled={Boolean(
-              noDisponibleMovilTodoElDia
+              noDisponibleMovil
             )}
             onClick={() =>
               crearClase(
@@ -824,12 +696,7 @@ export default function VistaSemanalAgenda({
         {noDisponibleMovil && (
           <div className="border-b border-red-200 bg-red-50 px-4 py-2.5">
             <p className="text-xs font-bold text-red-700">
-              {noDisponibleMovilTodoElDia
-                ? "Día no disponible"
-                : `No disponible ${textoNoDisponibilidad(
-                    fechaMovil,
-                    noDisponibleMovil
-                  )}`}
+              Día no disponible
               {noDisponibleMovil.motivo
                 ? ` · ${noDisponibleMovil.motivo}`
                 : ""}
@@ -839,7 +706,7 @@ export default function VistaSemanalAgenda({
 
         <div
           className={
-            noDisponibleMovilTodoElDia
+            noDisponibleMovil
               ? "space-y-2.5 bg-red-50/25 p-3"
               : "space-y-2.5 p-3"
           }
@@ -849,7 +716,7 @@ export default function VistaSemanalAgenda({
             <button
               type="button"
               disabled={Boolean(
-                noDisponibleMovilTodoElDia
+                noDisponibleMovil
               )}
               onClick={() =>
                 crearClase(
@@ -862,7 +729,7 @@ export default function VistaSemanalAgenda({
                 Sin clases
               </p>
 
-              {!noDisponibleMovilTodoElDia && (
+              {!noDisponibleMovil && (
                 <p className="mt-1 text-xs font-bold text-[#00A79C]">
                   + Crear clase
                 </p>
@@ -877,7 +744,23 @@ export default function VistaSemanalAgenda({
                       (item) =>
                         item.alumnos
                     )
-                    .filter(Boolean);
+                    .filter(Boolean)
+                    .sort((a, b) =>
+                      nombreAlumnoAgenda(
+                        a,
+                        false
+                      ).localeCompare(
+                        nombreAlumnoAgenda(
+                          b,
+                          false
+                        ),
+                        "es",
+                        {
+                          sensitivity:
+                            "base",
+                        }
+                      )
+                    );
 
                 const alumnos =
                   alumnosDatos
@@ -907,7 +790,9 @@ export default function VistaSemanalAgenda({
                         clase.id
                       )
                     }
-                    className={`relative block w-full overflow-hidden rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(clase)}`}
+                    className={`relative block w-full overflow-hidden rounded-xl border border-l-[4px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition active:scale-[0.995] ${colorClasePorTipo(
+                      clase.tipo
+                    )}`}
                   >
                     {/* SemanaAgendaLineaCanceladaMovilV1 */}
                     {clase.estado === "cancelada" && (
@@ -962,15 +847,11 @@ export default function VistaSemanalAgenda({
 
                     {clase.estado ===
                       "cancelada" &&
-                      (
-                        clase.motivo_cancelacion ||
-                        clase.observaciones
-                      ) && (
+                      clase.observaciones && (
                         <p className="mt-2 line-clamp-2 border-t border-red-200 pt-2 text-[10px] font-semibold leading-snug text-red-700">
                           Cancelación
                           {" · "}
                           {
-                            clase.motivo_cancelacion ||
                             clase.observaciones
                           }
                         </p>
@@ -1020,27 +901,12 @@ export default function VistaSemanalAgenda({
                 fechaDia ===
                 hoy;
 
-              const bloqueosDia =
-                noDisponibilidades.filter(
-                  (periodo) =>
-                    fechaDia >=
-                      periodo.fecha_inicio &&
-                    fechaDia <=
-                      periodo.fecha_fin
-                );
-
-              const noDisponibleTodoElDia =
-                bloqueosDia.find(
-                  (periodo) =>
-                    bloqueoTodoElDia(
-                      fechaDia,
-                      periodo
-                    )
-                );
-
               const noDisponible =
-                noDisponibleTodoElDia ||
-                bloqueosDia[0];
+                noDisponibilidades.find(
+                  (periodo) =>
+                    fechaDia >= periodo.fecha_inicio &&
+                    fechaDia <= periodo.fecha_fin
+                );
 
               return (
                 <div
@@ -1085,7 +951,7 @@ export default function VistaSemanalAgenda({
 
                     <button
                       type="button"
-                      disabled={Boolean(noDisponibleTodoElDia)}
+                      disabled={Boolean(noDisponible)}
                       onClick={() =>
                         crearClase(
                           fechaDia
@@ -1106,7 +972,7 @@ export default function VistaSemanalAgenda({
 
                   <div
                     className={
-                      noDisponibleTodoElDia
+                      noDisponible
                         ? "space-y-3 bg-red-50/70 p-3"
                         : "space-y-3 p-3"
                     }
@@ -1115,12 +981,7 @@ export default function VistaSemanalAgenda({
                     {noDisponible && (
                       <div className="rounded-xl border border-red-200 bg-red-100 px-3 py-2 text-center">
                         <p className="text-xs font-bold text-red-700">
-                          {noDisponibleTodoElDia
-                            ? "NO DISPONIBLE"
-                            : `NO DISPONIBLE ${textoNoDisponibilidad(
-                                fechaDia,
-                                noDisponible
-                              )}`}
+                          NO DISPONIBLE
                         </p>
                         {noDisponible.motivo && (
                           <p className="mt-1 text-[10px] text-red-600">
@@ -1135,14 +996,14 @@ export default function VistaSemanalAgenda({
 
                       <button
                         type="button"
-                        disabled={Boolean(noDisponibleTodoElDia)}
+                        disabled={Boolean(noDisponible)}
                         onClick={() =>
                           crearClase(
                             fechaDia
                           )
                         }
                         className={
-                          noDisponibleTodoElDia
+                          noDisponible
                             ? "block w-full cursor-not-allowed rounded-xl border border-dashed border-red-200 bg-red-50 px-2 py-5 text-center opacity-60"
                             : "block w-full rounded-xl border border-dashed border-slate-200 px-2 py-5 text-center transition hover:border-[#00A79C]/30 hover:bg-[#E8F7F5]"
                         }
@@ -1201,7 +1062,9 @@ export default function VistaSemanalAgenda({
                                 )
                               }
                               title="Abrir esta clase para editar"
-                              className={`relative block w-full cursor-pointer overflow-hidden rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(clase)}`}
+                              className={`relative block w-full cursor-pointer overflow-hidden rounded-xl border border-l-[3px] p-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-[1px] hover:shadow-md ${colorClasePorTipo(
+                                clase.tipo
+                              )}`}
                             >
                               {/* SemanaAgendaLineaCanceladaDesktopV1 */}
                               {clase.estado === "cancelada" && (
@@ -1261,10 +1124,7 @@ export default function VistaSemanalAgenda({
 
                               {clase.estado ===
                                 "cancelada" &&
-                                (
-                                  clase.motivo_cancelacion ||
-                                  clase.observaciones
-                                ) && (
+                                clase.observaciones && (
 
                                   <div className="mt-3 border-t border-red-200 pt-2">
 
@@ -1274,7 +1134,6 @@ export default function VistaSemanalAgenda({
 
                                     <p className="mt-1 text-[11px] leading-snug text-red-800">
                                       {
-                                        clase.motivo_cancelacion ||
                                         clase.observaciones
                                       }
                                     </p>

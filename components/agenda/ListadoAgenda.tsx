@@ -11,8 +11,6 @@ type NoDisponibilidad = {
   id: string;
   fecha_inicio: string;
   fecha_fin: string;
-  hora_inicio: string | null;
-  hora_fin: string | null;
   motivo: string | null;
 };
 
@@ -241,28 +239,15 @@ function estadoEconomicoClase(
         !participante.usa_bono
     );
 
-  const participantesConBono =
-    clase.clase_alumnos.filter(
-      (participante) =>
-        participante.usa_bono
-    );
+  if (
+    pagosNormales.length === 0
+  ) {
+    return "cobrada" as const;
+  }
 
-  const bonosPagados =
-    participantesConBono.every(
-      (participante) =>
-        participante.bono_estado_cobro ===
-        "pagado"
-    );
-
-  const pagosNormalesCobrados =
-    pagosNormales.every(
-      (participante) =>
-        participante.pagado
-    );
-
-  return (
-    bonosPagados &&
-    pagosNormalesCobrados
+  return pagosNormales.every(
+    (participante) =>
+      participante.pagado
   )
     ? "cobrada" as const
     : "pendiente" as const;
@@ -356,96 +341,15 @@ function fechaEnPeriodo(
   );
 }
 
-function minutosHora(
-  hora: string
-) {
-  const [h, m] = hora
-    .slice(0, 5)
-    .split(":")
-    .map(Number);
-
-  return h * 60 + m;
-}
-
-function rangoBloqueoEnFecha(
-  fecha: string,
-  periodo: NoDisponibilidad
-) {
-  if (!fechaEnPeriodo(fecha, periodo)) {
-    return null;
-  }
-
-  if (
-    !periodo.hora_inicio ||
-    !periodo.hora_fin
-  ) {
-    return { inicio: 0, fin: 1440, todoElDia: true };
-  }
-
-  const inicio = minutosHora(periodo.hora_inicio);
-  const fin = minutosHora(periodo.hora_fin);
-
-  if (periodo.fecha_inicio === periodo.fecha_fin) {
-    return { inicio, fin, todoElDia: false };
-  }
-
-  if (fecha === periodo.fecha_inicio) {
-    return { inicio, fin: 1440, todoElDia: false };
-  }
-
-  if (fecha === periodo.fecha_fin) {
-    return { inicio: 0, fin, todoElDia: false };
-  }
-
-  return { inicio: 0, fin: 1440, todoElDia: true };
-}
-
-function bloqueoTodoElDia(
-  fecha: string,
-  periodo: NoDisponibilidad
-) {
-  return rangoBloqueoEnFecha(fecha, periodo)?.todoElDia === true;
-}
-
-function textoNoDisponibilidad(
-  fecha: string,
-  periodo: NoDisponibilidad
-) {
-  if (bloqueoTodoElDia(fecha, periodo)) {
-    return "Todo el día";
-  }
-
-  if (periodo.fecha_inicio === periodo.fecha_fin) {
-    return `${periodo.hora_inicio!.slice(0, 5)}–${periodo.hora_fin!.slice(0, 5)}`;
-  }
-
-  if (fecha === periodo.fecha_inicio) {
-    return `desde ${periodo.hora_inicio!.slice(0, 5)}`;
-  }
-
-  if (fecha === periodo.fecha_fin) {
-    return `hasta ${periodo.hora_fin!.slice(0, 5)}`;
-  }
-
-  return "Todo el día";
-}
-
 function colorClasePorTipo(
-  clase: Clase
+  tipo: string
 ) {
-  if (clase.tipo === "club") {
+  if (tipo === "club") {
     return "border-l-amber-300 bg-amber-50/90 hover:bg-amber-50";
   }
 
-  if (clase.tipo === "privada") {
-    return "border-l-violet-500 bg-violet-100 hover:bg-violet-100/80";
-  }
-
-  if (
-    clase.tipo === "propia" &&
-    clase.ubicaciones?.tipo === "pago"
-  ) {
-    return "border-l-sky-500 bg-sky-100 hover:bg-sky-100/80";
+  if (tipo === "privada") {
+    return "border-l-violet-300 bg-violet-50 hover:bg-violet-50/80";
   }
 
   return "border-l-[#00A79C]/40 bg-[#00A79C]/10 hover:bg-[#00A79C]/[0.13]";
@@ -497,27 +401,14 @@ export default function ListadoAgenda({
           const esHoy =
             fecha === hoy;
 
-          const bloqueosDia =
-            noDisponibilidades.filter(
+          const noDisponible =
+            noDisponibilidades.find(
               (periodo) =>
                 fechaEnPeriodo(
                   fecha,
                   periodo
                 )
             );
-
-          const noDisponibleTodoElDia =
-            bloqueosDia.find(
-              (periodo) =>
-                bloqueoTodoElDia(
-                  fecha,
-                  periodo
-                )
-            );
-
-          const noDisponible =
-            noDisponibleTodoElDia ||
-            bloqueosDia[0];
 
           return (
             <section
@@ -559,18 +450,11 @@ export default function ListadoAgenda({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  {noDisponible && (
+                  {noDisponible ? (
                     <span className="rounded-full bg-red-100 px-2.5 py-1.5 text-[10px] font-bold text-red-700">
-                      {noDisponibleTodoElDia
-                        ? "No disponible"
-                        : `No disp. ${textoNoDisponibilidad(
-                            fecha,
-                            noDisponible
-                          )}`}
+                      No disponible
                     </span>
-                  )}
-
-                  {!noDisponibleTodoElDia && (
+                  ) : (
                     <button
                       type="button"
                       onClick={() => {
@@ -600,12 +484,7 @@ export default function ListadoAgenda({
               {noDisponible && (
                 <div className="border-b border-red-200 bg-red-50 px-4 py-2">
                   <p className="text-xs font-semibold text-red-700">
-                    {noDisponibleTodoElDia
-                      ? "Día bloqueado"
-                      : `No disponible ${textoNoDisponibilidad(
-                          fecha,
-                          noDisponible
-                        )}`}
+                    Día bloqueado
                     {noDisponible.motivo
                       ? ` · ${noDisponible.motivo}`
                       : ""}
@@ -630,7 +509,23 @@ export default function ListadoAgenda({
                           (item) =>
                             item.alumnos
                         )
-                        .filter(Boolean);
+                        .filter(Boolean)
+                        .sort((a, b) =>
+                          nombreAlumnoAgenda(
+                            a,
+                            false
+                          ).localeCompare(
+                            nombreAlumnoAgenda(
+                              b,
+                              false
+                            ),
+                            "es",
+                            {
+                              sensitivity:
+                                "base",
+                            }
+                          )
+                        );
 
                     const nombresAlumnos =
                       alumnosDatos
@@ -658,7 +553,7 @@ export default function ListadoAgenda({
                           )
                         }
                         className={`relative block w-full overflow-hidden border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
-                          clase
+                          clase.tipo
                         )}`}
                       >
                         {/* ListaAgendaLineaCanceladaV1 */}
@@ -702,13 +597,7 @@ export default function ListadoAgenda({
                                   "Sin alumnos"}
                               </span>
 
-                              {clase.observaciones?.trim() &&
-                          (
-                            clase.estado !== "cancelada" ||
-                            Boolean(
-                              clase.motivo_cancelacion?.trim()
-                            )
-                          ) && (
+                              {clase.observaciones?.trim() && (
                                 <span
                                   className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white"
                                   title="Esta clase tiene una anotación"
@@ -732,22 +621,16 @@ export default function ListadoAgenda({
 
                             {clase.estado ===
                               "cancelada" &&
-                              (
-                                clase.motivo_cancelacion ||
-                                clase.observaciones
-                              ) && (
+                              clase.observaciones && (
                                 <p
                                   className="mt-1 truncate text-[11px] font-semibold text-red-700"
                                   title={
-                                    clase.motivo_cancelacion ||
-                                    clase.observaciones ||
-                                    undefined
+                                    clase.observaciones
                                   }
                                 >
                                   Cancelación
                                   {" · "}
                                   {
-                                    clase.motivo_cancelacion ||
                                     clase.observaciones
                                   }
                                 </p>
