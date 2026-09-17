@@ -612,6 +612,10 @@ export default function GruposPage() {
       return {
         actualizadas: 0,
         googleFallos: 0,
+        fallosClases: [] as {
+          fecha: string;
+          mensaje: string;
+        }[],
       };
     }
 
@@ -640,6 +644,10 @@ export default function GruposPage() {
       return {
         actualizadas: 0,
         googleFallos: 0,
+        fallosClases: [] as {
+          fecha: string;
+          mensaje: string;
+        }[],
       };
     }
 
@@ -709,6 +717,20 @@ export default function GruposPage() {
 
     let actualizadas = 0;
     let googleFallos = 0;
+    const fallosClases: {
+      fecha: string;
+      mensaje: string;
+    }[] = [];
+
+    const esperar = (
+      milisegundos: number
+    ) =>
+      new Promise<void>((resolve) =>
+        window.setTimeout(
+          resolve,
+          milisegundos
+        )
+      );
 
     for (
       const clase of clasesObjetivo
@@ -1013,34 +1035,64 @@ export default function GruposPage() {
           null,
       };
 
-      const {
-        data: claseGuardadaId,
-        error:
-          errorGuardarClase,
-      } = await supabase.rpc(
-        "guardar_clase_atomica",
-        {
-          p_clase_id: clase.id,
-          p_datos_clase:
-            datosClase,
-          p_participantes:
-            participantesNuevos,
-          p_uso_anterior: {},
-          p_uso_nuevo: {},
-          p_metodos_pago: {},
-          p_metodo_pago_total:
-            null,
-        }
-      );
+      let claseGuardadaId:
+        string | null = null;
+      let mensajeErrorGuardar =
+        "";
 
-      if (
-        errorGuardarClase ||
-        !claseGuardadaId
+      for (
+        let intento = 1;
+        intento <= 3;
+        intento += 1
       ) {
-        throw new Error(
-          errorGuardarClase?.message ||
-            "No se pudo actualizar una de las clases futuras."
+        const {
+          data,
+          error,
+        } = await supabase.rpc(
+          "guardar_clase_atomica",
+          {
+            p_clase_id: clase.id,
+            p_datos_clase:
+              datosClase,
+            p_participantes:
+              participantesNuevos,
+            p_uso_anterior: {},
+            p_uso_nuevo: {},
+            p_metodos_pago: {},
+            p_metodo_pago_total:
+              null,
+          }
         );
+
+        if (
+          !error &&
+          data
+        ) {
+          claseGuardadaId =
+            String(data);
+          mensajeErrorGuardar =
+            "";
+          break;
+        }
+
+        mensajeErrorGuardar =
+          error?.message ||
+          "No se pudo actualizar la clase.";
+
+        if (intento < 3) {
+          await esperar(
+            intento * 350
+          );
+        }
+      }
+
+      if (!claseGuardadaId) {
+        fallosClases.push({
+          fecha: clase.fecha,
+          mensaje:
+            mensajeErrorGuardar,
+        });
+        continue;
       }
 
       actualizadas += 1;
@@ -1078,11 +1130,14 @@ export default function GruposPage() {
       } catch {
         googleFallos += 1;
       }
+
+      await esperar(75);
     }
 
     return {
       actualizadas,
       googleFallos,
+      fallosClases,
     };
   }
 
@@ -1227,15 +1282,76 @@ export default function GruposPage() {
             }`;
 
           if (
+            resultado.fallosClases.length >
+            0
+          ) {
+            const fechasFallidas =
+              resultado.fallosClases
+                .slice(0, 5)
+                .map(
+                  (fallo) =>
+                    fallo.fecha
+                )
+                .join(", ");
+
+            mensajeFinal +=
+              `. ⚠️ ${resultado.fallosClases.length} clase${
+                resultado.fallosClases.length ===
+                1
+                  ? ""
+                  : "s"
+              } no se pudo${
+                resultado.fallosClases.length ===
+                1
+                  ? ""
+                  : "ieron"
+              } actualizar tras 3 intentos (fecha${
+                resultado.fallosClases.length ===
+                1
+                  ? ""
+                  : "s"
+              }: ${fechasFallidas}${
+                resultado.fallosClases.length >
+                5
+                  ? ", …"
+                  : ""
+              }).`;
+          }
+
+          if (
             resultado.googleFallos > 0
           ) {
             mensajeFinal +=
-              `. ⚠️ ${resultado.googleFallos} evento${
+              ` ⚠️ ${resultado.googleFallos} evento${
                 resultado.googleFallos === 1
                   ? ""
                   : "s"
               } de Google Calendar no se pudo actualizar.`;
           }
+        } else if (
+          resultado.fallosClases.length >
+          0
+        ) {
+          const primerFallo =
+            resultado.fallosClases[0];
+
+          mensajeFinal =
+            `⚠️ El grupo se ha actualizado, pero ${resultado.fallosClases.length} clase${
+              resultado.fallosClases.length ===
+              1
+                ? ""
+                : "s"
+            } futura${
+              resultado.fallosClases.length ===
+              1
+                ? ""
+                : "s"
+            } no se pudo${
+              resultado.fallosClases.length ===
+              1
+                ? ""
+                : "ieron"
+            } actualizar. Primer fallo: ${primerFallo.fecha} · ${primerFallo.mensaje}`;
         }
       } catch (error) {
         const texto =
