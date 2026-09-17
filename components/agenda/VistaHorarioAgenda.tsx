@@ -59,6 +59,56 @@ type Props = {
 };
 
 
+function claveAlumnoAgenda(
+  alumno:
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined
+) {
+  if (!alumno) {
+    return "";
+  }
+
+  const apodo =
+    (alumno.apodo || "").trim();
+
+  if (apodo) {
+    return apodo;
+  }
+
+  return `${alumno.nombre || ""} ${
+    alumno.apellidos || ""
+  }`.trim();
+}
+
+function ordenarAlumnosAgenda<
+  T extends
+    | {
+        nombre: string;
+        apellidos: string | null;
+        apodo: string | null;
+      }
+    | null
+    | undefined
+>(
+  alumnos: T[]
+) {
+  return [...alumnos].sort(
+    (a, b) =>
+      claveAlumnoAgenda(a).localeCompare(
+        claveAlumnoAgenda(b),
+        "es",
+        {
+          sensitivity: "base",
+        }
+      )
+  );
+}
+
 function nombresAlumnosAgenda(
   alumnosEntrada: Array<
     | {
@@ -2397,12 +2447,14 @@ export default function VistaHorarioAgenda({
                   );
 
                 const alumnosDatos =
-                  clase.clase_alumnos
-                    .map(
-                      (item) =>
-                        item.alumnos
-                    )
-                    .filter(Boolean);
+                  ordenarAlumnosAgenda(
+                    clase.clase_alumnos
+                      .map(
+                        (item) =>
+                          item.alumnos
+                      )
+                      .filter(Boolean)
+                  );
 
                 const alumnos =
                   nombresAlumnosAgenda(
@@ -2711,9 +2763,12 @@ export default function VistaHorarioAgenda({
                       clase.hora_inicio,
                       clase.duracion_minutos
                     );
-                    const alumnosDatos=clase.clase_alumnos
-                      .map(x=>x.alumnos)
-                      .filter(Boolean);
+                    const alumnosDatos=
+                      ordenarAlumnosAgenda(
+                        clase.clase_alumnos
+                          .map(x=>x.alumnos)
+                          .filter(Boolean)
+                      );
 
                     const alumnos=
                       nombresAlumnosAgenda(
