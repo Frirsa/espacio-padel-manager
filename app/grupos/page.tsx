@@ -548,20 +548,62 @@ export default function GruposPage() {
     grupoId: string,
     nuevosAlumnos: string[]
   ) {
-    const clasesObjetivo =
-      clases
-        .filter(
-          (clase) =>
-            clase.grupo_id ===
-              grupoId &&
-            claseEsFuturaProgramada(
-              clase
-            )
+    // Consultamos de nuevo Supabase en el momento de propagar el cambio.
+    // No dependemos del estado `clases` cargado al abrir la pantalla, porque
+    // podría estar desactualizado o incompleto después de otras ediciones.
+    const {
+      data: clasesGrupoData,
+      error: errorClasesGrupo,
+    } = await supabase
+      .from("clases")
+      .select(`
+        id,
+        google_calendar_event_id,
+        fecha,
+        hora_inicio,
+        duracion_minutos,
+        ubicacion_id,
+        grupo_id,
+        tipo,
+        estado,
+        facturable,
+        cobrada,
+        motivo_cancelacion,
+        observaciones,
+        importe_club,
+        coste_pista,
+        ingreso_extra,
+        modo_cobro,
+        importe_total,
+        ubicaciones (
+          nombre,
+          tipo
+        ),
+        clase_alumnos (
+          alumno_id,
+          importe,
+          pagado,
+          usa_bono,
+          bono_id,
+          asistio
         )
-        .sort((a, b) =>
-          `${a.fecha} ${a.hora_inicio}`.localeCompare(
-            `${b.fecha} ${b.hora_inicio}`
-          )
+      `)
+      .eq("grupo_id", grupoId)
+      .eq("estado", "programada")
+      .order("fecha", { ascending: true })
+      .order("hora_inicio", { ascending: true });
+
+    if (errorClasesGrupo) {
+      throw new Error(
+        "No se pudieron consultar las clases futuras del grupo: " +
+          errorClasesGrupo.message
+      );
+    }
+
+    const clasesObjetivo =
+      ((clasesGrupoData || []) as unknown as ClaseGrupo[])
+        .filter((clase) =>
+          claseEsFuturaProgramada(clase)
         );
 
     if (
