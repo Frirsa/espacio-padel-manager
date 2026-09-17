@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { sincronizarClaseConGoogleCalendar } from "../../lib/googleCalendarClient";
 
 type Alumno = {
   id: string;
@@ -26,14 +27,52 @@ type Grupo = {
 
 type ClaseGrupo = {
   id: string;
-  grupo_id: string | null;
+  google_calendar_event_id: string | null;
   fecha: string;
   hora_inicio: string;
   duracion_minutos: number;
+  ubicacion_id: string | null;
+  grupo_id: string | null;
+  tipo: string;
   estado: string;
+  facturable: boolean;
+  cobrada: boolean;
+  motivo_cancelacion: string | null;
+  observaciones: string | null;
+  importe_club: number;
+  coste_pista: number;
+  ingreso_extra: number;
+  modo_cobro: "por_alumno" | "total";
+  importe_total: number | null;
   ubicaciones: {
     nombre: string;
+    tipo: string;
   } | null;
+  clase_alumnos: {
+    alumno_id: string;
+    importe: number;
+    pagado: boolean;
+    usa_bono: boolean;
+    bono_id: string | null;
+    asistio: boolean;
+  }[];
+};
+
+type BonoGrupo = {
+  id: string;
+  grupo_id: string | null;
+  numero_clases: number;
+  importe_pagado: number;
+};
+
+type TarifaGrupo = {
+  id: string;
+  ubicacion_id: string | null;
+  concepto: string;
+  duracion_minutos: number;
+  numero_alumnos: number;
+  importe: number;
+  activa: boolean;
 };
 
 function nombreAlumnoGrupo(
@@ -341,13 +380,34 @@ export default function GruposPage() {
       .from("clases")
       .select(`
         id,
-        grupo_id,
+        google_calendar_event_id,
         fecha,
         hora_inicio,
         duracion_minutos,
+        ubicacion_id,
+        grupo_id,
+        tipo,
         estado,
+        facturable,
+        cobrada,
+        motivo_cancelacion,
+        observaciones,
+        importe_club,
+        coste_pista,
+        ingreso_extra,
+        modo_cobro,
+        importe_total,
         ubicaciones (
-          nombre
+          nombre,
+          tipo
+        ),
+        clase_alumnos (
+          alumno_id,
+          importe,
+          pagado,
+          usa_bono,
+          bono_id,
+          asistio
         )
       `)
       .not("grupo_id", "is", null)
@@ -377,6 +437,613 @@ export default function GruposPage() {
     setGrupoEditandoId(null);
   }
 
+  function idsIguales(
+    a: string[],
+    b: string[]
+  ) {
+    if (a.length !== b.length) {
+      return false;
+    }
+
+    const ordenA = [...a].sort();
+    const ordenB = [...b].sort();
+
+    return ordenA.every(
+      (id, indice) =>
+        id === ordenB[indice]
+    );
+  }
+
+  function claseEsFuturaProgramada(
+    clase: ClaseGrupo
+  ) {
+    if (
+      clase.estado !== "programada"
+    ) {
+      return false;
+    }
+
+    const fechaHoraClase =
+      new Date(
+        `${clase.fecha}T${String(
+          clase.hora_inicio || "00:00"
+        ).slice(0, 8)}`
+      );
+
+    return (
+      fechaHoraClase.getTime() >=
+      Date.now()
+    );
+  }
+
+  function nombresAlumnosPorIds(
+    ids: string[]
+  ) {
+    return ids
+      .map((id) =>
+        alumnos.find(
+          (alumno) =>
+            alumno.id === id
+        )
+      )
+      .filter(
+        (
+          alumno
+        ): alumno is Alumno =>
+          !!alumno
+      )
+      .map((alumno) =>
+        `${alumno.nombre || ""} ${
+          alumno.apellidos || ""
+        }`.trim()
+      )
+      .filter(Boolean);
+  }
+
+  function repartirImporteExacto(
+    importeTotal: number,
+    ids: string[]
+  ) {
+    const resultado:
+      Record<string, number> = {};
+
+    if (ids.length === 0) {
+      return resultado;
+    }
+
+    const centimosTotal =
+      Math.round(
+        Number(importeTotal || 0) *
+          100
+      );
+
+    const centimosBase =
+      Math.floor(
+        centimosTotal /
+          ids.length
+      );
+
+    const centimosSobrantes =
+      centimosTotal -
+      centimosBase *
+        ids.length;
+
+    ids.forEach(
+      (id, indice) => {
+        resultado[id] =
+          (
+            centimosBase +
+            (indice <
+            centimosSobrantes
+              ? 1
+              : 0)
+          ) / 100;
+      }
+    );
+
+    return resultado;
+  }
+
+  async function actualizarClasesFuturasDelGrupo(
+    grupoId: string,
+    nuevosAlumnos: string[]
+  ) {
+    const clasesObjetivo =
+      clases
+        .filter(
+          (clase) =>
+            clase.grupo_id ===
+              grupoId &&
+            claseEsFuturaProgramada(
+              clase
+            )
+        )
+        .sort((a, b) =>
+          `${a.fecha} ${a.hora_inicio}`.localeCompare(
+            `${b.fecha} ${b.hora_inicio}`
+          )
+        );
+
+    if (
+      clasesObjetivo.length === 0
+    ) {
+      return {
+        actualizadas: 0,
+        googleFallos: 0,
+      };
+    }
+
+    const confirmar =
+      window.confirm(
+        `Has cambiado los alumnos del grupo.\n\nHay ${clasesObjetivo.length} clase${
+          clasesObjetivo.length === 1
+            ? ""
+            : "s"
+        } futura${
+          clasesObjetivo.length === 1
+            ? ""
+            : "s"
+        } programada${
+          clasesObjetivo.length === 1
+            ? ""
+            : "s"
+        } asociada${
+          clasesObjetivo.length === 1
+            ? ""
+            : "s"
+        } a este grupo.\n\n¿Quieres actualizar también sus participantes?\n\nLas clases realizadas o canceladas no se modificarán.`
+      );
+
+    if (!confirmar) {
+      return {
+        actualizadas: 0,
+        googleFallos: 0,
+      };
+    }
+
+    const bonosIds = Array.from(
+      new Set(
+        clasesObjetivo.flatMap(
+          (clase) =>
+            clase.clase_alumnos
+              .filter(
+                (participante) =>
+                  participante.usa_bono &&
+                  participante.bono_id
+              )
+              .map(
+                (participante) =>
+                  participante.bono_id as string
+              )
+        )
+      )
+    );
+
+    let bonosGrupo:
+      BonoGrupo[] = [];
+
+    if (bonosIds.length > 0) {
+      const {
+        data: bonosData,
+        error: errorBonos,
+      } = await supabase
+        .from("bonos")
+        .select(
+          "id,grupo_id,numero_clases,importe_pagado"
+        )
+        .in("id", bonosIds);
+
+      if (errorBonos) {
+        throw new Error(
+          "No se pudieron revisar los bonos de las clases futuras: " +
+            errorBonos.message
+        );
+      }
+
+      bonosGrupo =
+        (bonosData || []) as BonoGrupo[];
+    }
+
+    const {
+      data: tarifasData,
+      error: errorTarifas,
+    } = await supabase
+      .from("tarifas")
+      .select(
+        "id,ubicacion_id,concepto,duracion_minutos,numero_alumnos,importe,activa"
+      )
+      .eq("activa", true);
+
+    if (errorTarifas) {
+      throw new Error(
+        "No se pudieron revisar las tarifas para actualizar las clases futuras: " +
+          errorTarifas.message
+      );
+    }
+
+    const tarifas =
+      (tarifasData ||
+        []) as TarifaGrupo[];
+
+    let actualizadas = 0;
+    let googleFallos = 0;
+
+    for (
+      const clase of clasesObjetivo
+    ) {
+      const participantesActuales =
+        clase.clase_alumnos || [];
+
+      const porAlumnoActual =
+        new Map(
+          participantesActuales.map(
+            (participante) => [
+              participante.alumno_id,
+              participante,
+            ]
+          )
+        );
+
+      const bonosGrupoUsados =
+        Array.from(
+          new Set(
+            participantesActuales
+              .filter(
+                (participante) =>
+                  participante.usa_bono &&
+                  participante.bono_id
+              )
+              .map(
+                (participante) =>
+                  participante.bono_id as string
+              )
+          )
+        )
+          .map((bonoId) =>
+            bonosGrupo.find(
+              (bono) =>
+                bono.id === bonoId &&
+                bono.grupo_id ===
+                  grupoId
+            )
+          )
+          .filter(
+            (
+              bono
+            ): bono is BonoGrupo =>
+              !!bono
+          );
+
+      const bonoGrupoComun =
+        bonosGrupoUsados.length === 1
+          ? bonosGrupoUsados[0]
+          : null;
+
+      let repartoBono:
+        Record<string, number> = {};
+
+      if (
+        bonoGrupoComun &&
+        bonoGrupoComun.numero_clases > 0
+      ) {
+        const importeSesion =
+          Number(
+            bonoGrupoComun.importe_pagado ||
+              0
+          ) /
+          Number(
+            bonoGrupoComun.numero_clases
+          );
+
+        repartoBono =
+          repartirImporteExacto(
+            importeSesion,
+            nuevosAlumnos
+          );
+      }
+
+      const importesNormalesActuales =
+        participantesActuales
+          .filter(
+            (participante) =>
+              !participante.usa_bono &&
+              Number.isFinite(
+                Number(
+                  participante.importe
+                )
+              )
+          )
+          .map(
+            (participante) =>
+              Number(
+                participante.importe
+              )
+          );
+
+      const importeNormalComun =
+        importesNormalesActuales.length >
+          0 &&
+        importesNormalesActuales.every(
+          (importe) =>
+            Math.abs(
+              importe -
+                importesNormalesActuales[0]
+            ) < 0.001
+        )
+          ? importesNormalesActuales[0]
+          : 0;
+
+      const participantesNuevos =
+        nuevosAlumnos.map(
+          (alumnoId) => {
+            const existente =
+              porAlumnoActual.get(
+                alumnoId
+              );
+
+            if (
+              bonoGrupoComun
+            ) {
+              return {
+                alumno_id: alumnoId,
+                importe:
+                  repartoBono[
+                    alumnoId
+                  ] || 0,
+                pagado: true,
+                usa_bono: true,
+                bono_id:
+                  bonoGrupoComun.id,
+                asistio:
+                  existente?.asistio ??
+                  true,
+              };
+            }
+
+            if (existente) {
+              return {
+                alumno_id:
+                  existente.alumno_id,
+                importe: Number(
+                  existente.importe ||
+                    0
+                ),
+                pagado:
+                  !!existente.pagado,
+                usa_bono:
+                  !!existente.usa_bono,
+                bono_id:
+                  existente.bono_id ||
+                  null,
+                asistio:
+                  existente.asistio ??
+                  true,
+              };
+            }
+
+            return {
+              alumno_id: alumnoId,
+              importe:
+                clase.tipo === "club" ||
+                clase.modo_cobro ===
+                  "total"
+                  ? 0
+                  : importeNormalComun,
+              pagado:
+                clase.tipo === "club",
+              usa_bono: false,
+              bono_id: null,
+              asistio: true,
+            };
+          }
+        );
+
+      let importeClubNuevo =
+        Number(
+          clase.importe_club || 0
+        );
+
+      if (
+        clase.tipo === "club" &&
+        clase.ubicacion_id
+      ) {
+        const tarifaClub =
+          tarifas.find(
+            (tarifa) =>
+              tarifa.activa &&
+              tarifa.concepto ===
+                "club_paga" &&
+              String(
+                tarifa.ubicacion_id ||
+                  ""
+              ) ===
+                String(
+                  clase.ubicacion_id ||
+                    ""
+                ) &&
+              Number(
+                tarifa.duracion_minutos
+              ) ===
+                Number(
+                  clase.duracion_minutos
+                ) &&
+              Number(
+                tarifa.numero_alumnos
+              ) ===
+                nuevosAlumnos.length
+          );
+
+        if (tarifaClub) {
+          importeClubNuevo =
+            Number(
+              tarifaClub.importe ||
+                0
+            );
+        }
+      }
+
+      let importeTotalNuevo =
+        clase.importe_total;
+
+      if (
+        clase.tipo !== "club" &&
+        !bonoGrupoComun &&
+        clase.modo_cobro ===
+          "total"
+      ) {
+        const tarifaSuelta =
+          tarifas.find(
+            (tarifa) =>
+              tarifa.activa &&
+              tarifa.ubicacion_id ===
+                null &&
+              tarifa.concepto ===
+                "clase_suelta" &&
+              Number(
+                tarifa.duracion_minutos
+              ) === 60 &&
+              Number(
+                tarifa.numero_alumnos
+              ) ===
+                nuevosAlumnos.length
+          );
+
+        if (tarifaSuelta) {
+          importeTotalNuevo =
+            Math.floor(
+              Number(
+                tarifaSuelta.importe ||
+                  0
+              ) *
+                (
+                  Number(
+                    clase.duracion_minutos ||
+                      60
+                  ) / 60
+                )
+            );
+        }
+      }
+
+      const datosClase = {
+        fecha: clase.fecha,
+        hora_inicio:
+          clase.hora_inicio,
+        duracion_minutos:
+          Number(
+            clase.duracion_minutos
+          ),
+        ubicacion_id:
+          clase.ubicacion_id ||
+          null,
+        grupo_id:
+          clase.grupo_id ||
+          null,
+        tipo: clase.tipo,
+        importe_club:
+          importeClubNuevo,
+        coste_pista:
+          Number(
+            clase.coste_pista || 0
+          ),
+        ingreso_extra:
+          Number(
+            clase.ingreso_extra || 0
+          ),
+        modo_cobro:
+          bonoGrupoComun
+            ? "por_alumno"
+            : clase.modo_cobro,
+        importe_total:
+          bonoGrupoComun
+            ? null
+            : importeTotalNuevo,
+        estado: clase.estado,
+        facturable:
+          clase.facturable ?? true,
+        cobrada:
+          clase.cobrada ?? false,
+        motivo_cancelacion:
+          clase.motivo_cancelacion ||
+          null,
+        observaciones:
+          clase.observaciones ||
+          null,
+      };
+
+      const {
+        data: claseGuardadaId,
+        error:
+          errorGuardarClase,
+      } = await supabase.rpc(
+        "guardar_clase_atomica",
+        {
+          p_clase_id: clase.id,
+          p_datos_clase:
+            datosClase,
+          p_participantes:
+            participantesNuevos,
+          p_uso_anterior: {},
+          p_uso_nuevo: {},
+          p_metodos_pago: {},
+          p_metodo_pago_total:
+            null,
+        }
+      );
+
+      if (
+        errorGuardarClase ||
+        !claseGuardadaId
+      ) {
+        throw new Error(
+          errorGuardarClase?.message ||
+            "No se pudo actualizar una de las clases futuras."
+        );
+      }
+
+      actualizadas += 1;
+
+      try {
+        await sincronizarClaseConGoogleCalendar(
+          {
+            id: clase.id,
+            google_calendar_event_id:
+              clase.google_calendar_event_id,
+            fecha: clase.fecha,
+            hora_inicio:
+              clase.hora_inicio,
+            duracion_minutos:
+              Number(
+                clase.duracion_minutos ||
+                  60
+              ),
+            tipo: clase.tipo,
+            estado: clase.estado,
+            observaciones:
+              clase.observaciones,
+            ubicacion:
+              clase.ubicaciones
+                ?.nombre || null,
+            tipo_ubicacion:
+              clase.ubicaciones
+                ?.tipo || null,
+            alumnos:
+              nombresAlumnosPorIds(
+                nuevosAlumnos
+              ),
+          }
+        );
+      } catch {
+        googleFallos += 1;
+      }
+    }
+
+    return {
+      actualizadas,
+      googleFallos,
+    };
+  }
+
   async function guardarGrupo(
     e: React.FormEvent
   ) {
@@ -384,6 +1051,30 @@ export default function GruposPage() {
     setMensaje("");
 
     let grupoId = grupoEditandoId;
+
+    const grupoAnterior =
+      grupoEditandoId
+        ? grupos.find(
+            (grupo) =>
+              grupo.id ===
+              grupoEditandoId
+          ) || null
+        : null;
+
+    const alumnosAnteriores =
+      grupoAnterior
+        ? grupoAnterior.grupo_alumnos.map(
+            (item) =>
+              item.alumno_id
+          )
+        : [];
+
+    const composicionCambio =
+      !!grupoEditandoId &&
+      !idsIguales(
+        alumnosAnteriores,
+        alumnosSeleccionados
+      );
 
     if (grupoEditandoId) {
       const { error } = await supabase
@@ -459,14 +1150,67 @@ export default function GruposPage() {
       }
     }
 
-    setMensaje(
+    let mensajeFinal =
       grupoEditandoId
         ? "✅ Grupo actualizado correctamente"
-        : "✅ Grupo creado correctamente"
-    );
+        : "✅ Grupo creado correctamente";
+
+    if (
+      grupoEditandoId &&
+      composicionCambio
+    ) {
+      try {
+        const resultado =
+          await actualizarClasesFuturasDelGrupo(
+            grupoEditandoId,
+            alumnosSeleccionados
+          );
+
+        if (
+          resultado.actualizadas > 0
+        ) {
+          mensajeFinal =
+            `✅ Grupo actualizado y ${resultado.actualizadas} clase${
+              resultado.actualizadas === 1
+                ? ""
+                : "s"
+            } futura${
+              resultado.actualizadas === 1
+                ? ""
+                : "s"
+            } actualizada${
+              resultado.actualizadas === 1
+                ? ""
+                : "s"
+            }`;
+
+          if (
+            resultado.googleFallos > 0
+          ) {
+            mensajeFinal +=
+              `. ⚠️ ${resultado.googleFallos} evento${
+                resultado.googleFallos === 1
+                  ? ""
+                  : "s"
+              } de Google Calendar no se pudo actualizar.`;
+          }
+        }
+      } catch (error) {
+        const texto =
+          error instanceof Error
+            ? error.message
+            : "Error desconocido";
+
+        mensajeFinal =
+          "⚠️ El grupo se ha actualizado, pero no se pudieron actualizar todas las clases futuras: " +
+          texto;
+      }
+    }
+
+    setMensaje(mensajeFinal);
 
     limpiarFormulario();
-    cargarDatos();
+    await cargarDatos();
   }
 
   function editarGrupo(grupo: Grupo) {
