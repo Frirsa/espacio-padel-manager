@@ -99,6 +99,7 @@ type ClaseGoogleAlumno = {
     alumnos: {
       nombre: string;
       apellidos: string | null;
+      apodo: string | null;
     } | null;
   }[];
 };
@@ -595,7 +596,8 @@ export default function AlumnosPage() {
         clase_alumnos (
           alumnos (
             nombre,
-            apellidos
+            apellidos,
+            apodo
           )
         )
       `)
@@ -689,6 +691,16 @@ export default function AlumnosPage() {
                       return "";
                     }
 
+                    const apodo =
+                      (
+                        alumno.apodo ||
+                        ""
+                      ).trim();
+
+                    if (apodo) {
+                      return apodo;
+                    }
+
                     return `${alumno.nombre} ${
                       alumno.apellidos ||
                       ""
@@ -744,11 +756,20 @@ export default function AlumnosPage() {
         ""
       ).trim();
 
+    const apodoAnterior =
+      (
+        alumnoAnterior?.apodo ||
+        ""
+      ).trim();
+
     const nombreNuevo =
       nombre.trim();
 
     const apellidosNuevos =
       apellidos.trim();
+
+    const apodoNuevo =
+      apodo.trim();
 
     const cambioNombre =
       Boolean(
@@ -758,7 +779,9 @@ export default function AlumnosPage() {
           nombreAnterior !==
             nombreNuevo ||
           apellidosAnteriores !==
-            apellidosNuevos
+            apellidosNuevos ||
+          apodoAnterior !==
+            apodoNuevo
         )
       );
 
@@ -788,7 +811,7 @@ export default function AlumnosPage() {
       apellidos:
         apellidosNuevos || null,
       apodo:
-        apodo.trim() || null,
+        apodoNuevo || null,
       fecha_nacimiento:
         fechaNacimiento || null,
       localidad:
