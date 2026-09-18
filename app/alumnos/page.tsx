@@ -857,50 +857,15 @@ export default function AlumnosPage() {
     const alumnoQueSeEstabaEditando =
       alumnoEditandoId;
 
-    let mensajeGoogle =
-      "";
-
-    if (
-      alumnoEditandoId &&
-      cambioNombre
-    ) {
-      try {
-        const resultadoGoogle =
-          await sincronizarClasesFuturasPorCambioNombre(
-            alumnoEditandoId
-          );
-
-        if (
-          resultadoGoogle.fallidas >
-          0
-        ) {
-          mensajeGoogle =
-            ` · ⚠️ Google Calendar: ${resultadoGoogle.actualizadas} clase(s) actualizada(s) y ${resultadoGoogle.fallidas} con error.`;
-        } else if (
-          resultadoGoogle.actualizadas >
-          0
-        ) {
-          mensajeGoogle =
-            ` · Google Calendar actualizado en ${resultadoGoogle.actualizadas} clase(s) futura(s).`;
-        }
-      } catch (
-        errorGoogle
-      ) {
-        const texto =
-          errorGoogle instanceof Error
-            ? errorGoogle.message
-            : "Error desconocido";
-
-        mensajeGoogle =
-          " · ⚠️ El alumno se guardó, pero no se pudieron actualizar sus clases futuras en Google Calendar: " +
-          texto;
-      }
-    }
-
+    // El guardado en Supabase ya ha terminado correctamente.
+    // Cerramos el formulario y refrescamos primero el Manager para que
+    // una sincronización lenta o fallida de Google Calendar no bloquee
+    // visualmente el guardado del alumno.
     setMensaje(
       alumnoEditandoId
-        ? "✅ Alumno actualizado correctamente" +
-            mensajeGoogle
+        ? cambioNombre
+          ? "✅ Alumno actualizado correctamente · Sincronizando nombre con Google Calendar…"
+          : "✅ Alumno actualizado correctamente"
         : "✅ Alumno creado correctamente"
     );
 
@@ -926,6 +891,51 @@ export default function AlumnosPage() {
         100
       );
     }
+
+    if (
+      alumnoQueSeEstabaEditando &&
+      cambioNombre
+    ) {
+      try {
+        const resultadoGoogle =
+          await sincronizarClasesFuturasPorCambioNombre(
+            alumnoQueSeEstabaEditando
+          );
+
+        if (
+          resultadoGoogle.fallidas >
+          0
+        ) {
+          setMensaje(
+            `✅ Alumno actualizado correctamente · ⚠️ Google Calendar: ${resultadoGoogle.actualizadas} clase(s) actualizada(s) y ${resultadoGoogle.fallidas} con error.`
+          );
+        } else if (
+          resultadoGoogle.actualizadas >
+          0
+        ) {
+          setMensaje(
+            `✅ Alumno actualizado correctamente · Google Calendar actualizado en ${resultadoGoogle.actualizadas} clase(s) futura(s).`
+          );
+        } else {
+          setMensaje(
+            "✅ Alumno actualizado correctamente"
+          );
+        }
+      } catch (
+        errorGoogle
+      ) {
+        const texto =
+          errorGoogle instanceof Error
+            ? errorGoogle.message
+            : "Error desconocido";
+
+        setMensaje(
+          "✅ Alumno actualizado correctamente · ⚠️ No se pudieron actualizar sus clases futuras en Google Calendar: " +
+            texto
+        );
+      }
+    }
+
   }
 
   function editarAlumno(
