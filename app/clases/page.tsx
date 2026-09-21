@@ -2848,20 +2848,6 @@ export default function ClasesPage() {
         );
       }
 
-      const grupoHabitual =
-        grupos.find(
-          (grupo) =>
-            grupo.grupo_alumnos.some(
-              (relacion) =>
-                relacion.alumno_id ===
-                alumno.id
-            )
-        );
-
-      setGrupoId(
-        grupoHabitual?.id ||
-          ""
-      );
     }
 
     const bonosAlumno =
