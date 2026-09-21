@@ -2848,6 +2848,20 @@ export default function ClasesPage() {
         );
       }
 
+      const grupoHabitual =
+        grupos.find(
+          (grupo) =>
+            grupo.grupo_alumnos.some(
+              (relacion) =>
+                relacion.alumno_id ===
+                alumno.id
+            )
+        );
+
+      setGrupoId(
+        grupoHabitual?.id ||
+          ""
+      );
     }
 
     const bonosAlumno =
@@ -3835,30 +3849,58 @@ export default function ClasesPage() {
                         }
 
                         const importeClaseBono =
-                          Number(
-                            bono.importe_pagado ||
-                              0
-                          ) /
-                          Number(
-                            bono.numero_clases
+                          Math.round(
+                            Number(
+                              bono.importe_pagado ||
+                                0
+                            ) /
+                              Number(
+                                bono.numero_clases
+                              )
                           );
 
                         const usuariosMismoBono =
-                          alumnosSeleccionados.filter(
-                            (id) =>
-                              modoPagoAlumnos[
-                                id
-                              ] === "bono" &&
-                              bonosSeleccionados[
-                                id
-                              ] === bono.id
-                          ).length;
+                          alumnosSeleccionados
+                            .filter(
+                              (id) =>
+                                modoPagoAlumnos[
+                                  id
+                                ] === "bono" &&
+                                bonosSeleccionados[
+                                  id
+                                ] === bono.id
+                            )
+                            .sort((a, b) =>
+                              a.localeCompare(b)
+                            );
 
-                        return usuariosMismoBono >
+                        if (
+                          usuariosMismoBono.length ===
                           0
-                          ? importeClaseBono /
-                              usuariosMismoBono
-                          : importeClaseBono;
+                        ) {
+                          return importeClaseBono;
+                        }
+
+                        const importeBase =
+                          Math.floor(
+                            importeClaseBono /
+                              usuariosMismoBono.length
+                          );
+                        const resto =
+                          importeClaseBono %
+                          usuariosMismoBono.length;
+                        const indiceUsuario =
+                          usuariosMismoBono.indexOf(
+                            alumnoId
+                          );
+
+                        return (
+                          importeBase +
+                          (indiceUsuario >= 0 &&
+                          indiceUsuario < resto
+                            ? 1
+                            : 0)
+                        );
                       })()
                     : modoCobroFinalSerie ===
                       "total"
@@ -4707,30 +4749,58 @@ export default function ClasesPage() {
                         }
 
                         const importeClaseBono =
-                          Number(
-                            bono.importe_pagado ||
-                              0
-                          ) /
-                          Number(
-                            bono.numero_clases
+                          Math.round(
+                            Number(
+                              bono.importe_pagado ||
+                                0
+                            ) /
+                              Number(
+                                bono.numero_clases
+                              )
                           );
 
                         const usuariosMismoBono =
-                          alumnosSeleccionados.filter(
-                            (id) =>
-                              modoPagoAlumnos[
-                                id
-                              ] === "bono" &&
-                              bonosSeleccionados[
-                                id
-                              ] === bono.id
-                          ).length;
+                          alumnosSeleccionados
+                            .filter(
+                              (id) =>
+                                modoPagoAlumnos[
+                                  id
+                                ] === "bono" &&
+                                bonosSeleccionados[
+                                  id
+                                ] === bono.id
+                            )
+                            .sort((a, b) =>
+                              a.localeCompare(b)
+                            );
 
-                        return usuariosMismoBono >
+                        if (
+                          usuariosMismoBono.length ===
                           0
-                          ? importeClaseBono /
-                              usuariosMismoBono
-                          : importeClaseBono;
+                        ) {
+                          return importeClaseBono;
+                        }
+
+                        const importeBase =
+                          Math.floor(
+                            importeClaseBono /
+                              usuariosMismoBono.length
+                          );
+                        const resto =
+                          importeClaseBono %
+                          usuariosMismoBono.length;
+                        const indiceUsuario =
+                          usuariosMismoBono.indexOf(
+                            alumnoId
+                          );
+
+                        return (
+                          importeBase +
+                          (indiceUsuario >= 0 &&
+                          indiceUsuario < resto
+                            ? 1
+                            : 0)
+                        );
                       })()
                     : modoCobroFinal ===
                       "total"
