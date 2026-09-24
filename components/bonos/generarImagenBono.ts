@@ -18,6 +18,8 @@ type UsoBonoImagen = {
 
     estado: string;
 
+    facturable: boolean;
+
   } | null;
 
 };
@@ -670,7 +672,19 @@ export async function generarImagenBono(bono: BonoImagen) {
 
         uso.bono_id === bono.id &&
 
-        uso.clases?.estado === "realizada"
+        (
+
+          uso.clases?.estado === "realizada" ||
+
+          (
+
+            uso.clases?.estado === "cancelada" &&
+
+            uso.clases?.facturable === true
+
+          )
+
+        )
 
     )
 
@@ -683,6 +697,8 @@ export async function generarImagenBono(bono: BonoImagen) {
       )
 
     );
+
+
 
   const usos = usosBrutos.filter(
 
