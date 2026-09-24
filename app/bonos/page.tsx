@@ -711,6 +711,12 @@ export default function BonosPage() {
         .slice(0, 10)
     );
 
+  const [metodoCobroPorId, setMetodoCobroPorId] =
+    useState<Record<string, string>>({});
+
+  const [fechaCobroPorId, setFechaCobroPorId] =
+    useState<Record<string, string>>({});
+
   const [alumnoId, setAlumnoId] =
     useState("");
 
@@ -1437,7 +1443,7 @@ export default function BonosPage() {
       error,
     } = await supabase
       .from("bono_cobros")
-      .select("importe,estado")
+      .select("importe,estado,metodo_cobro,fecha_cobro")
       .eq("bono_id", bonoId);
 
     if (error) {
@@ -1473,10 +1479,29 @@ export default function BonosPage() {
         ? "pagado"
         : "pendiente";
 
-    const ultimoPagado =
-      pagados[
-        pagados.length - 1
-      ];
+    const metodosPagados =
+      Array.from(
+        new Set(
+          pagados
+            .map(
+              (cobro) =>
+                cobro.metodo_cobro
+            )
+            .filter(Boolean)
+        )
+      );
+
+    const fechasPagadas =
+      pagados
+        .map(
+          (cobro) =>
+            cobro.fecha_cobro
+        )
+        .filter(
+          (fecha): fecha is string =>
+            !!fecha
+        )
+        .sort();
 
     const { error: errorBono } =
       await supabase
@@ -1486,11 +1511,13 @@ export default function BonosPage() {
             estadoFinal,
           metodo_cobro:
             estadoFinal === "pagado"
-              ? metodoCobroRapido
+              ? metodosPagados.length > 1
+                ? "mixto"
+                : metodosPagados[0] || null
               : null,
           fecha_cobro:
             estadoFinal === "pagado"
-              ? fechaCobroRapido
+              ? fechasPagadas[fechasPagadas.length - 1] || null
               : null,
         })
         .eq("id", bonoId);
@@ -1500,8 +1527,6 @@ export default function BonosPage() {
         errorBono.message
       );
     }
-
-    void ultimoPagado;
   }
 
   async function repartirCobroPorAlumnos(
@@ -1683,9 +1708,15 @@ export default function BonosPage() {
           .update({
             estado: "pagado",
             metodo_cobro:
-              metodoCobroRapido,
+              metodoCobroPorId[cobro.id] ||
+              cobro.metodo_cobro ||
+              "efectivo",
             fecha_cobro:
-              fechaCobroRapido,
+              fechaCobroPorId[cobro.id] ||
+              cobro.fecha_cobro ||
+              new Date()
+                .toISOString()
+                .slice(0, 10),
           })
           .eq("id", cobro.id);
 
@@ -1707,6 +1738,92 @@ export default function BonosPage() {
     } catch (error) {
       setMensaje(
         "❌ No se pudo registrar el cobro: " +
+          (error instanceof Error
+            ? error.message
+            : "Error desconocido")
+      );
+    }
+  }
+
+  async function anularCobroBono(
+    bono: Bono,
+    cobro: BonoCobro
+  ) {
+    if (cobro.estado !== "pagado") {
+      return;
+    }
+
+    const alumno =
+      cobro.alumno_id
+        ? alumnos.find(
+            (item) =>
+              item.id ===
+              cobro.alumno_id
+          )
+        : null;
+
+    const nombre = alumno
+      ? `${alumno.nombre} ${alumno.apellidos || ""}`.trim()
+      : "cobro global";
+
+    const confirmar =
+      window.confirm(
+        `Se anulará el cobro de ${cobro.importe.toFixed(2)} € de ${nombre} y volverá a quedar pendiente. ¿Continuar?`
+      );
+
+    if (!confirmar) {
+      return;
+    }
+
+    try {
+      const { error } =
+        await supabase
+          .from("bono_cobros")
+          .update({
+            estado: "pendiente",
+            metodo_cobro: null,
+            fecha_cobro: null,
+          })
+          .eq("id", cobro.id);
+
+      if (error) {
+        throw new Error(
+          error.message
+        );
+      }
+
+      await actualizarResumenLegacyBono(
+        bono.id
+      );
+
+      setMetodoCobroPorId(
+        (actual) => {
+          const siguiente = {
+            ...actual,
+          };
+          delete siguiente[cobro.id];
+          return siguiente;
+        }
+      );
+
+      setFechaCobroPorId(
+        (actual) => {
+          const siguiente = {
+            ...actual,
+          };
+          delete siguiente[cobro.id];
+          return siguiente;
+        }
+      );
+
+      setMensaje(
+        "✅ Cobro anulado. El importe vuelve a estar pendiente"
+      );
+
+      await cargarDatos();
+    } catch (error) {
+      setMensaje(
+        "❌ No se pudo anular el cobro: " +
           (error instanceof Error
             ? error.message
             : "Error desconocido")
@@ -4640,7 +4757,7 @@ export default function BonosPage() {
                               <div className="grid gap-2 sm:grid-cols-2">
                                 <div>
                                   <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
-                                    Método para nuevos cobros
+                                    Método del cobro global
                                   </label>
                                   <select
                                     value={metodoCobroRapido}
@@ -4660,7 +4777,7 @@ export default function BonosPage() {
 
                                 <div>
                                   <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
-                                    Fecha del cobro
+                                    Fecha del cobro global
                                   </label>
                                   <input
                                     type="date"
@@ -4715,18 +4832,75 @@ export default function BonosPage() {
                                           </div>
 
                                           {cobro.estado ===
-                                            "pendiente" && (
+                                          "pendiente" ? (
+                                            <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-[130px_145px_auto] sm:items-center">
+                                              <select
+                                                value={
+                                                  metodoCobroPorId[cobro.id] ||
+                                                  cobro.metodo_cobro ||
+                                                  "efectivo"
+                                                }
+                                                onChange={(e) =>
+                                                  setMetodoCobroPorId(
+                                                    (actual) => ({
+                                                      ...actual,
+                                                      [cobro.id]: e.target.value,
+                                                    })
+                                                  )
+                                                }
+                                                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-[10px] font-bold text-[#17324D]"
+                                              >
+                                                <option value="efectivo">Efectivo</option>
+                                                <option value="bizum">Bizum</option>
+                                                <option value="transferencia">Transferencia</option>
+                                                <option value="tarjeta">Tarjeta</option>
+                                              </select>
+
+                                              <input
+                                                type="date"
+                                                value={
+                                                  fechaCobroPorId[cobro.id] ||
+                                                  cobro.fecha_cobro ||
+                                                  new Date()
+                                                    .toISOString()
+                                                    .slice(0, 10)
+                                                }
+                                                onChange={(e) =>
+                                                  setFechaCobroPorId(
+                                                    (actual) => ({
+                                                      ...actual,
+                                                      [cobro.id]: e.target.value,
+                                                    })
+                                                  )
+                                                }
+                                                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-[10px] font-bold text-[#17324D]"
+                                              />
+
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  cobrarAlumnoBono(
+                                                    bono,
+                                                    cobro
+                                                  )
+                                                }
+                                                className="h-8 shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100"
+                                              >
+                                                Cobrar
+                                              </button>
+                                            </div>
+                                          ) : (
                                             <button
                                               type="button"
                                               onClick={() =>
-                                                cobrarAlumnoBono(
+                                                anularCobroBono(
                                                   bono,
                                                   cobro
                                                 )
                                               }
-                                              className="h-8 shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100"
+                                              className="h-8 shrink-0 rounded-lg border border-red-200 bg-red-50 px-3 text-[10px] font-bold text-red-700 hover:bg-red-100"
                                             >
-                                              Cobrar
+                                              Anular cobro
                                             </button>
                                           )}
                                         </div>
