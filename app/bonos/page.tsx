@@ -80,6 +80,17 @@ type RelacionBonoAlumno = {
   alumno_id: string;
 };
 
+type BonoCobro = {
+  id: string;
+  bono_id: string;
+  alumno_id: string | null;
+  importe: number;
+  estado: "pagado" | "pendiente";
+  metodo_cobro: string | null;
+  fecha_cobro: string | null;
+  created_at: string;
+};
+
 type TarifaBono = {
   id: string;
   ubicacion_id: string | null;
@@ -686,6 +697,25 @@ export default function BonosPage() {
   ] =
     useState<RelacionBonoAlumno[]>([]);
 
+  const [cobrosBonos, setCobrosBonos] =
+    useState<BonoCobro[]>([]);
+
+  const [cobrosAbiertos, setCobrosAbiertos] =
+    useState<string[]>([]);
+
+  const [cobroActualizandoId, setCobroActualizandoId] =
+    useState<string | null>(null);
+
+  const [metodoCobroGestion, setMetodoCobroGestion] =
+    useState("efectivo");
+
+  const [fechaCobroGestion, setFechaCobroGestion] =
+    useState(
+      new Date()
+        .toISOString()
+        .slice(0, 10)
+    );
+
   const [alumnoId, setAlumnoId] =
     useState("");
 
@@ -979,6 +1009,27 @@ export default function BonosPage() {
       return;
     }
 
+    const {
+      data: cobrosBonosData,
+      error: errorCobrosBonos,
+    } = await supabase
+      .from("bono_cobros")
+      .select(
+        "id,bono_id,alumno_id,importe,estado,metodo_cobro,fecha_cobro,created_at"
+      )
+      .order("created_at", {
+        ascending: true,
+      });
+
+    if (errorCobrosBonos) {
+      setMensaje(
+        "❌ Error al cargar los cobros de bonos: " +
+          errorCobrosBonos.message
+      );
+
+      return;
+    }
+
     setAlumnos(
       (alumnosData ||
         []) as Alumno[]
@@ -1004,6 +1055,11 @@ export default function BonosPage() {
     setRelacionesBonoAlumno(
       (relacionesData ||
         []) as RelacionBonoAlumno[]
+    );
+
+    setCobrosBonos(
+      (cobrosBonosData ||
+        []) as BonoCobro[]
     );
   }
 
@@ -1224,6 +1280,476 @@ export default function BonosPage() {
     }
   }
 
+  function repartirImporte(
+    importeTotal: number,
+    alumnosIds: string[]
+  ) {
+    const ids = Array.from(
+      new Set(alumnosIds)
+    );
+
+    if (ids.length === 0) {
+      return [] as {
+        alumno_id: string;
+        importe: number;
+      }[];
+    }
+
+    if (Number.isInteger(importeTotal)) {
+      const base = Math.floor(
+        importeTotal / ids.length
+      );
+      const resto =
+        Math.round(importeTotal) -
+        base * ids.length;
+
+      return ids.map(
+        (id, indice) => ({
+          alumno_id: id,
+          importe:
+            base +
+            (indice < resto ? 1 : 0),
+        })
+      );
+    }
+
+    const centimos = Math.round(
+      importeTotal * 100
+    );
+    const baseCentimos = Math.floor(
+      centimos / ids.length
+    );
+    const restoCentimos =
+      centimos -
+      baseCentimos * ids.length;
+
+    return ids.map(
+      (id, indice) => ({
+        alumno_id: id,
+        importe:
+          (baseCentimos +
+            (indice < restoCentimos
+              ? 1
+              : 0)) /
+          100,
+      })
+    );
+  }
+
+  function obtenerCobrosBono(
+    bonoId: string
+  ) {
+    return cobrosBonos.filter(
+      (cobro) =>
+        cobro.bono_id === bonoId
+    );
+  }
+
+  function obtenerResumenCobroBono(
+    bono: Bono
+  ) {
+    const cobros =
+      obtenerCobrosBono(bono.id);
+
+    const total = Math.max(
+      0,
+      Number(
+        bono.importe_pagado || 0
+      )
+    );
+
+    const cobrado = cobros
+      .filter(
+        (cobro) =>
+          cobro.estado === "pagado"
+      )
+      .reduce(
+        (suma, cobro) =>
+          suma +
+          Number(cobro.importe || 0),
+        0
+      );
+
+    const pendiente = Math.max(
+      0,
+      total - cobrado
+    );
+
+    const estado =
+      pendiente <= 0.004
+        ? "pagado"
+        : cobrado > 0.004
+        ? "parcial"
+        : "pendiente";
+
+    return {
+      cobros,
+      total,
+      cobrado,
+      pendiente,
+      estado,
+    } as const;
+  }
+
+  async function crearCobrosInicialesBono(
+    bonoId: string,
+    importeTotal: number,
+    esGrupo: boolean,
+    integrantesIds: string[],
+    estadoInicial: "pagado" | "pendiente",
+    metodoInicial: string,
+    fechaInicial: string
+  ) {
+    if (importeTotal <= 0) {
+      return;
+    }
+
+    if (estadoInicial === "pagado") {
+      const { error } = await supabase
+        .from("bono_cobros")
+        .insert({
+          bono_id: bonoId,
+          alumno_id: null,
+          importe: importeTotal,
+          estado: "pagado",
+          metodo_cobro: metodoInicial,
+          fecha_cobro: fechaInicial,
+        });
+
+      if (error) {
+        throw new Error(
+          "No se pudo registrar el cobro inicial del bono: " +
+            error.message
+        );
+      }
+
+      return;
+    }
+
+    if (
+      esGrupo &&
+      integrantesIds.length > 0
+    ) {
+      const reparto = repartirImporte(
+        importeTotal,
+        integrantesIds
+      );
+
+      const { error } = await supabase
+        .from("bono_cobros")
+        .insert(
+          reparto.map((parte) => ({
+            bono_id: bonoId,
+            alumno_id: parte.alumno_id,
+            importe: parte.importe,
+            estado: "pendiente",
+            metodo_cobro: null,
+            fecha_cobro: null,
+          }))
+        );
+
+      if (error) {
+        throw new Error(
+          "No se pudo repartir el cobro del bono entre los alumnos: " +
+            error.message
+        );
+      }
+
+      return;
+    }
+
+    const { error } = await supabase
+      .from("bono_cobros")
+      .insert({
+        bono_id: bonoId,
+        alumno_id: null,
+        importe: importeTotal,
+        estado: "pendiente",
+        metodo_cobro: null,
+        fecha_cobro: null,
+      });
+
+    if (error) {
+      throw new Error(
+        "No se pudo registrar el pendiente del bono: " +
+          error.message
+      );
+    }
+  }
+
+  async function sincronizarEstadoCobroLegacy(
+    bonoId: string
+  ) {
+    const bono = bonos.find(
+      (item) => item.id === bonoId
+    );
+
+    if (!bono) {
+      return;
+    }
+
+    const {
+      data: cobrosActuales,
+      error: errorCobros,
+    } = await supabase
+      .from("bono_cobros")
+      .select(
+        "importe,estado,metodo_cobro,fecha_cobro,created_at"
+      )
+      .eq("bono_id", bonoId);
+
+    if (errorCobros) {
+      throw new Error(
+        "No se pudo recalcular el estado del bono: " +
+          errorCobros.message
+      );
+    }
+
+    const pagados =
+      (cobrosActuales || []).filter(
+        (cobro: any) =>
+          cobro.estado === "pagado"
+      );
+
+    const totalCobrado =
+      pagados.reduce(
+        (suma: number, cobro: any) =>
+          suma +
+          Number(cobro.importe || 0),
+        0
+      );
+
+    const totalBono = Number(
+      bono.importe_pagado || 0
+    );
+
+    const cobradoCompleto =
+      totalCobrado + 0.004 >=
+      totalBono;
+
+    const fechas = pagados
+      .map(
+        (cobro: any) =>
+          cobro.fecha_cobro || ""
+      )
+      .filter(Boolean)
+      .sort();
+
+    const metodos = Array.from(
+      new Set(
+        pagados
+          .map(
+            (cobro: any) =>
+              cobro.metodo_cobro
+          )
+          .filter(Boolean)
+      )
+    );
+
+    const { error: errorBono } =
+      await supabase
+        .from("bonos")
+        .update({
+          estado_cobro: cobradoCompleto
+            ? "pagado"
+            : "pendiente",
+          metodo_cobro:
+            cobradoCompleto &&
+            metodos.length === 1
+              ? String(metodos[0])
+              : null,
+          fecha_cobro:
+            cobradoCompleto &&
+            fechas.length > 0
+              ? fechas[fechas.length - 1]
+              : null,
+        })
+        .eq("id", bonoId);
+
+    if (errorBono) {
+      throw new Error(
+        "No se pudo actualizar el estado económico del bono: " +
+          errorBono.message
+      );
+    }
+  }
+
+  function cambiarCobrosBono(
+    bonoId: string
+  ) {
+    setCobrosAbiertos(
+      (actuales) =>
+        actuales.includes(bonoId)
+          ? actuales.filter(
+              (id) => id !== bonoId
+            )
+          : [...actuales, bonoId]
+    );
+  }
+
+  async function cambiarEstadoCobroFila(
+    cobro: BonoCobro,
+    nuevoEstado: "pagado" | "pendiente"
+  ) {
+    setCobroActualizandoId(cobro.id);
+    setMensaje("");
+
+    try {
+      const { error } = await supabase
+        .from("bono_cobros")
+        .update({
+          estado: nuevoEstado,
+          metodo_cobro:
+            nuevoEstado === "pagado"
+              ? metodoCobroGestion
+              : null,
+          fecha_cobro:
+            nuevoEstado === "pagado"
+              ? fechaCobroGestion
+              : null,
+        })
+        .eq("id", cobro.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      await sincronizarEstadoCobroLegacy(
+        cobro.bono_id
+      );
+
+      await cargarDatos();
+
+      setMensaje(
+        nuevoEstado === "pagado"
+          ? "✅ Cobro del bono registrado"
+          : "✅ Cobro del bono vuelto a pendiente"
+      );
+    } catch (error) {
+      setMensaje(
+        "❌ Error al actualizar el cobro: " +
+          (error instanceof Error
+            ? error.message
+            : "Error desconocido")
+      );
+    } finally {
+      setCobroActualizandoId(null);
+    }
+  }
+
+  async function cobrarBonoCompleto(
+    bono: Bono
+  ) {
+    const resumen =
+      obtenerResumenCobroBono(bono);
+
+    if (resumen.pendiente <= 0.004) {
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Se marcarán como cobrados ${resumen.pendiente.toFixed(
+        2
+      )} € pendientes de este bono. ¿Continuar?`
+    );
+
+    if (!confirmar) {
+      return;
+    }
+
+    setCobroActualizandoId(
+      `todo-${bono.id}`
+    );
+    setMensaje("");
+
+    try {
+      const pendientes =
+        resumen.cobros.filter(
+          (cobro) =>
+            cobro.estado ===
+            "pendiente"
+        );
+
+      if (pendientes.length > 0) {
+        const { error } = await supabase
+          .from("bono_cobros")
+          .update({
+            estado: "pagado",
+            metodo_cobro:
+              metodoCobroGestion,
+            fecha_cobro:
+              fechaCobroGestion,
+          })
+          .in(
+            "id",
+            pendientes.map(
+              (cobro) => cobro.id
+            )
+          );
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      const cubiertoPorFilas =
+        resumen.cobros.reduce(
+          (suma, cobro) =>
+            suma +
+            Number(cobro.importe || 0),
+          0
+        );
+
+      const diferencia =
+        resumen.total -
+        cubiertoPorFilas;
+
+      if (diferencia > 0.004) {
+        const { error } = await supabase
+          .from("bono_cobros")
+          .insert({
+            bono_id: bono.id,
+            alumno_id: null,
+            importe: diferencia,
+            estado: "pagado",
+            metodo_cobro:
+              metodoCobroGestion,
+            fecha_cobro:
+              fechaCobroGestion,
+          });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      if (diferencia < -0.004) {
+        throw new Error(
+          "Los cobros registrados superan el importe total del bono. Revisa el detalle antes de cerrarlo."
+        );
+      }
+
+      await sincronizarEstadoCobroLegacy(
+        bono.id
+      );
+
+      await cargarDatos();
+
+      setMensaje(
+        "✅ Bono cobrado completamente"
+      );
+    } catch (error) {
+      setMensaje(
+        "❌ Error al cobrar el bono completo: " +
+          (error instanceof Error
+            ? error.message
+            : "Error desconocido")
+      );
+    } finally {
+      setCobroActualizandoId(null);
+    }
+  }
+
   async function guardarBono(
     e: FormEvent
   ) {
@@ -1274,6 +1800,60 @@ export default function BonosPage() {
       Number(numeroClases);
     const restantes =
       Number(clasesRestantes);
+    const importeTotalBono =
+      importe
+        ? Number(importe)
+        : 0;
+
+    if (
+      !Number.isFinite(importeTotalBono) ||
+      importeTotalBono < 0
+    ) {
+      setMensaje(
+        "❌ El importe del bono no es válido"
+      );
+      return;
+    }
+
+    const bonoOriginal =
+      bonoEditandoId
+        ? bonos.find(
+            (bono) =>
+              bono.id ===
+              bonoEditandoId
+          ) || null
+        : null;
+
+    const cobrosOriginales =
+      bonoEditandoId
+        ? obtenerCobrosBono(
+            bonoEditandoId
+          )
+        : [];
+
+    const tieneCobrosPagados =
+      cobrosOriginales.some(
+        (cobro) =>
+          cobro.estado === "pagado"
+      );
+
+    const cambiaImporte =
+      !!bonoOriginal &&
+      Math.abs(
+        Number(
+          bonoOriginal.importe_pagado || 0
+        ) - importeTotalBono
+      ) > 0.004;
+
+    if (
+      cambiaImporte &&
+      tieneCobrosPagados
+    ) {
+      setMensaje(
+        "❌ Este bono ya tiene cobros registrados. Para no alterar el histórico, no se puede cambiar su importe desde la edición."
+      );
+      return;
+    }
 
     if (
       !Number.isInteger(
@@ -1320,9 +1900,7 @@ export default function BonosPage() {
         restantes,
 
       importe_pagado:
-        importe
-          ? Number(importe)
-          : 0,
+        importeTotalBono,
 
       fecha_compra:
         fechaCompra,
@@ -1395,6 +1973,67 @@ export default function BonosPage() {
         bonoId,
         alumnoId
       );
+
+      const integrantesCobro =
+        tipoComprador === "grupo"
+          ? miembrosGrupo.map(
+              (alumno) => alumno.id
+            )
+          : [];
+
+      if (!bonoEditandoId) {
+        await crearCobrosInicialesBono(
+          bonoId,
+          importeTotalBono,
+          tipoComprador === "grupo",
+          integrantesCobro,
+          estadoCobro,
+          metodoCobro,
+          fechaCobro
+        );
+      } else if (cobrosOriginales.length === 0) {
+        await crearCobrosInicialesBono(
+          bonoId,
+          importeTotalBono,
+          tipoComprador === "grupo",
+          integrantesCobro,
+          estadoCobro,
+          metodoCobro,
+          fechaCobro
+        );
+      } else if (cambiaImporte) {
+        const { error: errorBorrarCobros } =
+          await supabase
+            .from("bono_cobros")
+            .delete()
+            .eq("bono_id", bonoId);
+
+        if (errorBorrarCobros) {
+          throw new Error(
+            "No se pudo actualizar el reparto económico del bono: " +
+              errorBorrarCobros.message
+          );
+        }
+
+        await crearCobrosInicialesBono(
+          bonoId,
+          importeTotalBono,
+          tipoComprador === "grupo",
+          integrantesCobro,
+          "pendiente",
+          metodoCobro,
+          fechaCobro
+        );
+
+        await supabase
+          .from("bonos")
+          .update({
+            estado_cobro: "pendiente",
+            metodo_cobro: null,
+            fecha_cobro: null,
+          })
+          .eq("id", bonoId);
+      }
 
       setMensaje(
         bonoEditandoId
@@ -1551,8 +2190,16 @@ export default function BonosPage() {
       bono?.clase_alumnos.some(
         (uso) =>
           uso.usa_bono &&
-          uso.clases?.estado ===
-            "realizada"
+          (
+            uso.clases?.estado ===
+              "realizada" ||
+            (
+              uso.clases?.estado ===
+                "cancelada" &&
+              uso.clases?.facturable ===
+                true
+            )
+          )
       );
 
     if (tieneUsos) {
@@ -1680,7 +2327,9 @@ export default function BonosPage() {
       (bono) => {
         if (
           filtroDesdeDashboard === "pendientes-cobro" &&
-          bono.estado_cobro !== "pendiente"
+          obtenerResumenCobroBono(
+            bono
+          ).pendiente <= 0.004
         ) {
           return false;
         }
@@ -1755,8 +2404,9 @@ export default function BonosPage() {
           "pendientes_cobro"
         ) {
           coincideEstado =
-            bono.estado_cobro ===
-            "pendiente";
+            obtenerResumenCobroBono(
+              bono
+            ).pendiente > 0.004;
         }
 
         const coincideMes =
@@ -1833,18 +2483,18 @@ export default function BonosPage() {
   const bonosPendientesCobro =
     bonosFiltrados.filter(
       (bono) =>
-        bono.estado_cobro ===
-        "pendiente"
+        obtenerResumenCobroBono(
+          bono
+        ).pendiente > 0.004
     );
 
   const importePendienteBonos =
     bonosPendientesCobro.reduce(
       (total, bono) =>
         total +
-        Number(
-          bono.importe_pagado ||
-            0
-        ),
+        obtenerResumenCobroBono(
+          bono
+        ).pendiente,
       0
     );
 
@@ -3250,107 +3900,105 @@ export default function BonosPage() {
                 )}
               </div>
 
-              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
-                      Cobro del bono
-                    </p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                      El importe anterior es el precio total contratado, aunque todavía esté pendiente.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEstadoCobro(
-                        "pagado"
-                      )
-                    }
-                    className={
-                      estadoCobro ===
-                      "pagado"
-                        ? "h-10 rounded-xl border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-700"
-                        : "h-10 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-500"
-                    }
-                  >
-                    Pagado
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEstadoCobro(
-                        "pendiente"
-                      )
-                    }
-                    className={
-                      estadoCobro ===
-                      "pendiente"
-                        ? "h-10 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700"
-                        : "h-10 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-500"
-                    }
-                  >
-                    Pendiente
-                  </button>
-                </div>
-
-                {estadoCobro ===
-                "pagado" ? (
-                  <div className="mt-3 space-y-3">
+              {!bonoEditandoId ? (
+                <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
-                        Método
-                      </label>
-
-                      <select
-                        value={
-                          metodoCobro
-                        }
-                        onChange={(e) =>
-                          setMetodoCobro(
-                            e.target
-                              .value
-                          )
-                        }
-                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-[#17324D] outline-none focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
-                      >
-                        <option value="efectivo">
-                          Efectivo
-                        </option>
-                        <option value="bizum">
-                          Bizum
-                        </option>
-                        <option value="transferencia">
-                          Transferencia
-                        </option>
-                        <option value="tarjeta">
-                          Tarjeta
-                        </option>
-                      </select>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                        Cobro inicial del bono
+                      </p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                        Si queda pendiente y es un bono de grupo, el importe se repartirá automáticamente entre sus integrantes.
+                      </p>
                     </div>
+                  </div>
 
-                    <CampoFechaBono
-                      etiqueta="Fecha de cobro"
-                      valor={
-                        fechaCobro
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEstadoCobro(
+                          "pagado"
+                        )
                       }
-                      onChange={
-                        setFechaCobro
+                      className={
+                        estadoCobro ===
+                        "pagado"
+                          ? "h-10 rounded-xl border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-700"
+                          : "h-10 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-500"
                       }
-                    />
+                    >
+                      Pagado
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEstadoCobro(
+                          "pendiente"
+                        )
+                      }
+                      className={
+                        estadoCobro ===
+                        "pendiente"
+                          ? "h-10 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700"
+                          : "h-10 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-500"
+                      }
+                    >
+                      Pendiente
+                    </button>
                   </div>
-                ) : (
-                  <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5">
-                    <p className="text-[10px] font-bold text-red-700">
-                      Este bono aparecerá identificado como pendiente de cobro.
-                    </p>
-                  </div>
-                )}
-              </div>
+
+                  {estadoCobro ===
+                  "pagado" ? (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-[0.07em] text-slate-400">
+                          Método
+                        </label>
+
+                        <select
+                          value={metodoCobro}
+                          onChange={(e) =>
+                            setMetodoCobro(
+                              e.target.value
+                            )
+                          }
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-[#17324D] outline-none focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
+                        >
+                          <option value="efectivo">Efectivo</option>
+                          <option value="bizum">Bizum</option>
+                          <option value="transferencia">Transferencia</option>
+                          <option value="tarjeta">Tarjeta</option>
+                        </select>
+                      </div>
+
+                      <CampoFechaBono
+                        etiqueta="Fecha de cobro"
+                        valor={fechaCobro}
+                        onChange={
+                          setFechaCobro
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5">
+                      <p className="text-[10px] font-bold text-red-700">
+                        El pendiente se creará en el detalle de cobros del bono.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                    Cobros del bono
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                    Los cobros ya no se modifican desde este formulario. Usa el botón “Cobros” de la tarjeta para registrar pagos parciales o cobrar el resto completo.
+                  </p>
+                </div>
+              )}
 
               {bonoEditandoId && (
                 <div>
@@ -3536,9 +4184,23 @@ export default function BonosPage() {
                     bono.clases_restantes >
                       0;
 
+                  const resumenCobro =
+                    obtenerResumenCobroBono(
+                      bono
+                    );
+
                   const cobroPendiente =
-                    bono.estado_cobro ===
+                    resumenCobro.estado ===
                     "pendiente";
+
+                  const cobroParcial =
+                    resumenCobro.estado ===
+                    "parcial";
+
+                  const cobrosAbierto =
+                    cobrosAbiertos.includes(
+                      bono.id
+                    );
 
                   const nombreComprador =
                     bono.grupo_id &&
@@ -3846,14 +4508,18 @@ export default function BonosPage() {
 
                           <div
                             className={
-                              cobroPendiente
+                              cobroParcial
+                                ? "col-span-2 rounded-xl border border-amber-100 bg-amber-50 px-2.5 py-2.5 sm:col-span-1"
+                                : cobroPendiente
                                 ? "col-span-2 rounded-xl border border-red-100 bg-red-50 px-2.5 py-2.5 sm:col-span-1"
                                 : "col-span-2 rounded-xl border border-emerald-100 bg-emerald-50 px-2.5 py-2.5 sm:col-span-1"
                             }
                           >
                             <p
                               className={
-                                cobroPendiente
+                                cobroParcial
+                                  ? "text-[8px] font-bold uppercase tracking-[0.06em] text-amber-600"
+                                  : cobroPendiente
                                   ? "text-[8px] font-bold uppercase tracking-[0.06em] text-red-500"
                                   : "text-[8px] font-bold uppercase tracking-[0.06em] text-emerald-600"
                               }
@@ -3862,14 +4528,21 @@ export default function BonosPage() {
                             </p>
                             <p
                               className={
-                                cobroPendiente
+                                cobroParcial
+                                  ? "mt-0.5 text-[11px] font-bold text-amber-700"
+                                  : cobroPendiente
                                   ? "mt-0.5 text-[11px] font-bold text-red-700"
                                   : "mt-0.5 text-[11px] font-bold text-emerald-700"
                               }
                             >
-                              {cobroPendiente
+                              {cobroParcial
+                                ? "Parcialmente cobrado"
+                                : cobroPendiente
                                 ? "Pendiente"
-                                : "Pagado"}
+                                : "Cobrado"}
+                            </p>
+                            <p className="mt-1 text-[9px] font-semibold text-slate-500">
+                              Cobrado {resumenCobro.cobrado.toFixed(2)} € · Pendiente {resumenCobro.pendiente.toFixed(2)} €
                             </p>
                           </div>
                         </div>
@@ -3942,6 +4615,168 @@ export default function BonosPage() {
                           </div>
                         )}
                       </div>
+
+                      {cobrosAbierto && (
+                        <div className="border-t border-slate-100 bg-white p-3 sm:p-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                            <div>
+                              <p className="text-sm font-bold text-[#17324D]">
+                                Cobros del bono
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-slate-400">
+                                Total {resumenCobro.total.toFixed(2)} € · Cobrado {resumenCobro.cobrado.toFixed(2)} € · Pendiente {resumenCobro.pendiente.toFixed(2)} €
+                              </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                              <select
+                                value={metodoCobroGestion}
+                                onChange={(e) =>
+                                  setMetodoCobroGestion(
+                                    e.target.value
+                                  )
+                                }
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-bold text-[#17324D] outline-none"
+                              >
+                                <option value="efectivo">Efectivo</option>
+                                <option value="bizum">Bizum</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="tarjeta">Tarjeta</option>
+                              </select>
+
+                              <input
+                                type="date"
+                                value={fechaCobroGestion}
+                                onChange={(e) =>
+                                  setFechaCobroGestion(
+                                    e.target.value
+                                  )
+                                }
+                                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-bold text-[#17324D] outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+                            {resumenCobro.cobros.length === 0 ? (
+                              <div className="px-4 py-5 text-center text-xs text-slate-400">
+                                No hay movimientos económicos registrados para este bono.
+                              </div>
+                            ) : (
+                              resumenCobro.cobros.map(
+                                (cobro, indice) => {
+                                  const alumnoCobro =
+                                    cobro.alumno_id
+                                      ? alumnos.find(
+                                          (alumno) =>
+                                            alumno.id ===
+                                            cobro.alumno_id
+                                        )
+                                      : null;
+
+                                  const nombreCobro =
+                                    alumnoCobro
+                                      ? `${alumnoCobro.nombre} ${alumnoCobro.apellidos || ""}`.trim()
+                                      : "Cobro global";
+
+                                  return (
+                                    <div
+                                      key={cobro.id}
+                                      className={
+                                        indice === 0
+                                          ? "flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                                          : "flex flex-col gap-2 border-t border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                                      }
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="truncate text-xs font-bold text-[#17324D]">
+                                          {nombreCobro}
+                                        </p>
+                                        <p className="mt-0.5 text-[10px] text-slate-400">
+                                          {Number(cobro.importe || 0).toFixed(2)} €
+                                          {cobro.estado === "pagado" && (
+                                            <>
+                                              {" · "}
+                                              {cobro.metodo_cobro || "Método no indicado"}
+                                              {cobro.fecha_cobro
+                                                ? ` · ${formatearFecha(cobro.fecha_cobro)}`
+                                                : ""}
+                                            </>
+                                          )}
+                                        </p>
+                                      </div>
+
+                                      {cobro.estado === "pagado" ? (
+                                        <div className="flex items-center gap-2">
+                                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                                            Cobrado
+                                          </span>
+                                          <button
+                                            type="button"
+                                            disabled={
+                                              cobroActualizandoId ===
+                                              cobro.id
+                                            }
+                                            onClick={() =>
+                                              cambiarEstadoCobroFila(
+                                                cobro,
+                                                "pendiente"
+                                              )
+                                            }
+                                            className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                                          >
+                                            Volver a pendiente
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            cobroActualizandoId ===
+                                            cobro.id
+                                          }
+                                          onClick={() =>
+                                            cambiarEstadoCobroFila(
+                                              cobro,
+                                              "pagado"
+                                            )
+                                          }
+                                          className="h-9 rounded-lg bg-[#00A79C] px-3 text-[10px] font-bold text-white hover:bg-[#008F86] disabled:opacity-50"
+                                        >
+                                          {cobroActualizandoId === cobro.id
+                                            ? "Guardando..."
+                                            : "Marcar cobrado"}
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                              )
+                            )}
+                          </div>
+
+                          {resumenCobro.pendiente > 0.004 && (
+                            <button
+                              type="button"
+                              disabled={
+                                cobroActualizandoId ===
+                                `todo-${bono.id}`
+                              }
+                              onClick={() =>
+                                cobrarBonoCompleto(
+                                  bono
+                                )
+                              }
+                              className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50 sm:w-auto"
+                            >
+                              {cobroActualizandoId ===
+                              `todo-${bono.id}`
+                                ? "Registrando cobro..."
+                                : `Cobrar bono completo · ${resumenCobro.pendiente.toFixed(2)} €`}
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {historialAbierto && (
                         <div className="border-t border-slate-100 bg-slate-50/60 p-3 sm:p-4">
@@ -4069,6 +4904,23 @@ export default function BonosPage() {
 
                       <div className="border-t border-slate-100 bg-[#0F2742] px-3 py-3 sm:px-4">
                         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cambiarCobrosBono(
+                                bono.id
+                              )
+                            }
+                            className={
+                              cobrosAbierto
+                                ? "inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-300/40 bg-emerald-400/15 px-3 text-[11px] font-bold text-emerald-200 sm:w-auto"
+                                : "inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white hover:bg-white/15 sm:w-auto"
+                            }
+                          >
+                            <span>€</span>
+                            Cobros
+                          </button>
+
                           <button
                             type="button"
                             onClick={() =>
