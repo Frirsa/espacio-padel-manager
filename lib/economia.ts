@@ -75,6 +75,10 @@ export function ingresoExtraClase(clase: ClaseEconomica) {
 }
 
 export function gastoPistaClase(clase: ClaseEconomica) {
+  if (clase.estado === "cancelada") {
+    return 0;
+  }
+
   return Number(clase.coste_pista || 0);
 }
 
