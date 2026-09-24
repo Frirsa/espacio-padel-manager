@@ -847,34 +847,71 @@ export default function Home() {
         );
 
     const {
-      data: bonosPendientesCobroData,
+      data: bonoCobrosPendientesData,
     } =
       await supabase
-        .from("bonos")
+        .from("bono_cobros")
         .select(`
           id,
-          importe_pagado,
-          grupo_id,
-          fecha_compra,
-          alumnos (
-            nombre,
-            apellidos
-          ),
-          grupos (
-            nombre
+          bono_id,
+          importe,
+          estado,
+          bonos (
+            id,
+            grupo_id,
+            fecha_compra,
+            alumnos (
+              nombre,
+              apellidos
+            ),
+            grupos (
+              nombre
+            )
           )
         `)
         .eq(
-          "estado_cobro",
+          "estado",
           "pendiente"
-        )
-        .order(
-          "fecha_compra",
-          { ascending: true }
         );
 
+    const bonosPendientesMapa =
+      new Map<string, any>();
+
+    (bonoCobrosPendientesData || []).forEach(
+      (cobro: any) => {
+        const bono = cobro.bonos;
+
+        if (!bono?.id) {
+          return;
+        }
+
+        const actual =
+          bonosPendientesMapa.get(
+            bono.id
+          ) || {
+            ...bono,
+            importe_pendiente: 0,
+          };
+
+        actual.importe_pendiente +=
+          Number(cobro.importe || 0);
+
+        bonosPendientesMapa.set(
+          bono.id,
+          actual
+        );
+      }
+    );
+
     const bonosPendientesActuales =
-      bonosPendientesCobroData || [];
+      Array.from(
+        bonosPendientesMapa.values()
+      ).sort(
+        (a: any, b: any) =>
+          String(a.fecha_compra || "").localeCompare(
+            String(b.fecha_compra || "")
+          )
+      );
 
     setBonosPendientesCobro(
       bonosPendientesActuales
@@ -885,7 +922,7 @@ export default function Home() {
         (total, bono) =>
           total +
           Number(
-            bono.importe_pagado ||
+            bono.importe_pendiente ||
               0
           ),
         0
@@ -1775,7 +1812,7 @@ export default function Home() {
                                 {nombreTitularBono(bono)}
                               </span>
                               <span className="shrink-0 font-bold text-red-600">
-                                {Number(bono.importe_pagado || 0).toFixed(2)} €
+                                {Number(bono.importe_pendiente || 0).toFixed(2)} €
                               </span>
                             </div>
                           ))}

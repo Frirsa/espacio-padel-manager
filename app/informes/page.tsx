@@ -12,7 +12,7 @@ import InformeIQL from "../../components/informes/InformeIQL";
 
 import InformeEconomico from "../../components/informes/InformeEconomico";
 
-import InformePendientes from "../../components/informes/InformePendientes";
+import InformePendientes, { type PendienteCobro } from "../../components/informes/InformePendientes";
 
 import PanelEstadisticas from "../../components/informes/PanelEstadisticas";
 
@@ -153,6 +153,16 @@ const [
     useState<Pago[]>([]);
 
 
+
+  const [
+    bonoCobrosPendientes,
+    setBonoCobrosPendientes,
+  ] = useState<any[]>([]);
+
+  const [
+    liquidacionesClubRegistradas,
+    setLiquidacionesClubRegistradas,
+  ] = useState<any[]>([]);
 
   const [
 
@@ -467,16 +477,13 @@ const {
           coste_pista,
 
           ingreso_extra,
-
-
+          ubicacion_id,
 
           ubicaciones (
-
-  nombre,
-
-  tipo
-
-),
+            nombre,
+            tipo,
+            es_club_referencia
+          ),
 
 
 
@@ -651,6 +658,91 @@ const {
       return;
 
     }
+
+    const {
+      data: bonoCobrosData,
+      error: errorBonoCobros,
+    } =
+      await supabase
+        .from("bono_cobros")
+        .select(`
+          id,
+          bono_id,
+          alumno_id,
+          importe,
+          estado,
+          alumnos (
+            nombre,
+            apellidos
+          ),
+          bonos (
+            id,
+            fecha_compra,
+            numero_clases,
+            grupo_id,
+            alumnos (
+              nombre,
+              apellidos
+            ),
+            grupos (
+              nombre
+            )
+          )
+        `)
+        .eq(
+          "estado",
+          "pendiente"
+        );
+
+    if (errorBonoCobros) {
+      setMensaje(
+        "❌ Error al cargar los cobros de bonos: " +
+          errorBonoCobros.message
+      );
+      setCargando(false);
+      return;
+    }
+
+    const bonoCobrosDelMes =
+      (bonoCobrosData || []).filter(
+        (cobro: any) => {
+          const fechaCompra =
+            cobro.bonos?.fecha_compra ||
+            "";
+
+          return (
+            fechaCompra >= inicio &&
+            fechaCompra <= fin
+          );
+        }
+      );
+
+    const {
+      data: liquidacionesClubData,
+      error: errorLiquidacionesClub,
+    } =
+      await supabase
+        .from("cobros_club")
+        .select(
+          "ubicacion_id,periodo"
+        );
+
+    if (errorLiquidacionesClub) {
+      setMensaje(
+        "❌ Error al cargar las liquidaciones de club: " +
+          errorLiquidacionesClub.message
+      );
+      setCargando(false);
+      return;
+    }
+
+    setBonoCobrosPendientes(
+      bonoCobrosDelMes
+    );
+
+    setLiquidacionesClubRegistradas(
+      liquidacionesClubData || []
+    );
 
 const {
 
@@ -1701,106 +1793,202 @@ const horasMesAnterior =
 
 
   const pagosPendientes =
-
     pagos.filter(
-
       (pago) =>
-
         pago.estado ===
-
         "pendiente"
-
     );
 
+  const pendientesPagos: PendienteCobro[] =
+    pagosPendientes.map(
+      (pago) => ({
+        id: `pago-${pago.id}`,
+        nombre: pago.alumnos
+          ? `${pago.alumnos.nombre} ${
+              pago.alumnos.apellidos ||
+              ""
+            }`.trim()
+          : "Sin alumno",
+        concepto: "Pago de clase",
+        fecha: pago.fecha_pago,
+        origen: "Clase",
+        importe: Number(
+          pago.importe || 0
+        ),
+      })
+    );
 
+  const pendientesBonos: PendienteCobro[] =
+    bonoCobrosPendientes.map(
+      (cobro: any) => {
+        const bono = cobro.bonos;
+
+        const nombreIndividual =
+          cobro.alumnos
+            ? `${cobro.alumnos.nombre || ""} ${
+                cobro.alumnos.apellidos ||
+                ""
+              }`.trim()
+            : "";
+
+        const nombreGlobal =
+          bono?.grupo_id &&
+          bono?.grupos?.nombre
+            ? bono.grupos.nombre
+            : bono?.alumnos
+            ? `${bono.alumnos.nombre || ""} ${
+                bono.alumnos.apellidos ||
+                ""
+              }`.trim()
+            : "Bono";
+
+        return {
+          id: `bono-${cobro.id}`,
+          nombre:
+            nombreIndividual ||
+            nombreGlobal,
+          concepto: `Bono ${Number(
+            bono?.numero_clases || 0
+          )} clases${
+            cobro.alumno_id
+              ? " · parte individual"
+              : " · pendiente global"
+          }`,
+          fecha:
+            bono?.fecha_compra ||
+            `${mes}-01`,
+          origen: "Bono",
+          importe: Number(
+            cobro.importe || 0
+          ),
+        };
+      }
+    );
+
+  const liquidacionesCerradas =
+    new Set(
+      liquidacionesClubRegistradas.map(
+        (liquidacion: any) =>
+          `${liquidacion.ubicacion_id}|${String(
+            liquidacion.periodo || ""
+          ).slice(0, 7)}`
+      )
+    );
+
+  const clubesPendientesMapa =
+    new Map<
+      string,
+      {
+        ubicacionId: string;
+        nombre: string;
+        clubGenerado: number;
+        pistasPagadas: number;
+      }
+    >();
+
+  (clasesEconomicas as any[])
+    .filter(
+      (clase: any) =>
+        clase.ubicacion_id &&
+        clase.ubicaciones
+          ?.es_club_referencia === true
+    )
+    .forEach((clase: any) => {
+      const clave =
+        `${clase.ubicacion_id}|${mes}`;
+
+      if (
+        liquidacionesCerradas.has(
+          clave
+        )
+      ) {
+        return;
+      }
+
+      const actual =
+        clubesPendientesMapa.get(
+          clave
+        ) || {
+          ubicacionId:
+            clase.ubicacion_id,
+          nombre:
+            clase.ubicaciones?.nombre ||
+            "Club",
+          clubGenerado: 0,
+          pistasPagadas: 0,
+        };
+
+      if (clase.tipo === "club") {
+        actual.clubGenerado +=
+          Number(
+            clase.importe_club || 0
+          );
+      } else {
+        actual.pistasPagadas +=
+          Number(
+            clase.coste_pista || 0
+          );
+      }
+
+      clubesPendientesMapa.set(
+        clave,
+        actual
+      );
+    });
+
+  const pendientesClub: PendienteCobro[] =
+    Array.from(
+      clubesPendientesMapa.values()
+    )
+      .map((club) => ({
+        id: `club-${club.ubicacionId}-${mes}`,
+        nombre: club.nombre,
+        concepto: "Liquidación mensual del club",
+        fecha: `${mes}-01`,
+        origen: "Club",
+        importe:
+          club.clubGenerado -
+          club.pistasPagadas,
+      }))
+      .filter(
+        (pendiente) =>
+          pendiente.importe > 0
+      );
+
+  const pendientesCobro: PendienteCobro[] =
+    [
+      ...pendientesPagos,
+      ...pendientesBonos,
+      ...pendientesClub,
+    ].sort((a, b) =>
+      a.fecha.localeCompare(b.fecha)
+    );
 
   const totalPendienteNormal =
-
-    pagosPendientes.reduce(
-
-      (
-
-        total,
-
-        pago
-
-      ) =>
-
-        total +
-
-        Number(
-
-          pago.importe ||
-
-            0
-
-        ),
-
+    pendientesPagos.reduce(
+      (total, pendiente) =>
+        total + pendiente.importe,
       0
-
     );
 
-
-
-  const clasesClubPendientes =
-
-    clases.filter(
-
-      (clase) =>
-
-        clase.tipo === "club" &&
-
-        clase.facturable === true &&
-
-        clase.cobrada !== true &&
-
-        (
-
-          clase.estado === "realizada" ||
-
-          clase.estado === "cancelada"
-
-        )
-
+  const totalPendienteBonos =
+    pendientesBonos.reduce(
+      (total, pendiente) =>
+        total + pendiente.importe,
+      0
     );
-
-
 
   const totalPendienteClub =
-
-    clasesClubPendientes.reduce(
-
-      (
-
-        total,
-
-        clase
-
-      ) =>
-
-        total +
-
-        Number(
-
-          clase.importe_club ||
-
-            0
-
-        ),
-
+    pendientesClub.reduce(
+      (total, pendiente) =>
+        total + pendiente.importe,
       0
-
     );
 
-
-
   const totalPendiente =
-
     totalPendienteNormal +
-
+    totalPendienteBonos +
     totalPendienteClub;
-
-
 
   const totalHoras =
 
@@ -3316,8 +3504,7 @@ const ingresoMedio =
 
           mes,
 
-          pagosPendientes,
-
+          pendientesCobro,
           totalPendiente,
 
         });
@@ -3696,32 +3883,30 @@ const ingresoMedio =
 
           ) : (
 
-            <div className="grid gap-3 sm:grid-cols-3">
-
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-
                 <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-amber-700/70">Total pendiente</p>
-
                 <p className="mt-1 text-3xl font-bold text-amber-700">{totalPendiente.toFixed(2)} €</p>
-
+                <p className="mt-1 text-xs font-semibold text-amber-900/55">{pendientesCobro.length} operaciones</p>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Operaciones pendientes</p>
-
-                <p className="mt-1 text-3xl font-bold text-[#17324D]">{pagosPendientes.length}</p>
-
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Clases / otros</p>
+                <p className="mt-1 text-2xl font-bold text-[#17324D]">{totalPendienteNormal.toFixed(2)} €</p>
+                <p className="mt-1 text-xs text-slate-400">{pendientesPagos.length} pendientes</p>
               </div>
 
               <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
-
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-violet-600">Ingresos extra</p>
-
-                <p className="mt-1 text-3xl font-bold text-violet-700">{ingresosExtraGeneral.toFixed(2)} €</p>
-
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-violet-600">Bonos</p>
+                <p className="mt-1 text-2xl font-bold text-violet-700">{totalPendienteBonos.toFixed(2)} €</p>
+                <p className="mt-1 text-xs text-violet-700/60">{pendientesBonos.length} pendientes</p>
               </div>
 
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue-600">Club</p>
+                <p className="mt-1 text-2xl font-bold text-blue-700">{totalPendienteClub.toFixed(2)} €</p>
+                <p className="mt-1 text-xs text-blue-700/60">{pendientesClub.length} liquidaciones</p>
+              </div>
             </div>
 
           )}
@@ -3812,8 +3997,7 @@ const ingresoMedio =
 
                   <InformePendientes
 
-                    pagosPendientes={pagosPendientes}
-
+                    pendientesCobro={pendientesCobro}
                     totalPendiente={totalPendiente}
 
                   />
