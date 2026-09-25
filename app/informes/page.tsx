@@ -75,6 +75,42 @@ type DatoEvolucion = {
 
 };
 
+function nombreVisiblePagoPendiente(
+  pago: Pago
+) {
+  if (pago.alumnos) {
+    return `${pago.alumnos.nombre} ${
+      pago.alumnos.apellidos || ""
+    }`.trim();
+  }
+
+  if (
+    pago.clases?.modo_cobro ===
+    "total"
+  ) {
+    const nombres =
+      (
+        pago.clases.clase_alumnos ||
+        []
+      )
+        .map(
+          (item) =>
+            item.alumnos
+              ? `${item.alumnos.nombre} ${
+                  item.alumnos.apellidos || ""
+                }`.trim()
+              : ""
+        )
+        .filter(Boolean);
+
+    return nombres.length > 0
+      ? `Clase completa · ${nombres.join(" + ")}`
+      : "Clase completa";
+  }
+
+  return "Sin alumno";
+}
+
 export default function InformesPage() {
 
   const [mes, setMes] =
@@ -599,6 +635,32 @@ const {
           metodo,
 
           fecha_pago,
+
+          clases (
+
+            id,
+
+            fecha,
+
+            hora_inicio,
+
+            modo_cobro,
+
+            importe_total,
+
+            clase_alumnos (
+
+              alumnos (
+
+                nombre,
+
+                apellidos
+
+              )
+
+            )
+
+          ),
 
 
 
@@ -1804,12 +1866,10 @@ const horasMesAnterior =
     pagosPendientes.map(
       (pago) => ({
         id: `pago-${pago.id}`,
-        nombre: pago.alumnos
-          ? `${pago.alumnos.nombre} ${
-              pago.alumnos.apellidos ||
-              ""
-            }`.trim()
-          : "Sin alumno",
+        nombre:
+          nombreVisiblePagoPendiente(
+            pago
+          ),
         concepto: "Pago de clase",
         fecha: pago.fecha_pago,
         origen: "Clase",
