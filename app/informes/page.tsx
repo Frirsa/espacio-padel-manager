@@ -14,6 +14,7 @@ import InformeIQL from "../../components/informes/InformeIQL";
 import InformeEconomico from "../../components/informes/InformeEconomico";
 
 import InformePendientes, { type PendienteCobro } from "../../components/informes/InformePendientes";
+import InformeGestoria from "../../components/informes/InformeGestoria";
 
 import PanelEstadisticas from "../../components/informes/PanelEstadisticas";
 
@@ -3432,6 +3433,10 @@ const ingresoMedio =
 
 
 
+      if (tipoInforme === "gestoria") {
+        return;
+      }
+
       if (
 
         tipoInforme ===
@@ -3651,6 +3656,8 @@ const ingresoMedio =
 
                   ["pendientes", "Pendientes"],
 
+                  ["gestoria", "Gestoría"],
+
                 ].map(([valor, etiqueta]) => (
 
                   <button
@@ -3759,7 +3766,7 @@ const ingresoMedio =
 
 
 
-              <button
+              {tipoInforme !== "gestoria" && <button
 
                 type="button"
 
@@ -3773,7 +3780,7 @@ const ingresoMedio =
 
                 {generando ? "Generando PDF..." : "Generar PDF"}
 
-              </button>
+              </button>}
 
             </div>
 
@@ -3831,6 +3838,10 @@ const ingresoMedio =
 
                   ? "Informe mensual completo"
 
+                  : tipoInforme === "gestoria"
+
+                  ? "Cobros y pistas por clase"
+
                   : "Pendientes de cobro"}
 
               </h2>
@@ -3847,7 +3858,11 @@ const ingresoMedio =
 
 
 
-          {tipoInforme === "iql" ? (
+          {tipoInforme === "gestoria" ? (
+
+            <p className="text-sm text-slate-600">Detalle de ingresos, pendientes y costes de pista del mes seleccionado.</p>
+
+          ) : tipoInforme === "iql" ? (
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 
@@ -3975,7 +3990,13 @@ const ingresoMedio =
 
 
 
-        {cargando ? (
+        {tipoInforme === "gestoria" ? (
+
+          <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+            <InformeGestoria mes={mes} />
+          </section>
+
+        ) : cargando ? (
 
           <section className="rounded-[24px] border border-slate-200 bg-white p-8 text-center shadow-[0_8px_24px_rgba(15,39,66,0.05)]">
 
