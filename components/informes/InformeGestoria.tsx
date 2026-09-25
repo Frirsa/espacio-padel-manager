@@ -165,6 +165,6 @@ export default function InformeGestoria({ mes }: { mes: string }) {
         </table>
       </div>
     </section>
-    <p className="text-xs leading-5 text-slate-500">Los costes de pista se asignan a la fecha de la clase. La aplicación no registra si se pagaron ni guarda factura, base imponible o cuota de IVA. Revisa los justificantes con tu gestora antes de preparar la liquidación.</p>
+    <p className="text-xs leading-5 text-slate-500">Los importes de pista se asignan a la fecha de cada clase. El informe muestra importes totales; tu gestora determinará la base y las cuotas de IVA que correspondan.</p>
   </div>;
 }
