@@ -794,11 +794,19 @@ export default function Home() {
       await supabase
         .from("pagos")
         .select(
-          "importe,estado"
+          "importe,estado,fecha_pago"
         )
         .eq(
           "estado",
           "pendiente"
+        )
+        .gte(
+          "fecha_pago",
+          inicioMes
+        )
+        .lte(
+          "fecha_pago",
+          ultimoDiaMes
         );
 
     const {
@@ -835,6 +843,14 @@ export default function Home() {
             "realizada",
             "cancelada",
           ]
+        )
+        .gte(
+          "fecha",
+          inicioMes
+        )
+        .lte(
+          "fecha",
+          ultimoDiaMes
         );
 
     const {
@@ -881,7 +897,11 @@ export default function Home() {
       (cobro: any) => {
         const bono = cobro.bonos;
 
-        if (!bono?.id) {
+        if (
+          !bono?.id ||
+          bono.fecha_compra < inicioMes ||
+          bono.fecha_compra > ultimoDiaMes
+        ) {
           return;
         }
 

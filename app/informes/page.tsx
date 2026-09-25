@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 
 import { supabase } from "../../lib/supabase";
+import { calcularEconomiaClase } from "../../lib/economia";
 
 
 
@@ -1918,17 +1919,16 @@ const horasMesAnterior =
           pistasPagadas: 0,
         };
 
-      if (clase.tipo === "club") {
-        actual.clubGenerado +=
-          Number(
-            clase.importe_club || 0
-          );
-      } else {
-        actual.pistasPagadas +=
-          Number(
-            clase.coste_pista || 0
-          );
-      }
+      const economia =
+        calcularEconomiaClase(
+          clase
+        );
+
+      actual.clubGenerado +=
+        economia.clubGenerado;
+
+      actual.pistasPagadas +=
+        economia.pistasPagadasClub;
 
       clubesPendientesMapa.set(
         clave,
