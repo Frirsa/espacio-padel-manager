@@ -114,9 +114,19 @@ export default function InformeGestoria({ mes }: { mes: string }) {
       </button>
     </div>
 
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-3 sm:grid-cols-3">
+      {([ ["Ingresos totales", informe.totalIngresos], ["Gastos totales de pista", informe.totalGastos],
+        ["Resultado del mes", informe.resultado] ] as const).map(([titulo, total]) =>
+        <div key={titulo} className="rounded-2xl border border-[#00A79C]/20 bg-[#E9F9F8] p-5">
+          <p className="text-sm font-semibold text-[#17324D]">{titulo}</p>
+          <p className="mt-2 text-2xl font-bold text-[#17324D]">{euros(total)}</p>
+        </div>)}
+    </div>
+    <p className="text-xs text-slate-500">Ingresos totales = cobrado directamente + bono imputado + pendiente + cobro por revisar. Resultado = ingresos totales − gastos de pista.</p>
+
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {([ ["Cobrado directamente", informe.cobrado], ["Bono imputado", informe.bonoImputado], ["Pendiente de cobro", informe.pendiente],
-        ["Cobro por revisar", informe.porRevisar], ["Costes de pista", informe.totalGastos] ] as const).map(([titulo, total]) =>
+        ["Cobro por revisar", informe.porRevisar] ] as const).map(([titulo, total]) =>
         <div key={titulo} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-semibold text-slate-600">{titulo}</p>
           <p className="mt-2 text-xl font-bold text-[#17324D]">{euros(total)}</p>

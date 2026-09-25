@@ -17,10 +17,28 @@ export function generarPdfGestoria(mes: string, informe: ReturnType<typeof const
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.text(`Periodo: ${mes}  |  Fecha de referencia: clase impartida`, margen, 25);
-  doc.text(`Cobrado: ${euros(informe.cobrado)}   Bono imputado: ${euros(informe.bonoImputado)}   Pendiente: ${euros(informe.pendiente)}   Por revisar: ${euros(informe.porRevisar)}   Pistas: ${euros(informe.totalGastos)}`, margen, 32);
+  const totales = [
+    ["INGRESOS TOTALES", informe.totalIngresos],
+    ["GASTOS DE PISTA", informe.totalGastos],
+    ["RESULTADO DEL MES", informe.resultado],
+  ] as const;
+  totales.forEach(([titulo, importe], indice) => {
+    const x = margen + indice * 91;
+    doc.setFillColor(233, 249, 248);
+    doc.roundedRect(x, 30, 86, 20, 2, 2, "F");
+    doc.setTextColor(23, 50, 77);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(titulo, x + 4, 37);
+    doc.setFontSize(13);
+    doc.text(euros(importe), x + 4, 46);
+  });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(`Cobrado: ${euros(informe.cobrado)}   Bono imputado: ${euros(informe.bonoImputado)}   Pendiente: ${euros(informe.pendiente)}   Por revisar: ${euros(informe.porRevisar)}`, margen, 57);
 
   autoTable(doc, {
-    startY: 39, margin: { left: margen, right: margen, bottom: 23 }, tableWidth: 268,
+    startY: 63, margin: { left: margen, right: margen, bottom: 23 }, tableWidth: 268,
     head: [["Fecha clase", "Ubicacion", "Alumno / concepto", "Importe", "Estado", "Forma", "Fecha cobro"]],
     body: informe.ingresos.map((l) => [
       `${fecha(l.fecha)} ${l.hora.slice(0, 5)}`, l.ubicacion, l.concepto,
@@ -50,7 +68,7 @@ export function generarPdfGestoria(mes: string, informe: ReturnType<typeof const
     columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: 110 }, 2: { cellWidth: 40, halign: "right" } },
   });
 
-  const nota = "Bonos: valor imputado a cada clase, sin sumar la compra. Pistas: importe total asignado a la fecha de clase. La gestoria determinara las bases y cuotas de IVA que correspondan.";
+  const nota = "Los ingresos totales incluyen cobros pendientes y por revisar. Bonos: valor por clase sin sumar la compra. Pistas: importe en la fecha de clase. La gestoria determinara bases y cuotas de IVA.";
   const paginas = doc.getNumberOfPages();
   for (let p = 1; p <= paginas; p++) {
     doc.setPage(p);
