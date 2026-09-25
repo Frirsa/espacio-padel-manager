@@ -188,12 +188,14 @@ export function construirInformeGestoria(
   const bonoImputado = sumar(ingresos.filter((l) => l.estado === "Bono imputado"));
   const pendiente = sumar(ingresos.filter((l) => l.estado === "Pendiente"));
   const porRevisar = sumar(ingresos.filter((l) => l.estado === "Por revisar"));
+  const totalIngresos = sumar(ingresos);
   const totalGastos = Math.round(gastos.reduce((total, gasto) => total + gasto.importe, 0) * 100) / 100;
+  const resultado = Math.round((totalIngresos - totalGastos) * 100) / 100;
   const gastosPorUbicacion = [...gastos.reduce((grupos, gasto) => {
     grupos.set(gasto.ubicacion, (grupos.get(gasto.ubicacion) || 0) + gasto.importe);
     return grupos;
   }, new Map<string, number>())].map(([ubicacion, total]) => ({
     ubicacion, total: Math.round(total * 100) / 100,
   })).sort((a, b) => a.ubicacion.localeCompare(b.ubicacion, "es"));
-  return { ingresos, gastos, gastosPorUbicacion, cobrado, bonoImputado, pendiente, porRevisar, totalGastos };
+  return { ingresos, gastos, gastosPorUbicacion, cobrado, bonoImputado, pendiente, porRevisar, totalIngresos, totalGastos, resultado };
 }
