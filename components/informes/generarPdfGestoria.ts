@@ -50,7 +50,7 @@ export function generarPdfGestoria(mes: string, informe: ReturnType<typeof const
     columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: 110 }, 2: { cellWidth: 40, halign: "right" } },
   });
 
-  const nota = "Bonos: valor imputado a la clase, sin sumar la compra. Costes de pista: fecha de clase; pago y justificante no registrados. Este detalle no calcula base ni cuota de IVA; verificar con la gestoria y las facturas.";
+  const nota = "Bonos: valor imputado a cada clase, sin sumar la compra. Pistas: importe total asignado a la fecha de clase. La gestoria determinara las bases y cuotas de IVA que correspondan.";
   const paginas = doc.getNumberOfPages();
   for (let p = 1; p <= paginas; p++) {
     doc.setPage(p);
