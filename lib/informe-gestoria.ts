@@ -13,6 +13,7 @@ export type ClaseGestoria = {
   id: string;
   fecha: string;
   hora_inicio: string;
+  duracion_minutos: number;
   tipo: string;
   estado: string;
   facturable: boolean;
@@ -23,7 +24,6 @@ export type ClaseGestoria = {
   modo_cobro: string | null;
   importe_total: number | null;
   metodo_cobro_club: string | null;
-  fecha_cobro_club: string | null;
   ubicaciones: { nombre: string; es_club_referencia?: boolean | null } | null;
   clase_alumnos: ParticipanteGestoria[];
 };
@@ -57,9 +57,10 @@ export type LineaIngresoGestoria = {
   ubicacion: string;
   concepto: string;
   importe: number;
-  estado: "Cobrado" | "Bono imputado" | "Pendiente" | "Por revisar";
+  ingresoExtra: number;
+  estado: "Cobrado" | "Pendiente";
   metodo: string;
-  fechaCobro: string | null;
+  esClub: boolean;
 };
 
 export type LineaGastoGestoria = {
@@ -69,6 +70,108 @@ export type LineaGastoGestoria = {
   ubicacion: string;
   importe: number;
 };
+
+type EstadoCobroClase = {
+  cobrado: boolean;
+  metodos: string[];
+};
+
+function redondear(valor: number) {
+  return Math.round(valor * 100) / 100;
+}
+
+function nombreParticipante(participante: ParticipanteGestoria) {
+  if (!participante.alumnos) return "";
+  return `${participante.alumnos.nombre} ${participante.alumnos.apellidos || ""}`.trim();
+}
+
+function horaCompleta(horaInicio: string, duracionMinutos: number) {
+  const [horas, minutos] = horaInicio.slice(0, 5).split(":").map(Number);
+  const inicio = horas * 60 + minutos;
+  const fin = (inicio + Number(duracionMinutos || 0)) % (24 * 60);
+  const formatear = (total: number) =>
+    `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+
+  return `${formatear(inicio)}–${formatear(fin)}`;
+}
+
+function metodosUnicos(metodos: Array<string | null | undefined>) {
+  return [
+    ...new Set(
+      metodos
+        .map((metodo) => metodo?.trim())
+        .filter((metodo): metodo is string => Boolean(metodo))
+    ),
+  ];
+}
+
+function estadoBono(
+  bonoId: string,
+  bonosPorId: Map<string, BonoGestoria>,
+  cobrosPorBono: Map<string, CobroBonoGestoria[]>
+): EstadoCobroClase {
+  const bono = bonosPorId.get(bonoId);
+  const cobros = cobrosPorBono.get(bonoId) || [];
+  const cobrado = cobros.length > 0
+    ? cobros.every((cobro) => cobro.estado === "pagado")
+    : bono?.estado_cobro !== "pendiente";
+  const metodos = metodosUnicos([
+    ...cobros
+      .filter((cobro) => cobro.estado === "pagado")
+      .map((cobro) => cobro.metodo_cobro),
+    bono?.metodo_cobro,
+  ]).map((metodo) => `Bono · ${metodo}`);
+
+  return { cobrado, metodos: metodos.length ? metodos : ["Bono"] };
+}
+
+function estadoClasePropia(
+  clase: ClaseGestoria,
+  pagosClase: PagoGestoria[],
+  bonosPorId: Map<string, BonoGestoria>,
+  cobrosPorBono: Map<string, CobroBonoGestoria[]>
+): EstadoCobroClase {
+  if (clase.modo_cobro === "total") {
+    const pago = pagosClase.find((item) => item.alumno_id === null);
+    return {
+      cobrado: pago?.estado === "pagado",
+      metodos: metodosUnicos([pago?.metodo]),
+    };
+  }
+
+  const estados: boolean[] = [];
+  const metodos: string[] = [];
+  const bonosProcesados = new Set<string>();
+
+  for (const participante of clase.clase_alumnos || []) {
+    if (participante.usa_bono && participante.bono_id) {
+      if (bonosProcesados.has(participante.bono_id)) continue;
+      bonosProcesados.add(participante.bono_id);
+      const bono = estadoBono(participante.bono_id, bonosPorId, cobrosPorBono);
+      estados.push(bono.cobrado);
+      metodos.push(...bono.metodos);
+      continue;
+    }
+
+    const pagosAlumno = pagosClase.filter((pago) => pago.alumno_id === participante.alumno_id);
+    if (pagosAlumno.length) {
+      estados.push(pagosAlumno.every((pago) => pago.estado === "pagado"));
+      metodos.push(
+        ...pagosAlumno
+          .filter((pago) => pago.estado === "pagado")
+          .map((pago) => pago.metodo || "")
+      );
+    } else {
+      estados.push(participante.pagado === true);
+      if (participante.pagado) metodos.push("No registrado");
+    }
+  }
+
+  return {
+    cobrado: estados.length > 0 && estados.every(Boolean),
+    metodos: metodosUnicos(metodos),
+  };
+}
 
 export function construirInformeGestoria(
   clases: ClaseGestoria[],
@@ -92,110 +195,96 @@ export function construirInformeGestoria(
   for (const clase of clases) {
     if (!esClaseEconomica(clase)) continue;
 
-    const ubicacion = clase.ubicaciones?.nombre || "Sin ubicación";
-    const comun = { fecha: clase.fecha, hora: clase.hora_inicio, ubicacion };
-    const avisoCancelada = clase.estado === "cancelada" ? "Cancelada facturable · " : "";
-    const alumnos = (clase.clase_alumnos || [])
-      .map((p) => p.alumnos && `${p.alumnos.nombre} ${p.alumnos.apellidos || ""}`.trim())
-      .filter(Boolean).join(" + ") || "Sin alumno";
-
-    if (clase.tipo === "club") {
-      ingresos.push({
-        id: `${clase.id}-club`, ...comun, concepto: `${avisoCancelada}Club · ${alumnos}`,
-        importe: Number(clase.importe_club || 0),
-        estado: clase.cobrada ? "Cobrado" : "Pendiente",
-        metodo: clase.cobrada ? clase.metodo_cobro_club || "No registrado" : "Pendiente de cobro",
-        fechaCobro: clase.cobrada ? clase.fecha_cobro_club : null,
-      });
-    } else {
-      const pagosClase = pagosPorClase.get(clase.id) || [];
-      if (clase.modo_cobro === "total") {
-        const pago = pagosClase.find((p) => p.alumno_id === null);
-        ingresos.push({
-          id: `${clase.id}-total`, ...comun, concepto: `${avisoCancelada}Clase completa · ${alumnos}`,
-          importe: Number(pago?.importe ?? clase.importe_total ?? 0),
-          estado: pago ? (pago.estado === "pagado" ? "Cobrado" : "Pendiente") : "Por revisar",
-          metodo: pago?.estado === "pagado" ? pago.metodo || "No registrado" : pago ? "Pendiente de cobro" : "Sin registro de pago",
-          fechaCobro: pago?.estado === "pagado" ? pago.fecha_pago : null,
-        });
-      } else {
-        const gruposBono = new Map<string, ParticipanteGestoria[]>();
-        for (const participante of clase.clase_alumnos || []) {
-          if (participante.usa_bono && participante.bono_id) {
-            gruposBono.set(participante.bono_id, [...(gruposBono.get(participante.bono_id) || []), participante]);
-            continue;
-          }
-          const pagosAlumno = pagosClase.filter((p) => p.alumno_id === participante.alumno_id);
-          const nombre = participante.alumnos
-            ? `${participante.alumnos.nombre} ${participante.alumnos.apellidos || ""}`.trim()
-            : "Sin alumno";
-          if (pagosAlumno.length) {
-            for (const pago of pagosAlumno) {
-              const cobrado = pago.estado === "pagado";
-              ingresos.push({
-                id: pago.id, ...comun, concepto: `${avisoCancelada}${nombre}`, importe: Number(pago.importe || 0),
-                estado: cobrado ? "Cobrado" : "Pendiente",
-                metodo: cobrado ? pago.metodo || "No registrado" : "Pendiente de cobro",
-                fechaCobro: cobrado ? pago.fecha_pago : null,
-              });
-            }
-          } else {
-            ingresos.push({
-              id: `${clase.id}-${participante.alumno_id}`, ...comun, concepto: `${avisoCancelada}${nombre}`,
-              importe: Number(participante.importe || 0),
-              estado: participante.pagado ? "Por revisar" : "Pendiente",
-              metodo: participante.pagado ? "Cobro sin método registrado" : "Pendiente de cobro",
-              fechaCobro: null,
-            });
-          }
+    const participantes = clase.clase_alumnos || [];
+    const alumnos = participantes.map(nombreParticipante).filter(Boolean).join(" + ");
+    const ingresoExtra = Number(clase.ingreso_extra || 0);
+    const pagosClase = pagosPorClase.get(clase.id) || [];
+    const esClub = clase.tipo === "club";
+    const estadoCobro = esClub
+      ? {
+          cobrado: clase.cobrada === true,
+          metodos: metodosUnicos([clase.metodo_cobro_club]),
         }
-        for (const [bonoId, participantes] of gruposBono) {
-          const bono = bonosPorId.get(bonoId);
-          const cobros = cobrosPorBono.get(bonoId) || [];
-          const abonados = cobros.filter((c) => c.estado === "pagado");
-          const pendiente = cobros.length
-            ? cobros.some((c) => c.estado !== "pagado")
-            : bono?.estado_cobro === "pendiente";
-          const requiereRevision = !bono || (pendiente && abonados.length > 0);
-          const metodos = [...new Set(cobros.filter((c) => c.estado === "pagado")
-            .map((c) => c.metodo_cobro).filter(Boolean))];
-          ingresos.push({
-            id: `${clase.id}-bono-${bonoId}`, ...comun,
-            concepto: `${avisoCancelada}Bono imputado · ${participantes.map((p) => p.alumnos
-              ? `${p.alumnos.nombre} ${p.alumnos.apellidos || ""}`.trim() : "Sin alumno").join(" + ")}`,
-            importe: participantes.reduce((sum, p) => sum + Number(p.importe || 0), 0),
-            estado: requiereRevision ? "Por revisar" : pendiente ? "Pendiente" : "Bono imputado",
-            metodo: requiereRevision ? "Revisar cobro parcial del bono" : pendiente ? "Bono pendiente" : `Bono · ${metodos.join(" + ") || bono?.metodo_cobro || "método no registrado"}`,
-            fechaCobro: null,
-          });
-        }
-      }
-    }
+      : estadoClasePropia(clase, pagosClase, bonosPorId, cobrosPorBono);
+    const importe = esClub
+      ? Number(clase.importe_club || 0)
+      : clase.modo_cobro === "total"
+        ? Number(
+            clase.importe_total ??
+              pagosClase.find((pago) => pago.alumno_id === null)?.importe ??
+              0
+          )
+        : participantes.reduce(
+            (total, participante) => total + Number(participante.importe || 0),
+            0
+          );
 
-    const extra = Number(clase.ingreso_extra || 0);
-    if (extra) ingresos.push({
-      id: `${clase.id}-extra`, ...comun, concepto: "Ingreso extra · revisar cobro",
-      importe: extra, estado: "Por revisar", metodo: "Sin registro de cobro", fechaCobro: null,
+    ingresos.push({
+      id: clase.id,
+      fecha: clase.fecha,
+      hora: horaCompleta(clase.hora_inicio, clase.duracion_minutos),
+      ubicacion: clase.ubicaciones?.nombre || "Sin ubicación",
+      concepto: alumnos || (ingresoExtra ? "Ingreso extra" : "Sin alumno"),
+      importe: redondear(importe),
+      ingresoExtra: redondear(ingresoExtra),
+      estado: estadoCobro.cobrado ? "Cobrado" : "Pendiente",
+      metodo: estadoCobro.metodos.join(" + ") || "—",
+      esClub,
     });
 
     const coste = gastoPistaClase(clase);
-    if (coste) gastos.push({ id: clase.id, ...comun, importe: coste });
+    if (coste) {
+      gastos.push({
+        id: clase.id,
+        fecha: clase.fecha,
+        hora: horaCompleta(clase.hora_inicio, clase.duracion_minutos),
+        ubicacion: clase.ubicaciones?.nombre || "Sin ubicación",
+        importe: coste,
+      });
+    }
   }
 
-  const sumar = (lineas: LineaIngresoGestoria[]) =>
-    Math.round(lineas.reduce((total, linea) => total + linea.importe, 0) * 100) / 100;
-  const cobrado = sumar(ingresos.filter((l) => l.estado === "Cobrado"));
-  const bonoImputado = sumar(ingresos.filter((l) => l.estado === "Bono imputado"));
-  const pendiente = sumar(ingresos.filter((l) => l.estado === "Pendiente"));
-  const porRevisar = sumar(ingresos.filter((l) => l.estado === "Por revisar"));
-  const totalIngresos = sumar(ingresos);
-  const totalGastos = Math.round(gastos.reduce((total, gasto) => total + gasto.importe, 0) * 100) / 100;
-  const resultado = Math.round((totalIngresos - totalGastos) * 100) / 100;
-  const gastosPorUbicacion = [...gastos.reduce((grupos, gasto) => {
-    grupos.set(gasto.ubicacion, (grupos.get(gasto.ubicacion) || 0) + gasto.importe);
-    return grupos;
-  }, new Map<string, number>())].map(([ubicacion, total]) => ({
-    ubicacion, total: Math.round(total * 100) / 100,
-  })).sort((a, b) => a.ubicacion.localeCompare(b.ubicacion, "es"));
-  return { ingresos, gastos, gastosPorUbicacion, cobrado, bonoImputado, pendiente, porRevisar, totalIngresos, totalGastos, resultado };
+  const sumarIngresos = (lineas: LineaIngresoGestoria[]) =>
+    redondear(
+      lineas.reduce(
+        (total, linea) => total + linea.importe + linea.ingresoExtra,
+        0
+      )
+    );
+  const cobrado = sumarIngresos(
+    ingresos.filter((linea) => linea.estado === "Cobrado")
+  );
+  const pendiente = sumarIngresos(
+    ingresos.filter((linea) => linea.estado === "Pendiente")
+  );
+  const totalIngresos = sumarIngresos(ingresos);
+  const totalGastos = redondear(
+    gastos.reduce((total, gasto) => total + gasto.importe, 0)
+  );
+  const resultado = redondear(totalIngresos - totalGastos);
+  const gastosPorUbicacion = [
+    ...gastos.reduce((grupos, gasto) => {
+      grupos.set(
+        gasto.ubicacion,
+        (grupos.get(gasto.ubicacion) || 0) + gasto.importe
+      );
+      return grupos;
+    }, new Map<string, number>()),
+  ]
+    .map(([ubicacion, total]) => ({
+      ubicacion,
+      total: redondear(total),
+    }))
+    .sort((a, b) => a.ubicacion.localeCompare(b.ubicacion, "es"));
+
+  return {
+    ingresos,
+    gastos,
+    gastosPorUbicacion,
+    cobrado,
+    pendiente,
+    totalIngresos,
+    totalGastos,
+    resultado,
+  };
 }

@@ -37,7 +37,7 @@ export default function InformeGestoria({ mes }: { mes: string }) {
         const siguiente = new Date(anio, numeroMes, 1);
         const fin = `${siguiente.getFullYear()}-${String(siguiente.getMonth() + 1).padStart(2, "0")}-01`;
         const { data: clasesData, error: errorClases } = await supabase.from("clases")
-          .select(`id,fecha,hora_inicio,tipo,estado,facturable,cobrada,importe_club,coste_pista,ingreso_extra,modo_cobro,importe_total,metodo_cobro_club,fecha_cobro_club,
+          .select(`id,fecha,hora_inicio,duracion_minutos,tipo,estado,facturable,cobrada,importe_club,coste_pista,ingreso_extra,modo_cobro,importe_total,metodo_cobro_club,
             ubicaciones(nombre),
             clase_alumnos(alumno_id,importe,pagado,usa_bono,bono_id,alumnos(nombre,apellidos))`)
           .gte("fecha", inicio).lt("fecha", fin)
@@ -122,11 +122,10 @@ export default function InformeGestoria({ mes }: { mes: string }) {
           <p className="mt-2 text-2xl font-bold text-[#17324D]">{euros(total)}</p>
         </div>)}
     </div>
-    <p className="text-xs text-slate-500">Ingresos totales = cobrado directamente + bono imputado + pendiente + cobro por revisar. Resultado = ingresos totales − gastos de pista.</p>
+    <p className="text-xs text-slate-500">Ingresos totales = cobrado + pendiente. Los ingresos extra se suman a la clase correspondiente. Resultado = ingresos totales − gastos de pista.</p>
 
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {([ ["Cobrado directamente", informe.cobrado], ["Bono imputado", informe.bonoImputado], ["Pendiente de cobro", informe.pendiente],
-        ["Cobro por revisar", informe.porRevisar] ] as const).map(([titulo, total]) =>
+    <div className="grid gap-3 sm:grid-cols-2">
+      {([ ["Cobrado", informe.cobrado], ["Pendiente de cobro", informe.pendiente] ] as const).map(([titulo, total]) =>
         <div key={titulo} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-semibold text-slate-600">{titulo}</p>
           <p className="mt-2 text-xl font-bold text-[#17324D]">{euros(total)}</p>
@@ -136,19 +135,20 @@ export default function InformeGestoria({ mes }: { mes: string }) {
     <section>
       <h4 className="mb-3 text-lg font-bold text-[#17324D]">Clases e ingresos</h4>
       <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className="min-w-[870px] w-full text-left text-sm">
+        <table className="min-w-[1050px] w-full text-left text-sm">
           <thead className="bg-slate-100 text-xs text-slate-600"><tr>
-            <th className="p-3">Clase</th><th className="p-3">Ubicación</th><th className="p-3">Alumno / concepto</th>
-            <th className="p-3 text-right">Importe</th><th className="p-3">Estado</th><th className="p-3">Forma</th><th className="p-3">Fecha de cobro</th>
+            <th className="p-3">Fecha</th><th className="p-3">Hora</th><th className="p-3">Ubicación</th><th className="p-3">Alumno / Concepto</th>
+            <th className="p-3 text-right">Importe</th><th className="p-3 text-right">Ingreso extra</th><th className="p-3">Estado</th><th className="p-3">Forma de pago</th>
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
             {informe.ingresos.map((linea) => <tr key={linea.id}>
-              <td className="p-3 whitespace-nowrap">{fecha(linea.fecha)} · {linea.hora.slice(0, 5)}</td>
-              <td className="p-3">{linea.ubicacion}</td><td className="p-3">{linea.concepto}</td>
+              <td className={`p-3 whitespace-nowrap font-semibold ${linea.esClub ? "text-[#00A79C]" : "text-slate-950"}`}>{fecha(linea.fecha)}</td>
+              <td className="p-3 whitespace-nowrap">{linea.hora}</td><td className="p-3">{linea.ubicacion}</td><td className="p-3">{linea.concepto}</td>
               <td className="p-3 text-right font-semibold whitespace-nowrap">{euros(linea.importe)}</td>
-              <td className="p-3">{linea.estado}</td><td className="p-3">{linea.metodo}</td><td className="p-3">{fecha(linea.fechaCobro)}</td>
+              <td className="p-3 text-right font-semibold whitespace-nowrap">{linea.ingresoExtra ? euros(linea.ingresoExtra) : "—"}</td>
+              <td className="p-3">{linea.estado}</td><td className="p-3">{linea.metodo}</td>
             </tr>)}
-            {!informe.ingresos.length && <tr><td colSpan={7} className="p-6 text-center text-slate-500">No hay clases con importe en este mes.</td></tr>}
+            {!informe.ingresos.length && <tr><td colSpan={8} className="p-6 text-center text-slate-500">No hay clases con importe en este mes.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -156,23 +156,28 @@ export default function InformeGestoria({ mes }: { mes: string }) {
 
     <section>
       <h4 className="mb-3 text-lg font-bold text-[#17324D]">Costes de pista por ubicación</h4>
-      <div className="mb-3 flex flex-wrap gap-2 text-sm">
-        {informe.gastosPorUbicacion.map((g) => <span key={g.ubicacion}
-          className="rounded-lg bg-slate-100 px-3 py-2 text-[#17324D]">
-          {g.ubicacion}: <strong>{euros(g.total)}</strong>
-        </span>)}
-      </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full min-w-[550px] text-left text-sm">
+        <table className="w-full min-w-[700px] text-left text-sm">
           <thead className="bg-slate-100 text-xs text-slate-600"><tr>
-            <th className="p-3">Fecha de clase</th><th className="p-3">Ubicación</th><th className="p-3 text-right">Coste registrado</th>
+            <th className="p-3">Fecha</th><th className="p-3">Hora</th><th className="p-3">Ubicación</th><th className="p-3 text-right">Coste registrado</th>
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
-            {informe.gastos.map((g) => <tr key={g.id}><td className="p-3">{fecha(g.fecha)} · {g.hora.slice(0, 5)}</td>
+            {informe.gastos.map((g) => <tr key={g.id}><td className="p-3">{fecha(g.fecha)}</td><td className="p-3">{g.hora}</td>
               <td className="p-3">{g.ubicacion}</td><td className="p-3 text-right font-semibold">{euros(g.importe)}</td></tr>)}
-            {!informe.gastos.length && <tr><td colSpan={3} className="p-6 text-center text-slate-500">No hay costes registrados este mes.</td></tr>}
+            {!informe.gastos.length && <tr><td colSpan={4} className="p-6 text-center text-slate-500">No hay costes registrados este mes.</td></tr>}
           </tbody>
         </table>
+      </div>
+      <div className="mt-4 overflow-hidden rounded-xl border-2 border-[#00A79C]/30 bg-[#E9F9F8]">
+        <div className="border-b border-[#00A79C]/20 px-4 py-3 text-sm font-bold text-[#17324D]">Resumen de costes de pista</div>
+        <div className="grid gap-px bg-[#00A79C]/15 sm:grid-cols-2">
+          {informe.gastosPorUbicacion.map((g) => <div key={g.ubicacion} className="flex items-center justify-between gap-4 bg-white px-4 py-3 text-sm text-[#17324D]">
+            <span>{g.ubicacion}</span><strong>{euros(g.total)}</strong>
+          </div>)}
+        </div>
+        <div className="flex items-center justify-between gap-4 bg-[#17324D] px-4 py-4 text-white">
+          <span className="font-bold">Total de todas las ubicaciones</span><strong className="text-lg">{euros(informe.totalGastos)}</strong>
+        </div>
       </div>
     </section>
     <p className="text-xs leading-5 text-slate-500">Los importes de pista se asignan a la fecha de cada clase. El informe muestra importes totales; tu gestora determinará la base y las cuotas de IVA que correspondan.</p>
