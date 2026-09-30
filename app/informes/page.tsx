@@ -1812,70 +1812,6 @@ const horasMesAnterior =
       0
     );
 
-        }
-
-
-
-        const ingresosAlumnos =
-
-          (
-
-            clase.clase_alumnos ||
-
-            []
-
-          ).reduce(
-
-            (
-
-              subtotal:
-
-                number,
-
-              participante:
-
-                any
-
-            ) =>
-
-              subtotal +
-
-              Number(
-
-                participante.importe ||
-
-                  0
-
-              ),
-
-            0
-
-          );
-
-
-
-        return (
-
-          total +
-
-          ingresosAlumnos +
-
-          Number(
-
-            clase.ingreso_extra ||
-
-              0
-
-          )
-
-        );
-
-      },
-
-      0
-
-    );
-
 const ingresosExtraGeneral =
 
   clasesEconomicas.reduce(
@@ -2580,11 +2516,6 @@ const acumuladoDiario = (() => {
           clase
         );
 
-      const cuentaEconomicamente =
-        economia.cuentaEconomicamente;
-
-      const ingresoClase =
-        economia.ingresoBase;
 
       const ingresoExtra =
         economia.ingresoExtra;
