@@ -59,5 +59,4 @@ export type Pago = {
 export type TipoInforme =
   | "iql"
   | "economico"
-  | "pendientes"
-  | "gestoria";
+  | "pendientes";
