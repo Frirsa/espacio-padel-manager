@@ -515,6 +515,8 @@ const {
           coste_pista,
 
           ingreso_extra,
+          modo_cobro,
+          importe_total,
           ubicacion_id,
 
           ubicaciones (
@@ -843,6 +845,8 @@ const {
       coste_pista,
 
       ingreso_extra,
+      modo_cobro,
+      importe_total,
 
 
 
@@ -1017,6 +1021,8 @@ const {
       coste_pista,
 
       ingreso_extra,
+      modo_cobro,
+      importe_total,
 
 
 
@@ -1171,136 +1177,20 @@ for (
 
 
   const ingresosDelMes =
-
     clasesDelMes.reduce(
-
-      (
-
-        total,
-
-        clase
-
-      ) => {
-
-        if (
-
-          clase.tipo ===
-
-          "club"
-
-        ) {
-
-          return (
-
-            total +
-
-            Number(
-
-              clase.importe_club ||
-
-                0
-
-            ) +
-
-            Number(
-
-              clase.ingreso_extra ||
-
-                0
-
-            )
-
-          );
-
-        }
-
-
-
-        const ingresosAlumnos =
-
-          (
-
-            clase.clase_alumnos ||
-
-            []
-
-          ).reduce(
-
-            (
-
-              subtotal,
-
-              participante
-
-            ) =>
-
-              subtotal +
-
-              Number(
-
-                participante.importe ||
-
-                  0
-
-              ),
-
-            0
-
-          );
-
-
-
-        return (
-
-          total +
-
-          ingresosAlumnos +
-
-          Number(
-
-            clase.ingreso_extra ||
-
-              0
-
-          )
-
-        );
-
-      },
-
+      (total, clase) =>
+        total +
+        calcularEconomiaClase(clase).ingresos,
       0
-
     );
-
-
 
   const gastosDelMes =
-
     clasesDelMes.reduce(
-
-      (
-
-        total,
-
-        clase
-
-      ) =>
-
+      (total, clase) =>
         total +
-
-        Number(
-
-          clase.coste_pista ||
-
-            0
-
-        ),
-
+        calcularEconomiaClase(clase).gasto,
       0
-
     );
-
-
 
   const clasesRealizadasDelMes =
 
@@ -1485,141 +1375,23 @@ const clasesEconomicasMesAnterior =
 
 
 const ingresosMesAnterior =
-
   clasesEconomicasMesAnterior.reduce(
-
-    (
-
-      total,
-
-      clase
-
-    ) => {
-
-      if (
-
-        clase.tipo ===
-
-        "club"
-
-      ) {
-
-        return (
-
-          total +
-
-          Number(
-
-            clase.importe_club ||
-
-              0
-
-          ) +
-
-          Number(
-
-            clase.ingreso_extra ||
-
-              0
-
-          )
-
-        );
-
-      }
-
-
-
-      const ingresosAlumnos =
-
-        (
-
-          clase.clase_alumnos ||
-
-          []
-
-        ).reduce(
-
-          (
-
-            subtotal,
-
-            participante
-
-          ) =>
-
-            subtotal +
-
-            Number(
-
-              participante.importe ||
-
-                0
-
-            ),
-
-          0
-
-        );
-
-
-
-      return (
-
-        total +
-
-        ingresosAlumnos +
-
-        Number(
-
-          clase.ingreso_extra ||
-
-            0
-
-        )
-
-      );
-
-    },
-
+    (total, clase) =>
+      total +
+      calcularEconomiaClase(clase).ingresos,
     0
-
   );
-
-
 
 const gastosMesAnterior =
-
   clasesEconomicasMesAnterior.reduce(
-
-    (
-
-      total,
-
-      clase
-
-    ) =>
-
+    (total, clase) =>
       total +
-
-      Number(
-
-        clase.coste_pista ||
-
-          0
-
-      ),
-
+      calcularEconomiaClase(clase).gasto,
     0
-
   );
 
-
-
 const resultadoMesAnterior =
-
   ingresosMesAnterior -
-
   gastosMesAnterior;
 
 
@@ -1651,34 +1423,11 @@ const horasMesAnterior =
   ) / 60;
 
   const clasesIQL =
-
     clasesEconomicas.filter(
-
       (clase) =>
-
-        (
-
-          clase
-
-            .ubicaciones
-
-            ?.nombre ||
-
-          ""
-
-        )
-
-          .toLowerCase()
-
-          .includes(
-
-            "iql"
-
-          )
-
+        clase.ubicaciones
+          ?.es_club_referencia === true
     );
-
-
 
   const clasesParaClub =
 
@@ -1700,9 +1449,9 @@ const horasMesAnterior =
 
       (clase) =>
 
-        clase.tipo ===
+        clase.tipo !==
 
-        "propia"
+        "club"
 
     );
 
@@ -1737,60 +1486,20 @@ const horasMesAnterior =
 
 
   const totalClub =
-
     clasesParaClub.reduce(
-
-      (
-
-        total,
-
-        clase
-
-      ) =>
-
+      (total, clase) =>
         total +
-
-        Number(
-
-          clase.importe_club ||
-
-            0
-
-        ),
-
+        calcularEconomiaClase(clase).clubGenerado,
       0
-
     );
-
-
 
   const totalAlquiler =
-
     clasesPropiasIQL.reduce(
-
-      (
-
-        total,
-
-        clase
-
-      ) =>
-
+      (total, clase) =>
         total +
-
-        Number(
-
-          clase.coste_pista ||
-
-            0
-
-        ),
-
+        calcularEconomiaClase(clase).gasto,
       0
-
     );
-
-
 
   const saldoIQL =
 
@@ -2080,165 +1789,27 @@ const horasMesAnterior =
 
 
   const ingresosClubGeneral =
-
     clasesEconomicas.reduce(
-
-      (
-
-        total,
-
-        clase
-
-      ) =>
-
+      (total, clase) =>
         total +
-
-        Number(
-
-          clase.importe_club ||
-
-            0
-
-        ),
-
+        calcularEconomiaClase(clase).clubGenerado,
       0
-
     );
-
-
 
   const gastosPistaGeneral =
-
     clasesEconomicas.reduce(
-
-      (
-
-        total,
-
-        clase
-
-      ) =>
-
+      (total, clase) =>
         total +
-
-        Number(
-
-          clase.coste_pista ||
-
-            0
-
-        ),
-
+        calcularEconomiaClase(clase).gasto,
       0
-
     );
 
-
-
   const ingresosGenerados =
-
     clasesEconomicas.reduce(
-
-      (
-
-        total,
-
-        clase
-
-      ) => {
-
-        if (
-
-          clase.tipo ===
-
-          "club"
-
-        ) {
-
-          return (
-
-            total +
-
-            Number(
-
-              clase.importe_club ||
-
-                0
-
-            ) +
-
-            Number(
-
-              clase.ingreso_extra ||
-
-                0
-
-            )
-
-          );
-
-        }
-
-
-
-        const ingresosAlumnos =
-
-          (
-
-            clase.clase_alumnos ||
-
-            []
-
-          ).reduce(
-
-            (
-
-              subtotal:
-
-                number,
-
-              participante:
-
-                any
-
-            ) =>
-
-              subtotal +
-
-              Number(
-
-                participante.importe ||
-
-                  0
-
-              ),
-
-            0
-
-          );
-
-
-
-        return (
-
-          total +
-
-          ingresosAlumnos +
-
-          Number(
-
-            clase.ingreso_extra ||
-
-              0
-
-          )
-
-        );
-
-      },
-
+      (total, clase) =>
+        total +
+        calcularEconomiaClase(clase).ingresos,
       0
-
     );
 
 const ingresosExtraGeneral =
@@ -2270,229 +1841,132 @@ const ingresosExtraGeneral =
 
 
 const ingresosClasesClub =
-
   clasesEconomicas
-
     .filter(
-
       (clase) =>
-
         clase.tipo === "club"
-
     )
-
     .reduce(
-
       (total, clase) =>
-
         total +
-
-        Number(
-
-          clase.importe_club ||
-
-            0
-
-        ),
-
+        calcularEconomiaClase(clase).ingresoBase,
       0
-
     );
-
-
 
 const ingresosClasesPropiasPago =
-
   clasesEconomicas
-
     .filter(
-
       (clase) =>
-
         clase.tipo === "propia"
-
     )
-
     .reduce(
-
       (total, clase) =>
-
         total +
-
-        (
-
-          clase.clase_alumnos ||
-
-          []
-
-        ).reduce(
-
-          (subtotal, participante) =>
-
-            subtotal +
-
-            Number(
-
-              participante.importe ||
-
-                0
-
-            ),
-
-          0
-
-        ),
-
+        calcularEconomiaClase(clase).ingresoBase,
       0
-
     );
-
-
 
 const ingresosClasesPrivadas =
-
   clasesEconomicas
-
     .filter(
-
       (clase) =>
-
         clase.tipo === "privada"
-
     )
-
     .reduce(
-
       (total, clase) =>
-
         total +
-
-        (
-
-          clase.clase_alumnos ||
-
-          []
-
-        ).reduce(
-
-          (subtotal, participante) =>
-
-            subtotal +
-
-            Number(
-
-              participante.importe ||
-
-                0
-
-            ),
-
-          0
-
-        ),
-
+        calcularEconomiaClase(clase).ingresoBase,
       0
-
     );
 
-
-
 const ingresosPorBonoConsumido =
-
   clasesEconomicas.reduce(
+    (total, clase) => {
+      if (clase.tipo === "club") {
+        return total;
+      }
 
-    (total, clase) =>
+      const participantes =
+        clase.clase_alumnos || [];
 
-      total +
+      if (clase.modo_cobro === "total") {
+        const todosConBono =
+          participantes.length > 0 &&
+          participantes.every(
+            (participante) =>
+              participante.usa_bono
+          );
 
-      (
+        return total +
+          (todosConBono
+            ? calcularEconomiaClase(clase)
+                .ingresoBase
+            : 0);
+      }
 
-        clase.clase_alumnos ||
-
-        []
-
-      )
-
-        .filter(
-
-          (participante) =>
-
-            clase.tipo !== "club" &&
-
-            participante.usa_bono
-
-        )
-
-        .reduce(
-
-          (subtotal, participante) =>
-
-            subtotal +
-
-            Number(
-
-              participante.importe ||
-
-                0
-
-            ),
-
-          0
-
-        ),
-
+      return (
+        total +
+        participantes
+          .filter(
+            (participante) =>
+              participante.usa_bono
+          )
+          .reduce(
+            (subtotal, participante) =>
+              subtotal +
+              Number(
+                participante.importe || 0
+              ),
+            0
+          )
+      );
+    },
     0
-
   );
 
-
-
 const ingresosPagoNormalGenerado =
-
   clasesEconomicas.reduce(
+    (total, clase) => {
+      if (clase.tipo === "club") {
+        return total;
+      }
 
-    (total, clase) =>
+      const participantes =
+        clase.clase_alumnos || [];
 
-      total +
+      if (clase.modo_cobro === "total") {
+        const todosConBono =
+          participantes.length > 0 &&
+          participantes.every(
+            (participante) =>
+              participante.usa_bono
+          );
 
-      (
+        return total +
+          (!todosConBono
+            ? calcularEconomiaClase(clase)
+                .ingresoBase
+            : 0);
+      }
 
-        clase.clase_alumnos ||
-
-        []
-
-      )
-
-        .filter(
-
-          (participante) =>
-
-            clase.tipo !== "club" &&
-
-            !participante.usa_bono
-
-        )
-
-        .reduce(
-
-          (subtotal, participante) =>
-
-            subtotal +
-
-            Number(
-
-              participante.importe ||
-
-                0
-
-            ),
-
-          0
-
-        ),
-
+      return (
+        total +
+        participantes
+          .filter(
+            (participante) =>
+              !participante.usa_bono
+          )
+          .reduce(
+            (subtotal, participante) =>
+              subtotal +
+              Number(
+                participante.importe || 0
+              ),
+            0
+          )
+      );
+    },
     0
-
   );
 
 
@@ -3029,239 +2503,66 @@ const acumuladoDiario = (() => {
 
 
 
-      const cuentaEconomicamente =
-
-        clase.estado === "realizada" ||
-
-        (
-
-          clase.estado === "cancelada" &&
-
-          clase.facturable === true
-
+      const economia =
+        calcularEconomiaClase(
+          clase
         );
 
 
-
-      const ingresoClase =
-
-        !cuentaEconomicamente
-
-          ? 0
-
-          : clase.tipo === "club"
-
-          ? Number(
-
-              clase.importe_club ||
-
-                0
-
-            )
-
-          : (
-
-              clase.clase_alumnos ||
-
-              []
-
-            ).reduce(
-
-              (
-
-                total,
-
-                participante
-
-              ) =>
-
-                total +
-
-                Number(
-
-                  participante.importe ||
-
-                    0
-
-                ),
-
-              0
-
-            );
-
-
-
       const ingresoExtra =
-
-        cuentaEconomicamente
-
-          ? Number(
-
-              clase.ingreso_extra ||
-
-                0
-
-            )
-
-          : 0;
-
-
+        economia.ingresoExtra;
 
       const gastoClase =
-
-        cuentaEconomicamente
-
-          ? Number(
-
-              clase.coste_pista ||
-
-                0
-
-            )
-
-          : 0;
-
-
+        economia.gasto;
 
       if (
-
         clase.estado === "realizada"
-
       ) {
-
         actual.clases += 1;
 
-
-
         actual.horas +=
-
           Number(
-
             clase.duracion_minutos ||
-
               0
-
           ) / 60;
-
       }
 
-
-
       if (
-
         clase.estado === "cancelada"
-
       ) {
-
         actual.canceladas += 1;
 
-
-
         if (
-
           clase.facturable === true
-
         ) {
-
           actual.canceladasFacturables += 1;
-
         }
-
       }
-
-
 
       actual.ingresos +=
+        economia.ingresos;
 
-        ingresoClase +
+      actual.clubGenerado +=
+        economia.clubGenerado;
 
-        ingresoExtra;
+      actual.clubCobrado +=
+        economia.clubCobrado;
 
-
-
-      if (
-
-        cuentaEconomicamente &&
-
-        clase.tipo === "club"
-
-      ) {
-
-        actual.clubGenerado +=
-
-          ingresoClase;
-
-
-
-        if (
-
-          clase.cobrada === true
-
-        ) {
-
-          actual.clubCobrado +=
-
-            ingresoClase;
-
-        }
-
-      }
-
-
-
-      const esIQL =
-
-        clase.ubicaciones?.nombre ===
-
-        "IQL Sports";
-
-
-
-      if (
-
-        cuentaEconomicamente &&
-
-        esIQL &&
-
-        clase.tipo !== "club"
-
-      ) {
-
-        actual.pistasPagadasClub +=
-
-          gastoClase;
-
-      }
-
-
+      actual.pistasPagadasClub +=
+        economia.pistasPagadasClub;
 
       actual.saldoClub =
-
         actual.clubGenerado -
-
         actual.pistasPagadasClub;
 
-
-
       actual.ingresoExtra +=
-
         ingresoExtra;
 
-
-
       actual.gastos +=
-
         gastoClase;
-
-
 
       actual.resultado +=
-
-        ingresoClase +
-
-        ingresoExtra -
-
-        gastoClase;
+        economia.resultado;
 
 
 
