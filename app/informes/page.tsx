@@ -1449,9 +1449,9 @@ const horasMesAnterior =
 
       (clase) =>
 
-        clase.tipo ===
+        clase.tipo !==
 
-        "propia"
+        "club"
 
     );
 
@@ -1880,101 +1880,93 @@ const ingresosClasesPrivadas =
     );
 
 const ingresosPorBonoConsumido =
-
   clasesEconomicas.reduce(
+    (total, clase) => {
+      if (clase.tipo === "club") {
+        return total;
+      }
 
-    (total, clase) =>
+      const participantes =
+        clase.clase_alumnos || [];
 
-      total +
+      if (clase.modo_cobro === "total") {
+        const todosConBono =
+          participantes.length > 0 &&
+          participantes.every(
+            (participante) =>
+              participante.usa_bono
+          );
 
-      (
+        return total +
+          (todosConBono
+            ? calcularEconomiaClase(clase)
+                .ingresoBase
+            : 0);
+      }
 
-        clase.clase_alumnos ||
-
-        []
-
-      )
-
-        .filter(
-
-          (participante) =>
-
-            clase.tipo !== "club" &&
-
-            participante.usa_bono
-
-        )
-
-        .reduce(
-
-          (subtotal, participante) =>
-
-            subtotal +
-
-            Number(
-
-              participante.importe ||
-
-                0
-
-            ),
-
-          0
-
-        ),
-
+      return (
+        total +
+        participantes
+          .filter(
+            (participante) =>
+              participante.usa_bono
+          )
+          .reduce(
+            (subtotal, participante) =>
+              subtotal +
+              Number(
+                participante.importe || 0
+              ),
+            0
+          )
+      );
+    },
     0
-
   );
 
-
-
 const ingresosPagoNormalGenerado =
-
   clasesEconomicas.reduce(
+    (total, clase) => {
+      if (clase.tipo === "club") {
+        return total;
+      }
 
-    (total, clase) =>
+      const participantes =
+        clase.clase_alumnos || [];
 
-      total +
+      if (clase.modo_cobro === "total") {
+        const todosConBono =
+          participantes.length > 0 &&
+          participantes.every(
+            (participante) =>
+              participante.usa_bono
+          );
 
-      (
+        return total +
+          (!todosConBono
+            ? calcularEconomiaClase(clase)
+                .ingresoBase
+            : 0);
+      }
 
-        clase.clase_alumnos ||
-
-        []
-
-      )
-
-        .filter(
-
-          (participante) =>
-
-            clase.tipo !== "club" &&
-
-            !participante.usa_bono
-
-        )
-
-        .reduce(
-
-          (subtotal, participante) =>
-
-            subtotal +
-
-            Number(
-
-              participante.importe ||
-
-                0
-
-            ),
-
-          0
-
-        ),
-
+      return (
+        total +
+        participantes
+          .filter(
+            (participante) =>
+              !participante.usa_bono
+          )
+          .reduce(
+            (subtotal, participante) =>
+              subtotal +
+              Number(
+                participante.importe || 0
+              ),
+            0
+          )
+      );
+    },
     0
-
   );
 
 
