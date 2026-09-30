@@ -31,9 +31,6 @@ type DatosPdfEconomico = {
   clases: ClaseInforme[];
   totalIngresos: number;
   totalGastos: number;
-  totalPendiente: number;
-  totalHoras: number;
-  totalClases: number;
 };
 
 type ColorRGB = [
@@ -152,9 +149,6 @@ export async function generarPdfEconomico({
   clases,
   totalIngresos,
   totalGastos,
-  totalPendiente,
-  totalHoras,
-  totalClases,
 }: DatosPdfEconomico) {
   const doc = new jsPDF({
     orientation:
@@ -215,12 +209,6 @@ export async function generarPdfEconomico({
     239,
     68,
     68,
-  ];
-
-  const naranja: ColorRGB = [
-    234,
-    88,
-    12,
   ];
 
   const anchoPagina =
@@ -599,6 +587,17 @@ export async function generarPdfEconomico({
     }
   );
 
+  const gastosAgrupados = new Map<string, number>();
+  for (const clase of clases) {
+    const importe = Number(clase.coste_pista || 0);
+    if (clase.estado !== "realizada" || importe === 0) continue;
+    const nombre = clase.ubicaciones?.nombre?.trim() || "Sin ubicación";
+    gastosAgrupados.set(nombre, (gastosAgrupados.get(nombre) || 0) + importe);
+  }
+  const gastosPorUbicacion = [...gastosAgrupados.entries()].sort(
+    ([a], [b]) => a.localeCompare(b, "es")
+  );
+
   const ultimaTabla =
     (
       doc as any
@@ -612,7 +611,7 @@ export async function generarPdfEconomico({
 
   if (
     y >
-    altoPagina - 72
+    altoPagina - (58 + (gastosPorUbicacion.length + 2) * 9)
   ) {
     doc.addPage();
     dibujarEncabezado();
@@ -670,36 +669,12 @@ export async function generarPdfEconomico({
       },
 
       body: [
-        [
-          "Clases realizadas",
-          String(
-            totalClases
-          ),
-        ],
-        [
-          "Horas impartidas",
-          totalHoras.toFixed(
-            1
-          ),
-        ],
-        [
-          "Ingresos generados",
-          `${totalIngresos.toFixed(
-            2
-          )} €`,
-        ],
-        [
-          "Gastos de pista",
-          `${totalGastos.toFixed(
-            2
-          )} €`,
-        ],
-        [
-          "Pendiente de cobro",
-          `${totalPendiente.toFixed(
-            2
-          )} €`,
-        ],
+        ["Ingresos generados", `${totalIngresos.toFixed(2)} €`],
+        ...gastosPorUbicacion.map(([nombre, importe]) => [
+          `Gastos de pista · ${nombre}`,
+          `${importe.toFixed(2)} €`,
+        ]),
+        ["Total gastos de pista", `${totalGastos.toFixed(2)} €`],
       ],
 
       theme: "grid",
@@ -822,49 +797,6 @@ export async function generarPdfEconomico({
       align: "right",
     }
   );
-
-  if (
-    totalPendiente >
-    0
-  ) {
-    y += 20;
-
-    doc.setFillColor(
-      255,
-      247,
-      237
-    );
-
-    doc.setDrawColor(
-      ...naranja
-    );
-
-    doc.roundedRect(
-      margen,
-      y,
-      anchoContenido,
-      12,
-      3,
-      3,
-      "FD"
-    );
-
-    doc.setFontSize(
-      8
-    );
-
-    doc.setTextColor(
-      ...naranja
-    );
-
-    doc.text(
-      `Pendiente de cobro incluido en los ingresos generados: ${totalPendiente.toFixed(
-        2
-      )} €`,
-      margen + 5,
-      y + 7.5
-    );
-  }
 
   const totalPaginas =
     doc.getNumberOfPages();
