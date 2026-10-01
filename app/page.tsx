@@ -788,6 +788,7 @@ export default function Home() {
         0
       );
 
+    // Los avisos incluyen los pendientes de cualquier mes hasta que se resuelvan.
     const {
       data: pagosPendientesData,
     } =
@@ -799,14 +800,6 @@ export default function Home() {
         .eq(
           "estado",
           "pendiente"
-        )
-        .gte(
-          "fecha_pago",
-          inicioMes
-        )
-        .lte(
-          "fecha_pago",
-          ultimoDiaMes
         );
 
     const {
@@ -843,14 +836,6 @@ export default function Home() {
             "realizada",
             "cancelada",
           ]
-        )
-        .gte(
-          "fecha",
-          inicioMes
-        )
-        .lte(
-          "fecha",
-          ultimoDiaMes
         );
 
     const {
@@ -897,11 +882,7 @@ export default function Home() {
       (cobro: any) => {
         const bono = cobro.bonos;
 
-        if (
-          !bono?.id ||
-          bono.fecha_compra < inicioMes ||
-          bono.fecha_compra > ultimoDiaMes
-        ) {
+        if (!bono?.id) {
           return;
         }
 
@@ -1664,7 +1645,7 @@ export default function Home() {
               Avisos importantes
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-white/50 sm:text-sm">
-              Primero, lo que necesita tu atención
+              Pendientes de todos los meses y avisos de hoy
             </p>
           </div>
 
