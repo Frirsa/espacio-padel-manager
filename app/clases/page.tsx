@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { recalcularImportesBonos } from "../../lib/economia";
 import {
   borrarClaseDeGoogleCalendar,
   sincronizarClaseConGoogleCalendar,
@@ -1885,7 +1886,9 @@ export default function ClasesPage() {
     }
 
     setClases(
-      clasesNormalizadas
+      clasesNormalizadas.map((clase) =>
+        recalcularImportesBonos(clase, bonosData || [])
+      )
     );
 
     setPagosClase(
