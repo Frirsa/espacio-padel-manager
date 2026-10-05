@@ -8,6 +8,7 @@ import {
 import { useSearchParams } from "next/navigation";
 
 import { supabase } from "../../lib/supabase";
+import { recalcularImportesBonos } from "../../lib/economia";
 
 import FiltrosAgenda from "../../components/agenda/FiltrosAgenda";
 import ListadoAgenda from "../../components/agenda/ListadoAgenda";
@@ -405,7 +406,7 @@ export default function AgendaPage() {
       } = await supabase
         .from("bonos")
         .select(
-          "id,estado_cobro"
+          "id,estado_cobro,importe_pagado,numero_clases"
         );
 
       const estadoCobroPorBono =
@@ -448,7 +449,9 @@ export default function AgendaPage() {
         );
 
       setClases(
-        clasesConEstadoBono
+        clasesConEstadoBono.map((clase) =>
+          recalcularImportesBonos(clase, bonosEstadoData || [])
+        )
       );
     }
 
