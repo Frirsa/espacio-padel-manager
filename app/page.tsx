@@ -470,26 +470,26 @@ export default function Home() {
     const clasesMes = (clasesMesData || []).map((clase) =>
       recalcularImportesBonos(clase, bonosPrecioData || [])
     );
+    const clasesHastaHoy = clasesMes.filter((clase) => clase.fecha <= hoy);
 
     const clasesRealizadas =
-      clasesMes.filter(
+      clasesHastaHoy.filter(
         (clase) =>
           clase.estado ===
           "realizada"
       );
 
     const clasesEconomicas =
-      clasesMes.filter(
+      clasesHastaHoy.filter(
         (clase: any) =>
           esClaseEconomica(clase)
       );
 
     const porDia = new Map<string, any>();
 
-    clasesMes
+    clasesHastaHoy
       .filter(
         (clase: any) =>
-          clase.fecha <= hoy &&
           (clase.estado === "realizada" || clase.estado === "cancelada")
       )
       .forEach((clase: any) => {
@@ -1955,7 +1955,7 @@ export default function Home() {
               {mesSeleccionadoCapitalizado}
             </h2>
             <p className="mt-1 text-xs text-white/50">
-              Totales del mes, incluidas las cancelaciones facturables.
+              Actividad e importes hasta hoy.
             </p>
           </div>
 
