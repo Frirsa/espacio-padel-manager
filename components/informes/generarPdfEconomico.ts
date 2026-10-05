@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { esClaseEconomica, gastoPistaClase } from "../../lib/economia";
 
 import type { Clase } from "./tipos";
 
@@ -11,6 +12,7 @@ import {
 } from "./utils";
 
 type ClaseInforme = Clase & {
+  facturable?: boolean | null;
   ingreso_extra?: number | null;
   ubicaciones?: {
     nombre: string;
@@ -150,6 +152,9 @@ export async function generarPdfEconomico({
   totalIngresos,
   totalGastos,
 }: DatosPdfEconomico) {
+  const clasesInforme = clases.filter((clase) =>
+    esClaseEconomica({ estado: clase.estado, facturable: clase.facturable })
+  );
   const doc = new jsPDF({
     orientation:
       "portrait",
@@ -400,7 +405,7 @@ export async function generarPdfEconomico({
   );
 
   doc.text(
-    "Todas las clases realizadas",
+    "Clases realizadas y cancelaciones facturables",
     margen,
     y + 7
   );
@@ -408,7 +413,7 @@ export async function generarPdfEconomico({
   y += 15;
 
   const filas =
-    clases.map(
+    clasesInforme.map(
       (clase) => {
         const ubicacion =
           clase.ubicaciones
@@ -416,9 +421,8 @@ export async function generarPdfEconomico({
           "Sin ubicación";
 
         const tipo =
-          textoTipoClase(
-            clase.tipo
-          );
+          textoTipoClase(clase.tipo) +
+          (clase.estado === "cancelada" ? " · Cancelada facturable" : "");
 
         const nombres =
           obtenerNombreAlumnos(
@@ -430,11 +434,10 @@ export async function generarPdfEconomico({
             clase
           );
 
-        const gasto =
-          Number(
-            clase.coste_pista ||
-              0
-          );
+        const gasto = gastoPistaClase({
+          estado: clase.estado,
+          coste_pista: clase.coste_pista,
+        });
 
         return [
           formatearFecha(
@@ -588,9 +591,9 @@ export async function generarPdfEconomico({
   );
 
   const gastosAgrupados = new Map<string, number>();
-  for (const clase of clases) {
-    const importe = Number(clase.coste_pista || 0);
-    if (clase.estado !== "realizada" || importe === 0) continue;
+  for (const clase of clasesInforme) {
+    const importe = gastoPistaClase({ estado: clase.estado, coste_pista: clase.coste_pista });
+    if (importe === 0) continue;
     const nombre = clase.ubicaciones?.nombre?.trim() || "Sin ubicación";
     gastosAgrupados.set(nombre, (gastosAgrupados.get(nombre) || 0) + importe);
   }
