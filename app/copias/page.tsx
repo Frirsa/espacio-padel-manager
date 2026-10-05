@@ -110,18 +110,28 @@ export default function CopiasPage() {
   async function construirCopia() {
     const datos: Record<string, unknown[]> = {};
 
+    const tamanoPagina = 500;
+
     for (const tabla of tablas) {
-      const { data, error } = await supabase
-        .from(tabla)
-        .select("*");
+      const filas: unknown[] = [];
+      for (let inicio = 0; ; inicio += tamanoPagina) {
+        const { data, error } = await supabase
+          .from(tabla)
+          .select("*")
+          .order("id", { ascending: true })
+          .range(inicio, inicio + tamanoPagina - 1);
 
-      if (error) {
-        throw new Error(
-          `Error al copiar ${tabla}: ${error.message}`
-        );
+        if (error) {
+          throw new Error(
+            `Error al copiar ${tabla}: ${error.message}`
+          );
+        }
+
+        const pagina = data || [];
+        filas.push(...pagina);
+        if (pagina.length < tamanoPagina) break;
       }
-
-      datos[tabla] = data || [];
+      datos[tabla] = filas;
     }
 
     return {
