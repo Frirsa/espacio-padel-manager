@@ -465,19 +465,6 @@ export default function Home() {
       clasesMesData ||
       [];
 
-    const mesHoy =
-      hoy.slice(0, 7);
-
-    const clasesMesHastaHoy =
-      mesClave > mesHoy
-        ? []
-        : mesClave === mesHoy
-        ? clasesMes.filter(
-            (clase: any) =>
-              clase.fecha <= hoy
-          )
-        : clasesMes;
-
     const clasesRealizadas =
       clasesMes.filter(
         (clase) =>
@@ -493,7 +480,7 @@ export default function Home() {
 
     const porDia = new Map<string, any>();
 
-    clasesMesHastaHoy
+    clasesMes
       .filter(
         (clase: any) =>
           clase.estado === "realizada" ||
@@ -2193,7 +2180,7 @@ export default function Home() {
               Acumulado diario
             </h2>
             <p className="mt-1 text-sm text-white/50">
-              Resultado de cada día y acumulado progresivo en {mesSeleccionadoCapitalizado.toLowerCase()}
+              Resultado de cada día y acumulado progresivo en {mesSeleccionadoCapitalizado.toLowerCase()}. Incluye cancelaciones facturables de fechas futuras.
             </p>
           </div>
 
