@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 
 import { supabase } from "../../lib/supabase";
-import { calcularEconomiaClase } from "../../lib/economia";
+import { calcularEconomiaClase, recalcularImportesBonos } from "../../lib/economia";
 
 
 
@@ -452,6 +452,11 @@ function obtenerFechasMesAnterior() {
 }  
 
   async function cargarDatos() {
+    const { data: bonosPrecioData } = await supabase
+      .from("bonos")
+      .select("id,importe_pagado,numero_clases");
+    const bonosPrecio = bonosPrecioData || [];
+
 
     setCargando(true);
 
@@ -925,17 +930,17 @@ if (
 
     setClases(
 
-      (clasesData ||
-
-        []) as unknown as ClaseConExtra[]
+      ((clasesData || []) as unknown as ClaseConExtra[]).map((clase) =>
+        recalcularImportesBonos(clase, bonosPrecio)
+      )
 
     );
 
 setClasesMesAnterior(
 
-  (clasesMesAnteriorData ||
-
-    []) as unknown as ClaseConExtra[]
+  ((clasesMesAnteriorData || []) as unknown as ClaseConExtra[]).map((clase) =>
+    recalcularImportesBonos(clase, bonosPrecio)
+  )
 
 );
 
@@ -1171,7 +1176,7 @@ for (
 
         )
 
-    );
+    ).map((clase) => recalcularImportesBonos(clase, bonosPrecio));
 
 
 
