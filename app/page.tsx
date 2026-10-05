@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import {
   calcularEconomiaClase,
+  recalcularImportesBonos,
   esClaseEconomica,
   gastoPistaClase,
   ingresoBaseClase,
@@ -424,6 +425,10 @@ export default function Home() {
         ultimoDiaMesDate.getDate()
       ).padStart(2, "0")}`;
 
+    const { data: bonosPrecioData } = await supabase
+      .from("bonos")
+      .select("id,importe_pagado,numero_clases");
+
     const {
       data: clasesMesData,
     } =
@@ -449,7 +454,8 @@ export default function Home() {
           clase_alumnos (
             alumno_id,
             importe,
-            usa_bono
+            usa_bono,
+            bono_id
           )
         `)
         .gte(
@@ -461,9 +467,9 @@ export default function Home() {
           ultimoDiaMes
         );
 
-    const clasesMes =
-      clasesMesData ||
-      [];
+    const clasesMes = (clasesMesData || []).map((clase) =>
+      recalcularImportesBonos(clase, bonosPrecioData || [])
+    );
 
     const clasesRealizadas =
       clasesMes.filter(
@@ -483,8 +489,8 @@ export default function Home() {
     clasesMes
       .filter(
         (clase: any) =>
-          clase.estado === "realizada" ||
-          clase.estado === "cancelada"
+          clase.fecha <= hoy &&
+          (clase.estado === "realizada" || clase.estado === "cancelada")
       )
       .forEach((clase: any) => {
         const actual =
@@ -814,7 +820,8 @@ export default function Home() {
           clase_alumnos (
             alumno_id,
             importe,
-            usa_bono
+            usa_bono,
+            bono_id
           )
         `)
         .in(
@@ -1395,6 +1402,18 @@ export default function Home() {
     textoMes.charAt(0).toUpperCase() +
     textoMes.slice(1);
 
+  const resumenAcumulado = acumuladoDiario.reduce(
+    (total, dia) => ({
+      clases: total.clases + dia.clases,
+      horas: total.horas + dia.horas,
+      ingresos: total.ingresos + dia.ingresos,
+      ingresoExtra: total.ingresoExtra + dia.ingresoExtra,
+      gastos: total.gastos + dia.gastos,
+      resultado: total.resultado + dia.resultado,
+    }),
+    { clases: 0, horas: 0, ingresos: 0, ingresoExtra: 0, gastos: 0, resultado: 0 }
+  );
+
   const totalCanceladasMes = acumuladoDiario.reduce(
     (total: number, dia: any) =>
       total + dia.canceladas,
@@ -1936,7 +1955,7 @@ export default function Home() {
               {mesSeleccionadoCapitalizado}
             </h2>
             <p className="mt-1 text-xs text-white/50">
-              Ingresos, gastos, resultado y volumen de trabajo
+              Totales del mes, incluidas las cancelaciones facturables.
             </p>
           </div>
 
@@ -2180,7 +2199,7 @@ export default function Home() {
               Acumulado diario
             </h2>
             <p className="mt-1 text-sm text-white/50">
-              Resultado de cada día y acumulado progresivo en {mesSeleccionadoCapitalizado.toLowerCase()}. Incluye cancelaciones facturables de fechas futuras.
+              Resultado de cada día y acumulado progresivo en {mesSeleccionadoCapitalizado.toLowerCase()}, solo hasta hoy.
             </p>
           </div>
 
@@ -2228,13 +2247,13 @@ export default function Home() {
 
                 <div className="rounded-xl bg-[#17324D] p-4 text-white">
                   <p className="text-xs font-bold uppercase tracking-wide text-white/60">
-                    Total mes
+                    {esMesActual ? "Total hasta hoy" : "Total mes"}
                   </p>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-center text-sm">
-                    <div><span className="text-white/60">Ingresos</span><p className="font-bold">{ingresosMes.toFixed(2)} €</p></div>
-                    <div><span className="text-white/60">Gastos</span><p className="font-bold">{gastosPistaMes.toFixed(2)} €</p></div>
-                    <div><span className="text-white/60">Clases</span><p className="font-bold">{totalClasesMes}</p></div>
-                    <div><span className="text-white/60">Resultado</span><p className="font-bold text-[#55D9D0]">{resultadoMes.toFixed(2)} €</p></div>
+                    <div><span className="text-white/60">Ingresos</span><p className="font-bold">{resumenAcumulado.ingresos.toFixed(2)} €</p></div>
+                    <div><span className="text-white/60">Gastos</span><p className="font-bold">{resumenAcumulado.gastos.toFixed(2)} €</p></div>
+                    <div><span className="text-white/60">Clases</span><p className="font-bold">{resumenAcumulado.clases}</p></div>
+                    <div><span className="text-white/60">Resultado</span><p className="font-bold text-[#55D9D0]">{resumenAcumulado.resultado.toFixed(2)} €</p></div>
                   </div>
                 </div>
               </div>
@@ -2288,8 +2307,8 @@ export default function Home() {
 
                   <tfoot className="border-t border-slate-200 bg-slate-50">
                     <tr className="text-xs font-bold text-[#17324D]">
-                      <td className="px-2 py-3 text-center">TOTAL MES</td>
-                      <td className="px-2 py-3 text-center">{totalClasesMes}</td>
+                      <td className="px-2 py-3 text-center">{esMesActual ? "TOTAL HASTA HOY" : "TOTAL MES"}</td>
+                      <td className="px-2 py-3 text-center">{resumenAcumulado.clases}</td>
                       <td className="px-2 py-3 text-center">
                         <div className="text-red-600">{totalCanceladasMes}</div>
                         {totalCanceladasMes > 0 && (
@@ -2298,16 +2317,16 @@ export default function Home() {
                           </div>
                         )}
                       </td>
-                      <td className="px-2 py-3 text-center">{horasMes.toFixed(1)}</td>
-                      <td className="px-2 py-3 text-center">{ingresosMes.toFixed(2)} €</td>
+                      <td className="px-2 py-3 text-center">{resumenAcumulado.horas.toFixed(1)}</td>
+                      <td className="px-2 py-3 text-center">{resumenAcumulado.ingresos.toFixed(2)} €</td>
                       <td className="px-2 py-3 text-center">{clubGeneradoMes.toFixed(2)} €</td>
                       <td className="px-2 py-3 text-center text-red-600">{pistasPagadasClubMes.toFixed(2)} €</td>
                       <td className={saldoClubMes >= 0 ? "px-2 py-3 text-center text-[#00A79C]" : "px-2 py-3 text-center text-red-600"}>{saldoClubMes.toFixed(2)} €</td>
                       <td className="px-2 py-3 text-center text-[#00A79C]">{clubCobradoMes.toFixed(2)} €</td>
-                      <td className="px-2 py-3 text-center">{ingresosExtraMes.toFixed(2)} €</td>
-                      <td className="px-2 py-3 text-center text-red-600">{gastosPistaMes.toFixed(2)} €</td>
-                      <td className={resultadoMes >= 0 ? "px-2 py-3 text-center text-[#00A79C]" : "px-2 py-3 text-center text-red-600"}>{resultadoMes.toFixed(2)} €</td>
-                      <td className={resultadoMes >= 0 ? "px-2 py-3 text-center text-[#17324D]" : "px-2 py-3 text-center text-red-600"}>{resultadoMes.toFixed(2)} €</td>
+                      <td className="px-2 py-3 text-center">{resumenAcumulado.ingresoExtra.toFixed(2)} €</td>
+                      <td className="px-2 py-3 text-center text-red-600">{resumenAcumulado.gastos.toFixed(2)} €</td>
+                      <td className={resumenAcumulado.resultado >= 0 ? "px-2 py-3 text-center text-[#00A79C]" : "px-2 py-3 text-center text-red-600"}>{resumenAcumulado.resultado.toFixed(2)} €</td>
+                      <td className={resumenAcumulado.resultado >= 0 ? "px-2 py-3 text-center text-[#17324D]" : "px-2 py-3 text-center text-red-600"}>{resumenAcumulado.resultado.toFixed(2)} €</td>
                     </tr>
                   </tfoot>
                 </table>
