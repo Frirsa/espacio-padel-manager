@@ -1,7 +1,65 @@
 export type ParticipanteEconomico = {
+  alumno_id?: string | null;
+  bono_id?: string | null;
   importe?: number | string | null;
   usa_bono?: boolean | null;
 };
+
+export type BonoEconomico = {
+  id: string;
+  importe_pagado?: number | string | null;
+  numero_clases?: number | string | null;
+};
+
+// El ingreso de una sesión con bono procede de su precio, no de una tarifa
+// que pudiera haber quedado guardada al programar una serie.
+export function recalcularImportesBonos<
+  T extends { tipo?: string | null; clase_alumnos?: ParticipanteEconomico[] | null }
+>(clase: T, bonos: readonly BonoEconomico[]): T {
+  const participantes = clase.clase_alumnos;
+  if (clase.tipo === "club" || !participantes?.length) return clase;
+
+  const bonosPorId = new Map(bonos.map((bono) => [bono.id, bono]));
+  const grupos = new Map<string, number[]>();
+  participantes.forEach((participante, indice) => {
+    if (!participante.usa_bono || !participante.bono_id) return;
+    const indices = grupos.get(participante.bono_id) || [];
+    indices.push(indice);
+    grupos.set(participante.bono_id, indices);
+  });
+
+  const importes = new Map<number, number>();
+  for (const [bonoId, indices] of grupos) {
+    const bono = bonosPorId.get(bonoId);
+    if (bono?.importe_pagado == null || bono.numero_clases == null) continue;
+    const precio = Number(bono.importe_pagado);
+    const numeroClases = Number(bono.numero_clases);
+    if (!Number.isFinite(precio) || precio < 0 ||
+        !Number.isInteger(numeroClases) || numeroClases <= 0) continue;
+
+    const centimos = Math.round((precio / numeroClases) * 100);
+    const base = Math.floor(centimos / indices.length);
+    const resto = centimos % indices.length;
+    indices.sort((a, b) =>
+      String(participantes[a].alumno_id || "").localeCompare(
+        String(participantes[b].alumno_id || "")
+      ) || a - b
+    );
+    indices.forEach((indice, orden) => {
+      importes.set(indice, (base + (orden < resto ? 1 : 0)) / 100);
+    });
+  }
+
+  if (importes.size === 0) return clase;
+  return {
+    ...clase,
+    clase_alumnos: participantes.map((participante, indice) =>
+      importes.has(indice)
+        ? { ...participante, importe: importes.get(indice)! }
+        : participante
+    ),
+  };
+}
 
 export type UbicacionEconomica = {
   es_club_referencia?: boolean | null;
