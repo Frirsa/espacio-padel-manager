@@ -2818,7 +2818,7 @@ const ingresoMedio =
 
           clases:
 
-            clasesRealizadas,
+            clasesEconomicas,
 
           totalIngresos:
 
