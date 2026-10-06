@@ -28,6 +28,7 @@ type Pago = {
   notas: string | null;
 
   clases: {
+    nombre_grupo_libre?: string | null;
     id: string;
     fecha: string;
     hora_inicio: string;
@@ -550,6 +551,8 @@ function SelectorMesPagos({
 function nombreVisiblePago(
   pago: Pago
 ) {
+  if (pago.clases?.nombre_grupo_libre) return pago.clases.nombre_grupo_libre;
+
   if (pago.alumnos) {
     return `${pago.alumnos.nombre} ${
       pago.alumnos.apellidos || ""
@@ -742,6 +745,7 @@ export default function PagosPage() {
           tipo,
           modo_cobro,
           importe_total,
+          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           clase_alumnos (
             alumnos (
               nombre,
