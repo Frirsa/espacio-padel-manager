@@ -1,3 +1,4 @@
+import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
 export type AlumnoClase = {
   nombre: string;
   apellidos: string | null;
@@ -11,7 +12,7 @@ export type ParticipanteClase = {
   alumnos: AlumnoClase | null;
 };
 
-export type Clase = {
+export type Clase = DatosClasePuntual & {
   id: string;
   fecha: string;
   hora_inicio: string;
@@ -42,6 +43,7 @@ export type Pago = {
     apellidos: string | null;
   } | null;
   clases?: {
+    nombre_grupo_libre?: string | null;
     id: string;
     fecha: string;
     hora_inicio: string;
