@@ -83,6 +83,8 @@ export function obtenerNombreMes(
 export function obtenerNombreAlumnos(
   clase: Clase
 ) {
+  if (clase.nombre_grupo_libre) return clase.nombre_grupo_libre;
+
   return clase.clase_alumnos
     .map(
       (participante) =>
