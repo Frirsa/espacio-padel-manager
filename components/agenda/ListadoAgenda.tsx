@@ -228,10 +228,12 @@ function estadoEconomicoClase(
   }
 
   if (
-    clase.clase_alumnos.length === 0
+    !clase.nombre_grupo_libre && clase.clase_alumnos.length === 0
   ) {
     return "pendiente" as const;
   }
+
+  if (clase.nombre_grupo_libre) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
 
   const pagosNormales =
     clase.clase_alumnos.filter(
@@ -594,10 +596,11 @@ export default function ListadoAgenda({
 
                               <span className="min-w-0 truncate text-sm font-bold text-[#17324D]">
                                 {nombresAlumnos ||
-                                  "Sin alumnos"}
+                                  clase.nombre_grupo_libre || "Sin alumnos"}
                               </span>
 
-                              {clase.observaciones?.trim() && (
+                              {clase.nombre_grupo_libre && <p className="mt-1 text-[11px] text-slate-500">{clase.numero_participantes} personas · {clase.pista_nombre} · Monitor: {clase.monitor_nombre}</p>}
+      {clase.observaciones?.trim() && (
                                 <span
                                   className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white"
                                   title="Esta clase tiene una anotación"
