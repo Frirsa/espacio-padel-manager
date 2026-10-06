@@ -5,6 +5,7 @@ type Props = {
   totalPendiente: number;
   ingresosClubGeneral: number;
   gastosPistaGeneral: number;
+  gastosMonitorGeneral: number;
 };
 
 export default function InformeEconomico({
@@ -14,10 +15,11 @@ export default function InformeEconomico({
   totalPendiente,
   ingresosClubGeneral,
   gastosPistaGeneral,
+  gastosMonitorGeneral,
 }: Props) {
   const resultadoGeneral =
     ingresosGenerados -
-    gastosPistaGeneral;
+    gastosPistaGeneral - gastosMonitorGeneral;
 
   return (
     <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -118,7 +120,7 @@ export default function InformeEconomico({
             Resultado del periodo
           </h3>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
 
@@ -144,6 +146,7 @@ export default function InformeEconomico({
 
             </div>
 
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-5"><p className="text-sm text-slate-500">Gastos de monitores</p><p className="mt-2 text-2xl font-bold text-red-600">{gastosMonitorGeneral.toFixed(2)} €</p></div>
             <div className="rounded-2xl bg-slate-900 p-5">
 
               <p className="text-sm text-slate-300">
