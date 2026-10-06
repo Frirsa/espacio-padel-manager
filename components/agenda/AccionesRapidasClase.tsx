@@ -1,5 +1,7 @@
 "use client";
 
+import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
+
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import {
@@ -7,7 +9,7 @@ import {
   sincronizarClaseConGoogleCalendar,
 } from "../../lib/googleCalendarClient";
 
-export type ClaseAccionesRapidas = {
+export type ClaseAccionesRapidas = DatosClasePuntual & {
   id: string;
   serie_id?: string | null;
   google_calendar_event_id: string | null;
@@ -1895,6 +1897,17 @@ export default function AccionesRapidasClase({
         <IconoTarjeta />,
     },
   ];
+
+  if (clase.nombre_grupo_libre) return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-5">
+        <h2 className="text-lg font-bold">{clase.nombre_grupo_libre}</h2>
+        <p className="mt-2 text-sm text-slate-600">{clase.numero_participantes} personas · Monitor: {clase.monitor_nombre}</p>
+        {clase.observaciones && <p className="mt-3 whitespace-pre-wrap text-sm">{clase.observaciones}</p>}
+        <div className="mt-5 flex justify-end gap-3"><button onClick={onCerrar} className="rounded-xl border px-4 py-2">Cerrar</button><a className="rounded-xl bg-[#00A79C] px-4 py-2 font-bold text-white" href={`/clases?editar=${clase.id}&volver=${encodeURIComponent(volverA)}`}>Editar clase puntual</a></div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0F172A]/58 p-2.5 backdrop-blur-[3px] sm:p-4">
