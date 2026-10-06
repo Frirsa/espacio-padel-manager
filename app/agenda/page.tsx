@@ -1,5 +1,7 @@
 "use client";
 
+import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
+
 import {
   useEffect,
   useMemo,
@@ -50,7 +52,7 @@ type NoDisponibilidad = {
   motivo: string | null;
 };
 
-type Clase = {
+type Clase = DatosClasePuntual & {
   id: string;
   serie_id: string | null;
   google_calendar_event_id: string | null;
@@ -367,6 +369,7 @@ export default function AgendaPage() {
         observaciones,
         modo_cobro,
         importe_total,
+        nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
         ubicaciones (
           nombre,
           tipo
@@ -510,6 +513,7 @@ export default function AgendaPage() {
               .toLowerCase();
 
           const coincideBusqueda =
+            [clase.nombre_grupo_libre, clase.monitor_nombre, clase.pista_nombre, clase.observaciones].filter(Boolean).join(" ").toLowerCase().includes(textoBusqueda) ||
             nombresAlumnos.includes(
               textoBusqueda
             ) ||
