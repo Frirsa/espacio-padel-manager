@@ -1,7 +1,11 @@
 "use client";
 
+import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
+
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import FormularioClasePuntual from "../../components/clases/FormularioClasePuntual";
+import { detalleClasePuntual } from "../../lib/clasesPuntuales";
 import { recalcularImportesBonos } from "../../lib/economia";
 import {
   borrarClaseDeGoogleCalendar,
@@ -62,7 +66,7 @@ type ParticipanteClase = {
   } | null;
 };
 
-type Clase = {
+type Clase = DatosClasePuntual & {
   id: string;
   serie_id: string | null;
   google_calendar_event_id: string | null;
@@ -98,6 +102,7 @@ type PagoClase = {
   importe: number;
   metodo: string;
   estado: string;
+  fecha_pago: string;
 };
 
 type Tarifa = {
@@ -309,6 +314,8 @@ function estadoEconomicoClase(
       ? "cobrada" as const
       : "pendiente" as const;
   }
+
+  if (clase.nombre_grupo_libre) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
 
   if (clase.clase_alumnos.length === 0) {
     return "pendiente" as const;
@@ -1117,6 +1124,7 @@ function CampoEstadoClases({
 }
 
 export default function ClasesPage() {
+  const [puntual, setPuntual] = useState<{ clase: Clase | null } | null>(null);
   const [alumnos, setAlumnos] =
     useState<Alumno[]>([]);
 
@@ -1694,6 +1702,7 @@ export default function ClasesPage() {
           ingreso_extra,
           modo_cobro,
           importe_total,
+          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           ubicaciones (
             nombre
           ),
@@ -1733,7 +1742,8 @@ export default function ClasesPage() {
           alumno_id,
           importe,
           metodo,
-          estado
+          estado,
+          fecha_pago
         `)
         .not(
           "clase_id",
@@ -1916,6 +1926,7 @@ export default function ClasesPage() {
     setFacturableCancelacion(null);
     setMotivoCancelacion("");
     setObservaciones("");
+    setPuntual(null);
 
     setAlumnosSeleccionados(
       []
@@ -3010,6 +3021,12 @@ export default function ClasesPage() {
   function editarClase(
     clase: Clase
   ) {
+    if (clase.nombre_grupo_libre) {
+      setFormularioAbierto(false);
+      setPuntual({ clase });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     setClaseEditandoId(
       clase.id
     );
@@ -5407,6 +5424,7 @@ export default function ClasesPage() {
 
         return (
           (
+            [clase.nombre_grupo_libre, clase.monitor_nombre, clase.pista_nombre, clase.observaciones].filter(Boolean).join(" ").toLowerCase().includes(texto) ||
             nombres.includes(
               texto
             ) ||
@@ -5701,8 +5719,9 @@ export default function ClasesPage() {
             </div>
           </div>
 
-          {!formularioAbierto && (
+          {!formularioAbierto && !puntual && (
             <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/10 pt-4 sm:mt-5 sm:flex sm:justify-end">
+              <button type="button" onClick={() => { limpiarFormulario(); setMensaje(""); setPuntual({ clase: null }); }} className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white sm:text-sm">+ Clase puntual sin alumnos</button>
               <button
                 type="button"
                 onClick={() => {
@@ -5739,6 +5758,11 @@ export default function ClasesPage() {
             </div>
           )}
         </section>
+
+        {puntual && <FormularioClasePuntual key={puntual.clase?.id || "nueva"} clase={puntual.clase} ubicaciones={ubicaciones}
+          monitores={clases.map(c => c.monitor_nombre || "").filter(Boolean)} pagos={pagosClase} fechaInicial={fecha} horaInicial={hora}
+          onCancelar={() => { if (!volverAlOrigenSiExiste()) setPuntual(null); }}
+          onGuardada={async aviso => { setPuntual(null); setMensaje(aviso); if (!volverAlOrigenSiExiste()) await cargarDatos(); }} />}
 
         {formularioAbierto && (
         <form
@@ -5806,6 +5830,8 @@ export default function ClasesPage() {
             )}
 
           </div>
+
+          {!claseEditandoId && modoCreacion === "individual" && <button type="button" onClick={() => { setFormularioAbierto(false); setPuntual({ clase: null }); }} className="mt-4 rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-4 py-2.5 text-sm font-bold text-[#008C83]">Crear clase puntual sin dar de alta alumnos</button>}
 
           <section className="relative z-10 mt-4 overflow-visible rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
 
@@ -8179,7 +8205,7 @@ export default function ClasesPage() {
                     : importeTotalAlumnos;
 
                 const costePistaClase =
-                  Number(
+                  clase.estado === "cancelada" ? 0 : Number(
                     clase.coste_pista ||
                       0
                   );
@@ -8199,7 +8225,7 @@ export default function ClasesPage() {
                       "club"
                         ? importeBase
                         : importeBase -
-                          costePistaClase) +
+                          costePistaClase - (clase.estado === "cancelada" ? 0 : Number(clase.coste_monitor || 0))) +
                       ingresoExtraClase;
 
                 const textoEstado =
@@ -8436,7 +8462,7 @@ export default function ClasesPage() {
                           </div>
                         ) : (
                           <p className="mt-3 text-xs font-medium text-slate-400">
-                            Sin alumnos asignados.
+                            {clase.nombre_grupo_libre ? <><strong className="block text-sm text-[#17324D]">{clase.nombre_grupo_libre}</strong><span className="mt-1 block">{detalleClasePuntual(clase)}</span><span className="mt-2 block">Monitor: {Number(clase.coste_monitor || 0).toFixed(2)} € · {Number(clase.coste_monitor || 0) === 0 ? "Sin coste" : clase.monitor_pagado ? `Pagado (${clase.fecha_pago_monitor})` : "Pendiente"}</span></> : "Sin alumnos asignados."}
                           </p>
                         )}
                       </section>
