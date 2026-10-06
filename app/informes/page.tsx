@@ -78,6 +78,8 @@ type DatoEvolucion = {
 function nombreVisiblePagoPendiente(
   pago: Pago
 ) {
+  if (pago.clases?.nombre_grupo_libre) return pago.clases.nombre_grupo_libre;
+
   if (pago.alumnos) {
     return `${pago.alumnos.nombre} ${
       pago.alumnos.apellidos || ""
@@ -521,6 +523,7 @@ const {
           ingreso_extra,
           modo_cobro,
           importe_total,
+          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           ubicacion_id,
 
           ubicaciones (
@@ -655,6 +658,8 @@ const {
 
             importe_total,
 
+
+            nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
             clase_alumnos (
 
               alumnos (
@@ -854,6 +859,7 @@ const {
 
 
 
+      nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
       ubicaciones (
 
         nombre,
@@ -1030,6 +1036,7 @@ const {
 
 
 
+      nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
       clase_alumnos (
 
         alumno_id,
@@ -1501,7 +1508,7 @@ const horasMesAnterior =
     clasesPropiasIQL.reduce(
       (total, clase) =>
         total +
-        calcularEconomiaClase(clase).gasto,
+        calcularEconomiaClase(clase).gastoPista,
       0
     );
 
@@ -1800,13 +1807,16 @@ const horasMesAnterior =
       0
     );
 
-  const gastosPistaGeneral =
+  const gastosGeneral =
     clasesEconomicas.reduce(
       (total, clase) =>
         total +
         calcularEconomiaClase(clase).gasto,
       0
     );
+
+  const gastosPistaGeneral = clasesEconomicas.reduce((total, clase) => total + calcularEconomiaClase(clase).gastoPista, 0);
+  const gastosMonitorGeneral = clasesEconomicas.reduce((total, clase) => total + calcularEconomiaClase(clase).gastoMonitor, 0);
 
   const ingresosGenerados =
     clasesEconomicas.reduce(
@@ -2035,7 +2045,7 @@ const totalParticipaciones =
 
       total +
 
-      (clase.clase_alumnos || []).length,
+      (clase.numero_participantes || (clase.clase_alumnos || []).length),
 
     0
 
@@ -2157,7 +2167,7 @@ const variacionGastos =
 
   calcularVariacion(
 
-    gastosPistaGeneral,
+    gastosGeneral,
 
     gastosMesAnterior
 
@@ -2171,7 +2181,7 @@ const variacionResultado =
 
     ingresosGenerados -
 
-      gastosPistaGeneral,
+      gastosGeneral,
 
     resultadoMesAnterior
 
@@ -2714,7 +2724,7 @@ const resultadoPeriodo =
 
   ingresosGenerados -
 
-  gastosPistaGeneral;
+  gastosGeneral;
 
 
 
@@ -2831,7 +2841,7 @@ const ingresoMedio =
 
           totalGastos:
 
-            gastosPistaGeneral,
+            gastosGeneral,
 
         });
 
@@ -3213,9 +3223,9 @@ const ingresoMedio =
 
               <div className="rounded-2xl border border-rose-100 bg-rose-50/55 p-4">
 
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-700/70">Gastos de pista</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-700/70">Gastos de pistas y monitores</p>
 
-                <p className="mt-1 text-2xl font-bold text-rose-700">{gastosPistaGeneral.toFixed(2)} €</p>
+                <p className="mt-1 text-2xl font-bold text-rose-700">{gastosGeneral.toFixed(2)} €</p>
 
               </div>
 
@@ -3350,6 +3360,7 @@ const ingresoMedio =
                     ingresosClubGeneral={ingresosClubGeneral}
 
                     gastosPistaGeneral={gastosPistaGeneral}
+                    gastosMonitorGeneral={gastosMonitorGeneral}
 
                   />
 
@@ -3388,7 +3399,7 @@ const ingresoMedio =
 
                     ingresos={ingresosGenerados}
 
-                    gastos={gastosPistaGeneral}
+                    gastos={gastosGeneral}
 
                     resultado={resultadoPeriodo}
 
@@ -3488,6 +3499,7 @@ const ingresoMedio =
 
                         <div className="flex justify-between gap-4"><span className="text-slate-500">Ingresos generados</span><strong className="text-emerald-700">{ingresosGenerados.toFixed(2)} €</strong></div>
 
+                        <div className="flex justify-between gap-4"><span className="text-slate-500">Costes de monitores</span><strong className="text-rose-600">- {gastosMonitorGeneral.toFixed(2)} €</strong></div>
                         <div className="flex justify-between gap-4"><span className="text-slate-500">Costes de pista</span><strong className="text-rose-600">- {gastosPistaGeneral.toFixed(2)} €</strong></div>
 
                         <div className="flex justify-between gap-4"><span className="text-slate-500">Pendiente de cobro</span><strong className="text-amber-700">{totalPendiente.toFixed(2)} €</strong></div>
@@ -3582,7 +3594,7 @@ const ingresoMedio =
 
                           <tr className="font-bold text-[#17324D]">
 
-                            <td className="px-5 py-4">TOTAL MES</td><td className="px-3 py-4 text-center">{clasesRealizadas.length}</td><td className="px-3 py-4 text-center text-rose-600">{totalCanceladas}</td><td className="px-3 py-4 text-center">{totalHoras.toFixed(1)}</td><td className="px-3 py-4 text-center">{ingresosGenerados.toFixed(2)} €</td><td className="px-3 py-4 text-center text-blue-700">{totalClubGenerado.toFixed(2)} €</td><td className="px-3 py-4 text-center text-rose-600">{totalPistasPagadasClub.toFixed(2)} €</td><td className={totalSaldoClub >= 0 ? "px-3 py-4 text-center text-[#078B86]" : "px-3 py-4 text-center text-rose-600"}>{totalSaldoClub.toFixed(2)} €</td><td className="px-3 py-4 text-center text-emerald-700">{totalClubCobrado.toFixed(2)} €</td><td className="px-3 py-4 text-center text-violet-700">{ingresosExtraGeneral.toFixed(2)} €</td><td className="px-3 py-4 text-center">{gastosPistaGeneral.toFixed(2)} €</td><td className="px-3 py-4 text-center">{resultadoPeriodo.toFixed(2)} €</td><td className="px-5 py-4 text-center text-[#09A9A3]">{resultadoPeriodo.toFixed(2)} €</td>
+                            <td className="px-5 py-4">TOTAL MES</td><td className="px-3 py-4 text-center">{clasesRealizadas.length}</td><td className="px-3 py-4 text-center text-rose-600">{totalCanceladas}</td><td className="px-3 py-4 text-center">{totalHoras.toFixed(1)}</td><td className="px-3 py-4 text-center">{ingresosGenerados.toFixed(2)} €</td><td className="px-3 py-4 text-center text-blue-700">{totalClubGenerado.toFixed(2)} €</td><td className="px-3 py-4 text-center text-rose-600">{totalPistasPagadasClub.toFixed(2)} €</td><td className={totalSaldoClub >= 0 ? "px-3 py-4 text-center text-[#078B86]" : "px-3 py-4 text-center text-rose-600"}>{totalSaldoClub.toFixed(2)} €</td><td className="px-3 py-4 text-center text-emerald-700">{totalClubCobrado.toFixed(2)} €</td><td className="px-3 py-4 text-center text-violet-700">{ingresosExtraGeneral.toFixed(2)} €</td><td className="px-3 py-4 text-center">{gastosGeneral.toFixed(2)} €</td><td className="px-3 py-4 text-center">{resultadoPeriodo.toFixed(2)} €</td><td className="px-5 py-4 text-center text-[#09A9A3]">{resultadoPeriodo.toFixed(2)} €</td>
 
                           </tr>
 
