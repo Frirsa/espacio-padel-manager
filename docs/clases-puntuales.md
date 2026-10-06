@@ -4,7 +4,7 @@ En Clases, «Clase puntual sin alumnos» permite registrar un nombre libre (por 
 
 Las observaciones admiten nombres y notas sin convertirlos en fichas de alumnos. El nombre del monitor se escribe directamente; se ofrecen los nombres ya utilizados como sugerencias. «Fran» es el monitor propio por defecto. Las clases existentes sin monitor se consideran propias al comprobar horarios.
 
-El cobro es por el total de la clase. Se guarda con método, fecha y estado pendiente o cobrado en la tabla de pagos existente. El coste del monitor es independiente del coste de pista; su pago dispone de estado, fecha y método. El resultado de una clase realizada descuenta ambos gastos, aunque el monitor esté pendiente de pago. Las cancelaciones conservan el criterio existente: si son facturables, aportan el ingreso sin costes de una sesión impartida.
+El cobro es por el total de la clase. Las programadas sin cobro anticipado no generan pagos pendientes; el pendiente nace al marcarlas como realizadas, aunque su fecha ya hubiese pasado. Un cobro anticipado se conserva como pagado. Se guarda con método, fecha y estado pendiente o cobrado en la tabla de pagos existente. El coste del monitor es independiente del coste de pista; su pago dispone de estado, fecha y método. El resultado de una clase realizada descuenta ambos gastos, aunque el monitor esté pendiente de pago. Las cancelaciones conservan el criterio existente: si son facturables, aportan el ingreso sin costes de una sesión impartida.
 
 Los ingresos y gastos del Dashboard se incorporan cuando llega la fecha de la clase. El informe mensual incluye todo el mes y separa los costes de pista por ubicación y los de monitor por nombre. El saldo del club sólo descuenta pistas. El total del grupo y sus gastos aparecen en el resumen y el acumulado. Google Calendar recibe el nombre libre, monitor, pista y observaciones.
 
@@ -27,3 +27,9 @@ Las clases simultáneas pueden tener monitores y pistas distintos. No se permite
 - Comprobaciones adicionales locales del formulario React (crear, editar, céntimos, observaciones, error de guardado, doble envío y sincronización de calendario), de la migración en PostgreSQL de pruebas (transacciones, permisos, cobros y horarios) y del PDF mensual con varias pistas y monitores.
 
 Las pruebas locales del SQL utilizan una base de pruebas con el esquema de las tablas implicadas; la migración todavía debe comprobarse en el proyecto Supabase real antes de publicar.
+
+## Corrección de pendientes anticipados
+
+Tras la primera migración, ejecutar `supabase/migrations/202610061105_cobros_puntuales_realizadas.sql` en el SQL Editor de Supabase. Actualiza el guardado de las clases puntuales y retira únicamente los pagos pendientes de grupos puntuales que siguen programados. Conserva cobros pagados, clases realizadas, cancelaciones facturables y pagos de las clases habituales. El criterio depende del estado de la clase, no sólo de su fecha.
+
+El cambio se activa al ejecutar el SQL; no necesita cambios en los formularios ni en los filtros del Dashboard. Actualizar la aplicación después de ejecutarlo. La migración se puede repetir sin duplicar cambios. `npm test` ejecuta las pruebas económicas y el ciclo de cobros en PostgreSQL de pruebas.
