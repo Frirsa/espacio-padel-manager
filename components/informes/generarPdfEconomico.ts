@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { esClaseEconomica, gastoPistaClase } from "../../lib/economia";
+import { calcularEconomiaClase, esClaseEconomica, gastoPistaClase, gastoMonitorClase } from "../../lib/economia";
 
 import type { Clase } from "./tipos";
 
@@ -434,10 +434,7 @@ export async function generarPdfEconomico({
             clase
           );
 
-        const gasto = gastoPistaClase({
-          estado: clase.estado,
-          coste_pista: clase.coste_pista,
-        });
+        const gasto = calcularEconomiaClase(clase).gasto;
 
         return [
           formatearFecha(
@@ -448,8 +445,7 @@ export async function generarPdfEconomico({
             clase.duracion_minutos
           ),
           `${ubicacion}\n${tipo}`,
-          nombres ||
-            "Sin alumnos",
+          [nombres || "Sin alumnos", clase.monitor_nombre ? `Monitor: ${clase.monitor_nombre}` : "", clase.pista_nombre ? `Pista: ${clase.pista_nombre}` : ""].filter(Boolean).join("\n"),
           `${ingreso.toFixed(
             2
           )} €`,
@@ -597,6 +593,16 @@ export async function generarPdfEconomico({
     const nombre = clase.ubicaciones?.nombre?.trim() || "Sin ubicación";
     gastosAgrupados.set(nombre, (gastosAgrupados.get(nombre) || 0) + importe);
   }
+  const gastosMonitores = new Map<string, number>();
+  for (const clase of clasesInforme) {
+    const importe = gastoMonitorClase(clase);
+    if (importe === 0) continue;
+    const nombre = clase.monitor_nombre?.trim() || "Sin monitor";
+    gastosMonitores.set(nombre, (gastosMonitores.get(nombre) || 0) + importe);
+  }
+  const totalPistas = [...gastosAgrupados.values()].reduce((total, importe) => total + importe, 0);
+  const totalMonitores = [...gastosMonitores.values()].reduce((total, importe) => total + importe, 0);
+  const gastosPorMonitor = [...gastosMonitores.entries()].sort(([a], [b]) => a.localeCompare(b, "es"));
   const gastosPorUbicacion = [...gastosAgrupados.entries()].sort(
     ([a], [b]) => a.localeCompare(b, "es")
   );
@@ -614,7 +620,7 @@ export async function generarPdfEconomico({
 
   if (
     y >
-    altoPagina - (58 + (gastosPorUbicacion.length + 2) * 9)
+    altoPagina - (58 + (gastosPorUbicacion.length + gastosPorMonitor.length + 5) * 9)
   ) {
     doc.addPage();
     dibujarEncabezado();
@@ -677,7 +683,10 @@ export async function generarPdfEconomico({
           `Gastos de pista · ${nombre}`,
           `${importe.toFixed(2)} €`,
         ]),
-        ["Total gastos de pista", `${totalGastos.toFixed(2)} €`],
+        ["Total gastos de pista", `${totalPistas.toFixed(2)} €`],
+        ...gastosPorMonitor.map(([nombre, importe]) => [`Gastos de monitor · ${nombre}`, `${importe.toFixed(2)} €`]),
+        ["Total gastos de monitores", `${totalMonitores.toFixed(2)} €`],
+        ["Total gastos", `${totalGastos.toFixed(2)} €`],
       ],
 
       theme: "grid",

@@ -1,5 +1,7 @@
 "use client";
 
+import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
+
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import {
@@ -8,7 +10,7 @@ import {
 } from "../../lib/googleCalendarClient";
 import AccionesRapidasClase from "./AccionesRapidasClase";
 
-type Clase = {
+type Clase = DatosClasePuntual & {
   id: string;
   google_calendar_event_id: string | null;
   google_calendar_synced_at: string | null;
@@ -429,10 +431,12 @@ function estadoEconomicoClase(
   }
 
   if (
-    clase.clase_alumnos.length === 0
+    !clase.nombre_grupo_libre && clase.clase_alumnos.length === 0
   ) {
     return "pendiente" as const;
   }
+
+  if (clase.nombre_grupo_libre) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
 
   const pagosNormales =
     clase.clase_alumnos.filter(
@@ -2488,6 +2492,7 @@ export default function VistaHorarioAgenda({
                         ""
                       );
 
+                      if (clase.nombre_grupo_libre) { editarClase(clase.id); return; }
                       setClaseSeleccionada(
                         clase
                       );
@@ -2524,7 +2529,7 @@ export default function VistaHorarioAgenda({
                     }}
                     title={
                       canceladaSolapada
-                        ? `CANCELADA · ${alumnos || "Sin alumnos"} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                        ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
                         : "Abrir acciones rápidas"
                     }
                   >
@@ -2535,7 +2540,7 @@ export default function VistaHorarioAgenda({
                         </span>
                         <span className="shrink-0 opacity-50">·</span>
                         <span className="min-w-0 truncate">
-                          {alumnos || "Sin alumnos"}
+                          {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
                         </span>
                         <span className="shrink-0 opacity-50">·</span>
                         <span className="shrink-0">
@@ -2575,11 +2580,11 @@ export default function VistaHorarioAgenda({
                           className="mt-1 line-clamp-2 pr-1 text-xs font-extrabold leading-[1.15]"
                           title={
                             alumnos ||
-                            "Sin alumnos"
+                            (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")
                           }
                         >
                           {alumnos ||
-                            "Sin alumnos"}
+                            (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
                         </div>
 
                         {clase.duracion_minutos >=
@@ -2791,12 +2796,12 @@ export default function VistaHorarioAgenda({
                         key={clase.id}
                         type="button"
                         draggable={
-                          clase.estado ===
+                          !clase.nombre_grupo_libre && clase.estado ===
                           "programada"
                         }
                         onDragStart={(evento) => {
                           if (
-                            clase.estado !==
+                            clase.nombre_grupo_libre || clase.estado !==
                             "programada"
                           ) {
                             evento.preventDefault();
@@ -2836,6 +2841,7 @@ export default function VistaHorarioAgenda({
                           }
 
                           setMensajeAccion("");
+                          if (clase.nombre_grupo_libre) { editarClase(clase.id); return; }
                           setClaseSeleccionada(
                             clase
                           );
@@ -2879,8 +2885,8 @@ export default function VistaHorarioAgenda({
                         }}
                         title={
                           canceladaSolapada
-                            ? `CANCELADA · ${alumnos || "Sin alumnos"} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
-                            : clase.estado === "programada"
+                            ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                            : clase.nombre_grupo_libre ? "Editar clase puntual" : clase.estado === "programada"
                             ? "Pulsa para acciones rápidas o arrastra para mover"
                             : "Abrir acciones rápidas"
                         }
@@ -2892,7 +2898,7 @@ export default function VistaHorarioAgenda({
                             </span>
                             <span className="shrink-0 opacity-50">·</span>
                             <span className="min-w-0 truncate">
-                              {alumnos || "Sin alumnos"}
+                              {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
                             </span>
                             <span className="shrink-0 opacity-50">·</span>
                             <span className="shrink-0">
@@ -2916,9 +2922,9 @@ export default function VistaHorarioAgenda({
 
                             <div
                               className="mt-1 line-clamp-2 text-[11px] font-bold leading-[1.2]"
-                              title={alumnos || "Sin alumnos"}
+                              title={alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
                             >
-                              {alumnos || "Sin alumnos"}
+                              {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
                             </div>
 
                             {clase.ubicaciones?.nombre && (

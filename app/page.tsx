@@ -7,6 +7,7 @@ import {
   recalcularImportesBonos,
   esClaseEconomica,
   gastoPistaClase,
+  gastoMonitorClase,
   ingresoBaseClase,
   ingresoTotalClase,
 } from "../lib/economia";
@@ -285,6 +286,8 @@ export default function Home() {
   const [bonosPendientesCobro, setBonosPendientesCobro] =
     useState<any[]>([]);
 
+  const [gastosMonitorMes, setGastosMonitorMes] = useState(0);
+
   const [gastosPistaMes, setGastosPistaMes] =
     useState(0);
 
@@ -447,6 +450,7 @@ export default function Home() {
           ingreso_extra,
           modo_cobro,
           importe_total,
+          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           ubicaciones (
             nombre,
             es_club_referencia
@@ -686,9 +690,9 @@ export default function Home() {
         0
       );
 
-    setGastosPistaMes(
-      totalGastosPista
-    );
+    const totalGastosMonitor = clasesEconomicas.reduce((total, clase) => total + gastoMonitorClase(clase), 0);
+    setGastosMonitorMes(totalGastosMonitor);
+    setGastosPistaMes(totalGastosPista + totalGastosMonitor);
 
     const totalIngresosClub =
       clasesEconomicas
@@ -813,6 +817,7 @@ export default function Home() {
           ingreso_extra,
           modo_cobro,
           importe_total,
+          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           ubicaciones (
             nombre,
             es_club_referencia
@@ -1083,7 +1088,7 @@ export default function Home() {
 
     const resultadoTotalMes =
       ingresosGeneradosMes -
-      totalGastosPista;
+      totalGastosPista - totalGastosMonitor;
 
     setIngresosMes(
       ingresosGeneradosMes
@@ -1306,6 +1311,7 @@ export default function Home() {
   }
 
   function nombresClase(clase: any) {
+    if (clase?.nombre_grupo_libre) return clase.nombre_grupo_libre;
     return (
       clase?.clase_alumnos
         ?.map((item: any) => item.alumnos)
@@ -1970,7 +1976,7 @@ export default function Home() {
               icono={<IconoGasto />}
               etiqueta="Gastos"
               valor={`${gastosPistaMes.toFixed(2)} €`}
-              detalle="Costes de pista"
+              detalle={gastosMonitorMes > 0 ? `Pistas: ${(gastosPistaMes - gastosMonitorMes).toFixed(2)} € · Monitores: ${gastosMonitorMes.toFixed(2)} €` : "Costes de pista"}
               tono="rojo"
             />
             <TarjetaMetrica
