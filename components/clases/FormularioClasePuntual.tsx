@@ -20,6 +20,7 @@ type Props = {
   pagos: Pago[];
   fechaInicial?: string;
   horaInicial?: string;
+  duracionInicial?: number;
   onCancelar: () => void;
   onGuardada: (aviso: string) => Promise<void>;
 };
@@ -27,13 +28,13 @@ const input = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2
 const metodos = ["efectivo", "bizum", "transferencia", "tarjeta"];
 function hoy() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
-export default function FormularioClasePuntual({ clase, ubicaciones, monitores, pagos, fechaInicial, horaInicial, onCancelar, onGuardada }: Props) {
+export default function FormularioClasePuntual({ clase, ubicaciones, monitores, pagos, fechaInicial, horaInicial, duracionInicial, onCancelar, onGuardada }: Props) {
   const pago = pagos.find(p => p.clase_id === clase?.id && p.alumno_id === null);
   const [nombre, setNombre] = useState(clase?.nombre_grupo_libre || "");
   const [personas, setPersonas] = useState(String(clase?.numero_participantes || 4));
   const [fecha, setFecha] = useState(clase?.fecha || fechaInicial || hoy());
   const [hora, setHora] = useState(clase?.hora_inicio.slice(0,5) || horaInicial || "");
-  const [duracion, setDuracion] = useState(String(clase?.duracion_minutos || 60));
+  const [duracion, setDuracion] = useState(String(clase?.duracion_minutos || duracionInicial || 60));
   const [ubicacion, setUbicacion] = useState(clase?.ubicacion_id || "");
   const [pista, setPista] = useState(clase?.pista_nombre || "");
   const [tipo, setTipo] = useState(clase?.tipo || "propia");
