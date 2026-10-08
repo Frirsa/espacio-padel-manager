@@ -1464,6 +1464,8 @@ export default function ClasesPage() {
     const horaDesdeAgenda =
       parametros.get("hora");
 
+    const duracionDesdeAgenda = Number(parametros.get("duracion"));
+
     const modoDesdeAgenda =
       parametros.get("modo");
 
@@ -1481,6 +1483,10 @@ export default function ClasesPage() {
         setHora(
           horaDesdeAgenda
         );
+      }
+
+      if (Number.isInteger(duracionDesdeAgenda) && duracionDesdeAgenda > 0 && duracionDesdeAgenda < 1440) {
+        setDuracion(String(duracionDesdeAgenda));
       }
 
       if (modoDesdeAgenda === "serie") {
@@ -1514,6 +1520,8 @@ export default function ClasesPage() {
       url.searchParams.delete(
         "hora"
       );
+
+      url.searchParams.delete("duracion");
 
       url.searchParams.delete(
         "modo"
@@ -5760,7 +5768,7 @@ export default function ClasesPage() {
         </section>
 
         {puntual && <FormularioClasePuntual key={puntual.clase?.id || "nueva"} clase={puntual.clase} ubicaciones={ubicaciones}
-          monitores={clases.map(c => c.monitor_nombre || "").filter(Boolean)} pagos={pagosClase} fechaInicial={fecha} horaInicial={hora}
+          monitores={clases.map(c => c.monitor_nombre || "").filter(Boolean)} pagos={pagosClase} fechaInicial={fecha} horaInicial={hora} duracionInicial={Number(duracion)}
           onCancelar={() => { if (!volverAlOrigenSiExiste()) setPuntual(null); }}
           onGuardada={async aviso => { setPuntual(null); setMensaje(aviso); if (!volverAlOrigenSiExiste()) await cargarDatos(); }} />}
 
@@ -6272,6 +6280,7 @@ export default function ClasesPage() {
                 <option value="120">
                   120 minutos
                 </option>
+                {!["30", "45", "60", "75", "90", "120"].includes(duracion) && <option value={duracion}>{duracion} minutos</option>}
               </select>
 
             </div>
