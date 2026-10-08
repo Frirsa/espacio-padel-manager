@@ -9,6 +9,7 @@ import {
   sincronizarClaseConGoogleCalendar,
 } from "../../lib/googleCalendarClient";
 import AccionesRapidasClase from "./AccionesRapidasClase";
+import SeleccionHorarioAgenda from "./SeleccionHorarioAgenda";
 
 type Clase = DatosClasePuntual & {
   id: string;
@@ -689,6 +690,7 @@ export default function VistaHorarioAgenda({
     fecha: string;
     hora: number;
     minuto: number;
+    duracion?: number;
   } | null>(null);
 
   const hoy = fechaLocalISO(new Date());
@@ -2011,14 +2013,15 @@ export default function VistaHorarioAgenda({
   function crearClase(
     fecha: string,
     hora: number,
-    minuto = 0
+    minuto = 0,
+    duracion?: number
   ) {
     if (
       noDisponible(
         fecha,
         hora,
         minuto,
-        30
+        duracion ?? 30
       )
     ) {
       return;
@@ -2028,6 +2031,7 @@ export default function VistaHorarioAgenda({
       fecha,
       hora,
       minuto,
+      duracion,
     });
   }
 
@@ -2068,7 +2072,7 @@ export default function VistaHorarioAgenda({
     window.location.href =
       `/clases?fecha=${fecha}&hora=${encodeURIComponent(
         horaTexto
-      )}${parametroModo}&volver=${encodeURIComponent(
+      )}${creacionPendiente.duracion ? `&duracion=${creacionPendiente.duracion}` : ""}${parametroModo}&volver=${encodeURIComponent(
         volver
       )}`;
   }
@@ -2091,7 +2095,7 @@ export default function VistaHorarioAgenda({
               Clases organizadas por hora
             </span>
             <span className="hidden md:inline">
-              Pulsa un hueco para crear · arrastra una clase programada para moverla
+              Pulsa un hueco para crear o arrastra para seleccionar su duración · arrastra una clase programada para moverla
             </span>
           </p>
           <p className="mt-2 text-xs text-slate-400 md:hidden">
@@ -2288,7 +2292,9 @@ export default function VistaHorarioAgenda({
             ))}
           </div>
 
-          <div
+          <SeleccionHorarioAgenda
+            onSeleccion={(minuto, duracion) => crearClase(fechaMovil, Math.floor(minuto / 60), minuto % 60, duracion)}
+            estaBloqueado={(minuto, duracion) => Boolean(noDisponible(fechaMovil, Math.floor(minuto / 60), minuto % 60, duracion))}
             className={
               noDisponibleTodoElDia(
                 fechaMovil
@@ -2323,6 +2329,7 @@ export default function VistaHorarioAgenda({
                       30
                     )
                   )}
+                  data-minuto-agenda={hora * 60}
                   onClick={() =>
                     crearClase(
                       fechaMovil,
@@ -2356,6 +2363,7 @@ export default function VistaHorarioAgenda({
                       30
                     )
                   )}
+                  data-minuto-agenda={hora * 60 + 30}
                   onClick={() =>
                     crearClase(
                       fechaMovil,
@@ -2613,7 +2621,7 @@ export default function VistaHorarioAgenda({
                 );
               }
             )}
-          </div>
+          </SeleccionHorarioAgenda>
         </div>
       </div>
 
@@ -2687,8 +2695,10 @@ export default function VistaHorarioAgenda({
               const disposicionClasesDia=
                 calcularDisposicionClasesAgenda(clasesDia);
               return (
-                <div
+                <SeleccionHorarioAgenda
                   key={fecha}
+                  onSeleccion={(minuto, duracion) => crearClase(fecha, Math.floor(minuto / 60), minuto % 60, duracion)}
+                  estaBloqueado={(minuto, duracion) => Boolean(noDisponible(fecha, Math.floor(minuto / 60), minuto % 60, duracion))}
                   onDragOver={(evento) => {
                     if (!ndTodoDia) {
                       evento.preventDefault();
@@ -2716,6 +2726,7 @@ export default function VistaHorarioAgenda({
                       <button
                         type="button"
                         disabled={Boolean(noDisponible(fecha,h,0,30))}
+                        data-minuto-agenda={h * 60}
                         onClick={()=>crearClase(fecha,h)}
                         className="absolute left-0 right-0 border-t border-slate-200 transition hover:bg-[#00A79C]/[0.06] disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora,height:altoHora/2}}
@@ -2724,6 +2735,7 @@ export default function VistaHorarioAgenda({
                       <button
                         type="button"
                         disabled={Boolean(noDisponible(fecha,h,30,30))}
+                        data-minuto-agenda={h * 60 + 30}
                         onClick={()=>crearClase(fecha,h,30)}
                         className="absolute left-0 right-0 border-t border-dashed border-slate-100 transition hover:bg-[#00A79C]/[0.06] disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora+altoHora/2,height:altoHora/2}}
@@ -2940,7 +2952,7 @@ export default function VistaHorarioAgenda({
                       </button>
                     );
                   })}
-                </div>
+                </SeleccionHorarioAgenda>
               );
             })}
           </div>
@@ -2980,6 +2992,7 @@ export default function VistaHorarioAgenda({
                   .split("-")
                   .reverse()
                   .join("/")} · {String(creacionPendiente.hora).padStart(2, "0")}:{String(creacionPendiente.minuto).padStart(2, "0")}
+                {creacionPendiente.duracion && <>–{calcularHoraFin(`${String(creacionPendiente.hora).padStart(2, "0")}:${String(creacionPendiente.minuto).padStart(2, "0")}`, creacionPendiente.duracion)} · {creacionPendiente.duracion} min</>}
               </p>
             </div>
 
