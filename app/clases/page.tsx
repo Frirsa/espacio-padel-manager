@@ -1125,6 +1125,7 @@ function CampoEstadoClases({
 
 export default function ClasesPage() {
   const [puntual, setPuntual] = useState<{ clase: Clase | null } | null>(null);
+  const [otroProfesorDesdeAgenda, setOtroProfesorDesdeAgenda] = useState(false);
   const [alumnos, setAlumnos] =
     useState<Alumno[]>([]);
 
@@ -1504,9 +1505,9 @@ export default function ClasesPage() {
         setModoCreacion("individual");
       }
 
-      setFormularioAbierto(
-        true
-      );
+      setFormularioAbierto(modoDesdeAgenda !== "puntual");
+      setOtroProfesorDesdeAgenda(modoDesdeAgenda === "puntual");
+      if (modoDesdeAgenda === "puntual") setPuntual({ clase: null });
 
       const url =
         new URL(
@@ -1935,6 +1936,7 @@ export default function ClasesPage() {
     setMotivoCancelacion("");
     setObservaciones("");
     setPuntual(null);
+    setOtroProfesorDesdeAgenda(false);
 
     setAlumnosSeleccionados(
       []
@@ -5767,7 +5769,7 @@ export default function ClasesPage() {
           )}
         </section>
 
-        {puntual && <FormularioClasePuntual key={puntual.clase?.id || "nueva"} clase={puntual.clase} ubicaciones={ubicaciones}
+        {puntual && <FormularioClasePuntual key={puntual.clase?.id || "nueva"} clase={puntual.clase} ubicaciones={ubicaciones} otroProfesor={otroProfesorDesdeAgenda}
           monitores={clases.map(c => c.monitor_nombre || "").filter(Boolean)} pagos={pagosClase} fechaInicial={fecha} horaInicial={hora} duracionInicial={Number(duracion)}
           onCancelar={() => { if (!volverAlOrigenSiExiste()) setPuntual(null); }}
           onGuardada={async aviso => { setPuntual(null); setMensaje(aviso); if (!volverAlOrigenSiExiste()) await cargarDatos(); }} />}
