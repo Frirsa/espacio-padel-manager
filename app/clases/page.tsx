@@ -5731,7 +5731,7 @@ export default function ClasesPage() {
 
           {!formularioAbierto && !puntual && (
             <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/10 pt-4 sm:mt-5 sm:flex sm:justify-end">
-              <button type="button" onClick={() => { limpiarFormulario(); setMensaje(""); setPuntual({ clase: null }); }} className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white sm:text-sm">+ Clase puntual sin alumnos</button>
+              <button type="button" onClick={() => { limpiarFormulario(); setMensaje(""); setPuntual({ clase: null }); }} className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white sm:text-sm">+ Clase puntual</button>
               <button
                 type="button"
                 onClick={() => {
@@ -5770,7 +5770,7 @@ export default function ClasesPage() {
         </section>
 
         {puntual && <FormularioClasePuntual key={puntual.clase?.id || "nueva"} clase={puntual.clase} ubicaciones={ubicaciones} otroProfesor={otroProfesorDesdeAgenda}
-          monitores={clases.map(c => c.monitor_nombre || "").filter(Boolean)} pagos={pagosClase} fechaInicial={fecha} horaInicial={hora} duracionInicial={Number(duracion)}
+          monitores={clases.map(c => c.monitor_nombre || "").filter(Boolean)} alumnos={alumnos} grupos={grupos} pagos={pagosClase} fechaInicial={fecha} horaInicial={hora} duracionInicial={Number(duracion)}
           onCancelar={() => { if (!volverAlOrigenSiExiste()) setPuntual(null); }}
           onGuardada={async aviso => { setPuntual(null); setMensaje(aviso); if (!volverAlOrigenSiExiste()) await cargarDatos(); }} />}
 
@@ -5841,7 +5841,7 @@ export default function ClasesPage() {
 
           </div>
 
-          {!claseEditandoId && modoCreacion === "individual" && <button type="button" onClick={() => { setFormularioAbierto(false); setPuntual({ clase: null }); }} className="mt-4 rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-4 py-2.5 text-sm font-bold text-[#008C83]">Crear clase puntual sin dar de alta alumnos</button>}
+          {!claseEditandoId && modoCreacion === "individual" && <button type="button" onClick={() => { setFormularioAbierto(false); setPuntual({ clase: null }); }} className="mt-4 rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-4 py-2.5 text-sm font-bold text-[#008C83]">Crear clase puntual con otro profesor o grupo libre</button>}
 
           <section className="relative z-10 mt-4 overflow-visible rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
 
@@ -8406,6 +8406,7 @@ export default function ClasesPage() {
                           </div>
                         </div>
 
+                        {clase.nombre_grupo_libre && clase.clase_alumnos.length > 0 && <p className="mt-3 text-xs text-slate-500"><strong className="block text-sm text-[#17324D]">{clase.nombre_grupo_libre}</strong>{detalleClasePuntual(clase)}<span className="mt-1 block">Monitor: {Number(clase.coste_monitor || 0).toFixed(2)} € · {Number(clase.coste_monitor || 0) === 0 ? "Sin coste" : clase.monitor_pagado ? "Pagado" : "Pendiente"}</span></p>}
                         {clase.clase_alumnos.length >
                         0 ? (
                           <div className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-[#FBFCFD]">
@@ -8432,7 +8433,9 @@ export default function ClasesPage() {
                                       )}
                                     </span>
 
-                                    {clase.tipo ===
+                                    {clase.nombre_grupo_libre ? (
+                                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">Cobro conjunto · {clase.cobrada ? "Cobrado" : clase.estado === "programada" ? "Programada" : "Pendiente"}</span>
+                                    ) : clase.tipo ===
                                     "club" ? (
                                       <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00A79C]/20 bg-[#E8F7F5] px-2.5 py-1 text-[10px] font-bold text-[#008C83] [&_svg]:h-3.5 [&_svg]:w-3.5">
                                         <IconoAlumno />

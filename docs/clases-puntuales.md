@@ -1,6 +1,6 @@
 # Clases puntuales y gastos de monitores
 
-En Clases, «Clase puntual sin alumnos» permite registrar un nombre libre (por ejemplo, «Grupo belgas 1»), número de personas, monitor, fecha, hora, duración, ubicación y pista. También se puede elegir esta opción desde el formulario de nueva clase que se abre desde la agenda. No crea alumnos, grupos permanentes ni series.
+En Clases, «Clase puntual» permite registrar un nombre libre (por ejemplo, «Grupo belgas 1»), número de personas, monitor, fecha, hora, duración, ubicación y pista. También se puede elegir esta opción desde el formulario de nueva clase que se abre desde la agenda. No crea alumnos, grupos permanentes ni series.
 
 Las observaciones admiten nombres y notas sin convertirlos en fichas de alumnos. El nombre del monitor se escribe directamente; se ofrecen los nombres ya utilizados como sugerencias. «Fran» es el monitor propio por defecto. Las clases existentes sin monitor se consideran propias al comprobar horarios.
 
@@ -33,3 +33,13 @@ Las pruebas locales del SQL utilizan una base de pruebas con el esquema de las t
 Tras la primera migración, ejecutar `supabase/migrations/202610061105_cobros_puntuales_realizadas.sql` en el SQL Editor de Supabase. Actualiza el guardado de las clases puntuales y retira únicamente los pagos pendientes de grupos puntuales que siguen programados. Conserva cobros pagados, clases realizadas, cancelaciones facturables y pagos de las clases habituales. El criterio depende del estado de la clase, no sólo de su fecha.
 
 El cambio se activa al ejecutar el SQL; no necesita cambios en los formularios ni en los filtros del Dashboard. Actualizar la aplicación después de ejecutarlo. La migración se puede repetir sin duplicar cambios. `npm test` ejecuta las pruebas económicas y el ciclo de cobros en PostgreSQL de pruebas.
+
+## Alumnos registrados con profesor sustituto
+
+El formulario de clase puntual también permite buscar alumnos registrados por nombre, apellidos o apodo, y cargar los participantes de un grupo existente. Se pueden añadir y quitar participantes antes de guardar. El nombre del grupo y su número de participantes se rellenan al cargar el grupo; se crea una clase independiente, sin modificar el grupo ni sus clases habituales. Los alumnos quedan vinculados mediante `clase_alumnos` y se recuperan al editar. Google Calendar recibe sus nombres y la agenda muestra el profesor junto a los alumnos.
+
+El cobro continúa siendo por el total de la clase. Las relaciones de participantes tienen importe cero y no generan pagos individuales ni consumen bonos. Este formulario no sustituye la gestión de bonos o cobros por alumno del formulario habitual.
+
+Antes de publicar esta ampliación, ejecutar `supabase/migrations/202610120950_alumnos_profesor_sustituto.sql` en el mismo proyecto Supabase. Añade una función con los permisos del usuario conectado, que guarda clase, cobro y participantes en una transacción. Requiere las dos migraciones anteriores. No modifica los registros existentes al aplicarse. El código nuevo llama a esta función, por lo que no debe publicarse antes de aplicarla.
+
+Las pruebas incluyen selección por grupo, búsqueda por apodo y sin tildes, recuperación al editar, retirada de participantes, cobro total único y reversión completa si los permisos impiden vincular alumnos.

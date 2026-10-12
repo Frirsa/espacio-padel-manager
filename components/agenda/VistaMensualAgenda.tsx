@@ -905,12 +905,10 @@ export default function VistaMensualAgenda({
                     <p
                       className="mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-[#17324D]"
                       title={
-                        alumnos ||
-                        (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")
+                        (clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")
                       }
                     >
-                      {alumnos ||
-                        (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                      {(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")}
                     </p>
 
                     <p className="mt-1 truncate text-[11px] font-medium text-slate-500">

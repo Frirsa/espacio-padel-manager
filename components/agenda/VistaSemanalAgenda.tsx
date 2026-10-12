@@ -827,12 +827,10 @@ export default function VistaSemanalAgenda({
                     <p
                       className="mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-[#17324D]"
                       title={
-                        alumnos ||
-                        (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")
+                        (clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")
                       }
                     >
-                      {alumnos ||
-                        (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                      {(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")}
                     </p>
 
                     <p className="mt-1 truncate text-[11px] font-medium text-slate-500">
@@ -1097,8 +1095,7 @@ export default function VistaSemanalAgenda({
                               <div className="mt-3 border-t border-slate-100 pt-3">
 
                                 <p className="text-xs font-bold leading-snug text-[#17324D]">
-                                  {alumnos ||
-                                    (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                                  {(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")}
                                 </p>
 
                                 <p className="mt-2 text-[11px] font-medium leading-snug text-slate-500">
