@@ -5769,7 +5769,7 @@ export default function ClasesPage() {
           )}
         </section>
 
-        {puntual && <FormularioClasePuntual key={puntual.clase?.id || "nueva"} clase={puntual.clase} ubicaciones={ubicaciones} otroProfesor={otroProfesorDesdeAgenda}
+        {puntual && <FormularioClasePuntual key={puntual.clase?.id || "nueva"} clase={puntual.clase} ubicaciones={ubicaciones} alumnos={alumnos} grupos={grupos} otroProfesor={otroProfesorDesdeAgenda}
           monitores={clases.map(c => c.monitor_nombre || "").filter(Boolean)} pagos={pagosClase} fechaInicial={fecha} horaInicial={hora} duracionInicial={Number(duracion)}
           onCancelar={() => { if (!volverAlOrigenSiExiste()) setPuntual(null); }}
           onGuardada={async aviso => { setPuntual(null); setMensaje(aviso); if (!volverAlOrigenSiExiste()) await cargarDatos(); }} />}

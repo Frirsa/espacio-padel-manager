@@ -2,6 +2,12 @@
 
 En Clases, «Clase puntual sin alumnos» permite registrar un nombre libre (por ejemplo, «Grupo belgas 1»), número de personas, monitor, fecha, hora, duración, ubicación y pista. También se puede elegir esta opción desde el formulario de nueva clase que se abre desde la agenda. No crea alumnos, grupos permanentes ni series.
 
+El formulario también ofrece «Alumnos registrados»: se pueden buscar y marcar alumnos existentes o seleccionar los miembros de un grupo habitual. El número de participantes se calcula a partir de la selección. Si no se escribe un nombre para la clase, se usan los nombres de los alumnos. Desde «Clase puntual con otro profesor» se abre este modo por defecto. Al editar una clase se recupera su selección.
+
+La selección se guarda en `clase_alumnos`, de modo que la clase aparece en el historial de cada alumno. El importe y el cobro siguen correspondiendo a la clase completa, sin pagos individuales adicionales. Google Calendar recibe los nombres de los alumnos seleccionados. «Grupo libre» continúa disponible para los grupos sin fichas de alumnos.
+
+Las relaciones con alumnos se sincronizan después de guardar la clase y su cobro. Si falla esa sincronización, se muestra un aviso específico y no se vuelve a la agenda ni se sincroniza Google Calendar. Al reintentar se reutiliza el ID guardado y se consultan las relaciones existentes para evitar duplicados. Esta ampliación no necesita una migración de base de datos.
+
 Las observaciones admiten nombres y notas sin convertirlos en fichas de alumnos. El nombre del monitor se escribe directamente; se ofrecen los nombres ya utilizados como sugerencias. «Fran» es el monitor propio por defecto. Las clases existentes sin monitor se consideran propias al comprobar horarios.
 
 El cobro es por el total de la clase. Las programadas sin cobro anticipado no generan pagos pendientes; el pendiente nace al marcarlas como realizadas, aunque su fecha ya hubiese pasado. Un cobro anticipado se conserva como pagado. Se guarda con método, fecha y estado pendiente o cobrado en la tabla de pagos existente. El coste del monitor es independiente del coste de pista; su pago dispone de estado, fecha y método. El resultado de una clase realizada descuenta ambos gastos, aunque el monitor esté pendiente de pago. Las cancelaciones conservan el criterio existente: si son facturables, aportan el ingreso sin costes de una sesión impartida.
