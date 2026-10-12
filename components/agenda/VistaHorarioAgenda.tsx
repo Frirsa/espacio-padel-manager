@@ -691,6 +691,7 @@ export default function VistaHorarioAgenda({
     hora: number;
     minuto: number;
     duracion?: number;
+    motivoNoDisponibilidad?: string;
   } | null>(null);
 
   const hoy = fechaLocalISO(new Date());
@@ -2016,27 +2017,19 @@ export default function VistaHorarioAgenda({
     minuto = 0,
     duracion?: number
   ) {
-    if (
-      noDisponible(
-        fecha,
-        hora,
-        minuto,
-        duracion ?? 30
-      )
-    ) {
-      return;
-    }
+    const bloqueo = noDisponible(fecha, hora, minuto, duracion ?? 30);
 
     setCreacionPendiente({
       fecha,
       hora,
       minuto,
       duracion,
+      motivoNoDisponibilidad: bloqueo ? bloqueo.motivo || "No disponibilidad personal" : undefined,
     });
   }
 
   function continuarCreacionDesdeAgenda(
-    modo: "individual" | "serie"
+    modo: "individual" | "serie" | "puntual"
   ) {
     if (!creacionPendiente) {
       return;
@@ -2064,10 +2057,10 @@ export default function VistaHorarioAgenda({
     const volver =
       `/agenda?vista=horario&fecha=${fechaSeleccionada}`;
 
-    const parametroModo =
-      modo === "serie"
-        ? "&modo=serie"
-        : "";
+    // Durante la ausencia personal solo se ofrece el formulario con monitor.
+    // Su guardado comprueba en la base de datos que Fran no esté bloqueado.
+    if (creacionPendiente.motivoNoDisponibilidad && modo !== "puntual") return;
+    const parametroModo = modo === "individual" ? "" : `&modo=${modo}`;
 
     window.location.href =
       `/clases?fecha=${fecha}&hora=${encodeURIComponent(
@@ -2321,14 +2314,6 @@ export default function VistaHorarioAgenda({
               <div key={hora}>
                 <button
                   type="button"
-                  disabled={Boolean(
-                    noDisponible(
-                      fechaMovil,
-                      hora,
-                      0,
-                      30
-                    )
-                  )}
                   data-minuto-agenda={hora * 60}
                   onClick={() =>
                     crearClase(
@@ -2355,14 +2340,6 @@ export default function VistaHorarioAgenda({
 
                 <button
                   type="button"
-                  disabled={Boolean(
-                    noDisponible(
-                      fechaMovil,
-                      hora,
-                      30,
-                      30
-                    )
-                  )}
                   data-minuto-agenda={hora * 60 + 30}
                   onClick={() =>
                     crearClase(
@@ -2725,21 +2702,19 @@ export default function VistaHorarioAgenda({
                     <div key={h}>
                       <button
                         type="button"
-                        disabled={Boolean(noDisponible(fecha,h,0,30))}
                         data-minuto-agenda={h * 60}
                         onClick={()=>crearClase(fecha,h)}
                         className="absolute left-0 right-0 border-t border-slate-200 transition hover:bg-[#00A79C]/[0.06] disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora,height:altoHora/2}}
-                        title={noDisponible(fecha,h,0,30) ? "Horario no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:00`}
+                        title={noDisponible(fecha,h,0,30) ? "No disponibilidad personal · crear con otro profesor" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:00`}
                       />
                       <button
                         type="button"
-                        disabled={Boolean(noDisponible(fecha,h,30,30))}
                         data-minuto-agenda={h * 60 + 30}
                         onClick={()=>crearClase(fecha,h,30)}
                         className="absolute left-0 right-0 border-t border-dashed border-slate-100 transition hover:bg-[#00A79C]/[0.06] disabled:cursor-not-allowed"
                         style={{top:(h-horaInicio)*altoHora+altoHora/2,height:altoHora/2}}
-                        title={noDisponible(fecha,h,30,30) ? "Horario no disponible" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:30`}
+                        title={noDisponible(fecha,h,30,30) ? "No disponibilidad personal · crear con otro profesor" : `Crear o mover clase a las ${String(h).padStart(2,"0")}:30`}
                       />
                     </div>
                   ))}
@@ -2980,7 +2955,9 @@ export default function VistaHorarioAgenda({
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Elige si quieres programar una sola clase o iniciar una serie recurrente desde este día y hora.
+              {creacionPendiente.motivoNoDisponibilidad
+                ? `Tu horario está marcado como no disponible: ${creacionPendiente.motivoNoDisponibilidad}. Puedes crear una clase puntual e indicar el profesor que la impartirá.`
+                : "Elige si quieres programar una sola clase, una serie recurrente o una clase puntual con otro profesor."}
             </p>
 
             <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -2997,6 +2974,7 @@ export default function VistaHorarioAgenda({
             </div>
 
             <div className="mt-5 grid gap-3">
+              {!creacionPendiente.motivoNoDisponibilidad && <>
               <button
                 type="button"
                 onClick={() =>
@@ -3019,6 +2997,11 @@ export default function VistaHorarioAgenda({
                 className="rounded-xl bg-[#00A79C] px-5 py-3 text-left font-semibold text-white transition hover:bg-[#008F86]"
               >
                 Serie recurrente
+              </button>
+              </>}
+              <button type="button" onClick={() => continuarCreacionDesdeAgenda("puntual")}
+                className="rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-5 py-3 text-left font-semibold text-[#008C83]">
+                Clase puntual con otro profesor
               </button>
             </div>
 

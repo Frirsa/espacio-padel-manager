@@ -62,10 +62,6 @@ export default function SeleccionHorarioAgenda({ children, onSeleccion, estaBloq
       suprimirClic.current = true;
       event.preventDefault();
       const seleccionado = calcular(event.clientY, event.currentTarget, actual.inicio);
-      if (estaBloqueado(seleccionado.inicio, seleccionado.duracion)) {
-        window.alert("El tramo seleccionado coincide con una no disponibilidad.");
-        return;
-      }
       onSeleccion(seleccionado.inicio, seleccionado.duracion);
     }}
     onPointerCancel={() => { gesto.current = null; setTramo(null); }}

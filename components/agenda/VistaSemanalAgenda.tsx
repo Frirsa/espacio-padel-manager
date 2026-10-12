@@ -521,11 +521,12 @@ export default function VistaSemanalAgenda({
   function crearClase(
     fecha: string
   ) {
+    const ausenciaPersonal = noDisponibilidades.some(b => fecha >= b.fecha_inicio && fecha <= b.fecha_fin);
     const volver =
       `/agenda?vista=semana&fecha=${fechaSeleccionada}`;
 
     window.location.href =
-      `/clases?fecha=${fecha}&volver=${encodeURIComponent(
+      `/clases?fecha=${fecha}${ausenciaPersonal ? "&modo=puntual" : ""}&volver=${encodeURIComponent(
         volver
       )}`;
   }
@@ -681,9 +682,6 @@ export default function VistaSemanalAgenda({
 
           <button
             type="button"
-            disabled={Boolean(
-              noDisponibleMovil
-            )}
             onClick={() =>
               crearClase(
                 fechaMovil
@@ -698,7 +696,7 @@ export default function VistaSemanalAgenda({
         {noDisponibleMovil && (
           <div className="border-b border-red-200 bg-red-50 px-4 py-2.5">
             <p className="text-xs font-bold text-red-700">
-              Día no disponible
+              No disponibilidad personal · puedes asignar otro profesor
               {noDisponibleMovil.motivo
                 ? ` · ${noDisponibleMovil.motivo}`
                 : ""}
@@ -717,9 +715,6 @@ export default function VistaSemanalAgenda({
           0 ? (
             <button
               type="button"
-              disabled={Boolean(
-                noDisponibleMovil
-              )}
               onClick={() =>
                 crearClase(
                   fechaMovil
@@ -953,7 +948,6 @@ export default function VistaSemanalAgenda({
 
                     <button
                       type="button"
-                      disabled={Boolean(noDisponible)}
                       onClick={() =>
                         crearClase(
                           fechaDia
@@ -998,7 +992,6 @@ export default function VistaSemanalAgenda({
 
                       <button
                         type="button"
-                        disabled={Boolean(noDisponible)}
                         onClick={() =>
                           crearClase(
                             fechaDia

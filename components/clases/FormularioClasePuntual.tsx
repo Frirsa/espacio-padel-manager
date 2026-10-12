@@ -21,6 +21,7 @@ type Props = {
   fechaInicial?: string;
   horaInicial?: string;
   duracionInicial?: number;
+  otroProfesor?: boolean;
   onCancelar: () => void;
   onGuardada: (aviso: string) => Promise<void>;
 };
@@ -28,7 +29,7 @@ const input = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2
 const metodos = ["efectivo", "bizum", "transferencia", "tarjeta"];
 function hoy() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
-export default function FormularioClasePuntual({ clase, ubicaciones, monitores, pagos, fechaInicial, horaInicial, duracionInicial, onCancelar, onGuardada }: Props) {
+export default function FormularioClasePuntual({ clase, ubicaciones, monitores, pagos, fechaInicial, horaInicial, duracionInicial, otroProfesor, onCancelar, onGuardada }: Props) {
   const pago = pagos.find(p => p.clase_id === clase?.id && p.alumno_id === null);
   const [nombre, setNombre] = useState(clase?.nombre_grupo_libre || "");
   const [personas, setPersonas] = useState(String(clase?.numero_participantes || 4));
@@ -38,7 +39,7 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
   const [ubicacion, setUbicacion] = useState(clase?.ubicacion_id || "");
   const [pista, setPista] = useState(clase?.pista_nombre || "");
   const [tipo, setTipo] = useState(clase?.tipo || "propia");
-  const [monitor, setMonitor] = useState(clase?.monitor_nombre || "Fran");
+  const [monitor, setMonitor] = useState(clase?.monitor_nombre || (otroProfesor ? "" : "Fran"));
   const [importe, setImporte] = useState(String(clase?.importe_total ?? ""));
   const [costePista, setCostePista] = useState(String(clase?.coste_pista ?? 0));
   const [costeMonitor, setCosteMonitor] = useState(String(clase?.coste_monitor ?? 0));
@@ -93,6 +94,7 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
   return <form onSubmit={guardar} className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
     <div className="rounded-xl bg-[#0F2742] p-4 text-white"><h2 className="text-xl font-bold">{clase ? "Editar clase puntual" : "Nueva clase puntual"}</h2><p className="mt-1 text-sm text-white/70">Grupo con nombre libre, sin dar de alta alumnos.</p></div>
     <fieldset disabled={guardando} className="mt-4 space-y-5">
+      {otroProfesor && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Indica el profesor que dará esta clase. La no disponibilidad personal se aplica a Fran; otro profesor puede impartirla durante ese periodo.</p>}
       <section><h3 className="mb-3 font-bold text-[#17324D]">Grupo y horario</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-sm">Nombre del grupo<input className={input} required maxLength={200} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Grupo belgas 1" /></label>
         <label className="text-sm">Número de participantes<input className={input} type="number" min="1" step="1" required value={personas} onChange={e=>setPersonas(e.target.value)} /></label>

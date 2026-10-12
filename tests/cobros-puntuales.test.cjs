@@ -115,6 +115,29 @@ test('Los cobros de grupos puntuales nacen al realizar la clase', async t => {
     await guardar({ fecha: '2099-01-11', estado: 'cancelada', facturable: false, motivo_cancelacion: 'Prueba' }, id);
     assert.equal((await pagos(id)).length, 0);
   });
+  await t.test('Las vacaciones del 19 al 26 bloquean a Fran y permiten otro profesor', async () => {
+    await db.exec("insert into no_disponibilidades(fecha_inicio, fecha_fin) values ('2099-10-19', '2099-10-26')");
+    for (const fecha of ['2099-10-19', '2099-10-22', '2099-10-26']) {
+      await assert.rejects(guardar({ fecha, monitor_nombre: ' Fran ' }), /no disponible/);
+      const id = await guardar({ fecha, monitor_nombre: 'Ivan Gramaje', coste_monitor: 25 });
+      assert.equal((await clase(id)).monitor_nombre, 'Ivan Gramaje');
+      assert.equal(Number((await clase(id)).coste_monitor), 25);
+      assert.equal((await pagos(id)).length, 0);
+    }
+    await guardar({ fecha: '2099-10-18' });
+    await guardar({ fecha: '2099-10-27' });
+  });
+  await t.test('Otro profesor sigue sin poder duplicar su horario durante las vacaciones', async () => {
+    await assert.rejects(guardar({ fecha: '2099-10-22', monitor_nombre: 'Ivan Gramaje' }), /monitor o la pista/);
+    await assert.rejects(guardar({ fecha: '2099-10-22', monitor_nombre: '' }), /Revisa el nombre/);
+  });
+  await t.test('La no disponibilidad parcial solo bloquea las horas que coinciden', async () => {
+    await db.exec("insert into no_disponibilidades(fecha_inicio, fecha_fin, hora_inicio, hora_fin) values ('2099-11-01', '2099-11-01', '10:00', '12:00')");
+    await guardar({ fecha: '2099-11-01', hora_inicio: '09:00' });
+    await assert.rejects(guardar({ fecha: '2099-11-01', hora_inicio: '10:30' }), /no disponible/);
+    await guardar({ fecha: '2099-11-01', hora_inicio: '10:30', monitor_nombre: 'Ivan Gramaje' });
+    await guardar({ fecha: '2099-11-01', hora_inicio: '12:00' });
+  });
   await t.test('Se conservan los permisos y el guardado atómico', async () => {
     await db.exec("set test.deny_pago='yes'");
     await assert.rejects(guardar({ fecha: '2020-01-12', estado: 'realizada' }), /row-level security/);
