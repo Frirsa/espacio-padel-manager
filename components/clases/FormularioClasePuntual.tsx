@@ -11,12 +11,15 @@ type ClasePuntual = DatosClasePuntual & {
   cobrada: boolean; importe_total: number | null; coste_pista: number;
   motivo_cancelacion: string | null; observaciones: string | null;
   google_calendar_event_id: string | null;
+  clase_alumnos: { alumno_id: string }[];
 };
 type Pago = { clase_id: string | null; alumno_id: string | null; estado: string; metodo: string; fecha_pago?: string };
 type Props = {
   clase: ClasePuntual | null;
   ubicaciones: { id: string; nombre: string; tipo: string; coste_pista: number | null }[];
   monitores: string[];
+  alumnos: { id: string; nombre: string; apellidos: string | null; apodo: string | null }[];
+  grupos: { id: string; nombre: string; grupo_alumnos: { alumno_id: string }[] }[];
   pagos: Pago[];
   fechaInicial?: string;
   horaInicial?: string;
@@ -29,10 +32,21 @@ const input = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2
 const metodos = ["efectivo", "bizum", "transferencia", "tarjeta"];
 function hoy() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
-export default function FormularioClasePuntual({ clase, ubicaciones, monitores, pagos, fechaInicial, horaInicial, duracionInicial, otroProfesor, onCancelar, onGuardada }: Props) {
+export default function FormularioClasePuntual({ clase, ubicaciones, monitores, alumnos, grupos, pagos, fechaInicial, horaInicial, duracionInicial, otroProfesor, onCancelar, onGuardada }: Props) {
   const pago = pagos.find(p => p.clase_id === clase?.id && p.alumno_id === null);
   const [nombre, setNombre] = useState(clase?.nombre_grupo_libre || "");
   const [personas, setPersonas] = useState(String(clase?.numero_participantes || 4));
+  const [seleccionados, setSeleccionados] = useState<string[]>(clase?.clase_alumnos.map(a => a.alumno_id) || []);
+  const [busqueda, setBusqueda] = useState("");
+  const nombreAlumno = (a: Props["alumnos"][number]) => [a.nombre, a.apellidos].filter(Boolean).join(" ");
+  const normalizar = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const alumnosVisibles = alumnos.filter(a => normalizar(`${nombreAlumno(a)} ${a.apodo || ""}`).includes(normalizar(busqueda)));
+
+  function seleccionarAlumno(id: string) {
+    const nuevos = seleccionados.includes(id) ? seleccionados.filter(a => a !== id) : [...seleccionados, id];
+    setSeleccionados(nuevos);
+    if (nuevos.length > Number(personas)) setPersonas(String(nuevos.length));
+  }
   const [fecha, setFecha] = useState(clase?.fecha || fechaInicial || hoy());
   const [hora, setHora] = useState(clase?.hora_inicio.slice(0,5) || horaInicial || "");
   const [duracion, setDuracion] = useState(String(clase?.duracion_minutos || duracionInicial || 60));
@@ -62,6 +76,7 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
     guardandoRef.current = true;
     setError(""); setGuardando(true);
     try {
+      if (Number(personas) < seleccionados.length) throw new Error("El número de participantes no puede ser menor que los alumnos seleccionados.");
       const datos = {
         nombre_grupo_libre: nombre.trim(), numero_participantes: Number(personas),
         fecha, hora_inicio: hora, duracion_minutos: Number(duracion), ubicacion_id: ubicacion || null,
@@ -74,7 +89,7 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
         motivo_cancelacion: estado === "cancelada" ? motivo.trim() : null,
         observaciones: observaciones.trim() || null,
       };
-      const { data: id, error: fallo } = await supabase.rpc("guardar_clase_puntual", { p_clase_id: clase?.id || null, p_datos: datos });
+      const { data: id, error: fallo } = await supabase.rpc("guardar_clase_puntual_con_alumnos", { p_clase_id: clase?.id || null, p_datos: datos, p_alumnos: seleccionados });
       if (fallo || !id) throw new Error(fallo?.message || "No se ha podido guardar la clase");
       let aviso = "Clase puntual guardada.";
       try {
@@ -82,7 +97,7 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
         await sincronizarClaseConGoogleCalendar({
           id: String(id), google_calendar_event_id: clase?.google_calendar_event_id || null,
           fecha, hora_inicio: hora, duracion_minutos: Number(duracion), tipo, estado,
-          alumnos: [nombre.trim()], ubicacion: u?.nombre || null, tipo_ubicacion: u?.tipo || null,
+          alumnos: seleccionados.length ? alumnos.filter(a => seleccionados.includes(a.id)).map(nombreAlumno) : [nombre.trim()], ubicacion: u?.nombre || null, tipo_ubicacion: u?.tipo || null,
           observaciones: [`Monitor: ${monitor.trim()}`, pista.trim() ? `Pista: ${pista.trim()}` : "", observaciones.trim(), estado === "cancelada" ? `Cancelación: ${motivo.trim()}` : ""].filter(Boolean).join("\n"),
         });
       } catch { aviso += " No se ha podido sincronizar con Google Calendar."; }
@@ -92,12 +107,29 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
   }
 
   return <form onSubmit={guardar} className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-    <div className="rounded-xl bg-[#0F2742] p-4 text-white"><h2 className="text-xl font-bold">{clase ? "Editar clase puntual" : "Nueva clase puntual"}</h2><p className="mt-1 text-sm text-white/70">Grupo con nombre libre, sin dar de alta alumnos.</p></div>
+    <div className="rounded-xl bg-[#0F2742] p-4 text-white"><h2 className="text-xl font-bold">{clase ? "Editar clase puntual" : "Nueva clase puntual"}</h2><p className="mt-1 text-sm text-white/70">Elige alumnos registrados o indica un grupo con nombre libre.</p></div>
     <fieldset disabled={guardando} className="mt-4 space-y-5">
       {otroProfesor && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Indica el profesor que dará esta clase. La no disponibilidad personal se aplica a Fran; otro profesor puede impartirla durante ese periodo.</p>}
+      <section><h3 className="mb-3 font-bold text-[#17324D]">Alumnos registrados</h3>
+        <label className="text-sm">Seleccionar alumnos de un grupo<select className={input} defaultValue="" onChange={e => {
+          const grupo = grupos.find(g => g.id === e.target.value);
+          if (!grupo) return;
+          const ids = [...new Set(grupo.grupo_alumnos.map(a => a.alumno_id))].filter(id => alumnos.some(a => a.id === id));
+          setSeleccionados(ids); setNombre(grupo.nombre); if (ids.length) setPersonas(String(ids.length));
+        }}><option value="">Elegir grupo…</option>{grupos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}</select></label>
+        <label className="mt-3 block text-sm">Buscar alumno<input className={input} type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Nombre, apellidos o apodo" /></label>
+        <div className="mt-2 max-h-52 overflow-y-auto rounded-xl border border-slate-200">
+          {alumnosVisibles.map(a => <label key={a.id} className="flex items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-sm last:border-0">
+            <input type="checkbox" checked={seleccionados.includes(a.id)} onChange={() => seleccionarAlumno(a.id)} />{nombreAlumno(a)}{a.apodo ? ` (${a.apodo})` : ""}
+          </label>)}
+          {!alumnosVisibles.length && <p className="p-3 text-sm text-slate-500">No hay alumnos que coincidan.</p>}
+        </div>
+        <p className="mt-2 text-sm text-slate-500">{seleccionados.length} alumnos seleccionados. El cobro se registra por el total de la clase.</p>
+        {seleccionados.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{alumnos.filter(a => seleccionados.includes(a.id)).map(a => <button key={a.id} type="button" onClick={() => seleccionarAlumno(a.id)} className="rounded-full bg-[#E8F7F5] px-3 py-1.5 text-sm text-[#008C83]" aria-label={`Quitar a ${nombreAlumno(a)}`}>{nombreAlumno(a)} ×</button>)}</div>}
+      </section>
       <section><h3 className="mb-3 font-bold text-[#17324D]">Grupo y horario</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-sm">Nombre del grupo<input className={input} required maxLength={200} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Grupo belgas 1" /></label>
-        <label className="text-sm">Número de participantes<input className={input} type="number" min="1" step="1" required value={personas} onChange={e=>setPersonas(e.target.value)} /></label>
+        <label className="text-sm">Número de participantes<input className={input} type="number" min={Math.max(1, seleccionados.length)} step="1" required value={personas} onChange={e=>setPersonas(e.target.value)} /></label>
         <label className="text-sm">Monitor<input className={input} required maxLength={200} list="monitores-puntuales" value={monitor} onChange={e=>setMonitor(e.target.value)} placeholder="Nombre del monitor" /><datalist id="monitores-puntuales">{[...new Set(["Fran",...monitores])].map(m=><option key={m} value={m}/>)}</datalist></label>
         <label className="text-sm">Fecha<input className={input} type="date" required value={fecha} onChange={e=>setFecha(e.target.value)}/></label>
         <label className="text-sm">Hora<input className={input} type="time" required value={hora} onChange={e=>setHora(e.target.value)}/></label>

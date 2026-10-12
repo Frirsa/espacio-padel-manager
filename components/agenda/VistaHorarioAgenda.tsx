@@ -2514,7 +2514,7 @@ export default function VistaHorarioAgenda({
                     }}
                     title={
                       canceladaSolapada
-                        ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                        ? `CANCELADA · ${(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
                         : "Abrir acciones rápidas"
                     }
                   >
@@ -2525,7 +2525,7 @@ export default function VistaHorarioAgenda({
                         </span>
                         <span className="shrink-0 opacity-50">·</span>
                         <span className="min-w-0 truncate">
-                          {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                          {(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")}
                         </span>
                         <span className="shrink-0 opacity-50">·</span>
                         <span className="shrink-0">
@@ -2564,12 +2564,10 @@ export default function VistaHorarioAgenda({
                         <div
                           className="mt-1 line-clamp-2 pr-1 text-xs font-extrabold leading-[1.15]"
                           title={
-                            alumnos ||
-                            (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")
+                            (clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")
                           }
                         >
-                          {alumnos ||
-                            (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                          {(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")}
                         </div>
 
                         {clase.duracion_minutos >=
@@ -2872,7 +2870,7 @@ export default function VistaHorarioAgenda({
                         }}
                         title={
                           canceladaSolapada
-                            ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                            ? `CANCELADA · ${(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
                             : clase.nombre_grupo_libre ? "Editar clase puntual" : clase.estado === "programada"
                             ? "Pulsa para acciones rápidas o arrastra para mover"
                             : "Abrir acciones rápidas"
@@ -2885,7 +2883,7 @@ export default function VistaHorarioAgenda({
                             </span>
                             <span className="shrink-0 opacity-50">·</span>
                             <span className="min-w-0 truncate">
-                              {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                              {(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")}
                             </span>
                             <span className="shrink-0 opacity-50">·</span>
                             <span className="shrink-0">
@@ -2909,9 +2907,9 @@ export default function VistaHorarioAgenda({
 
                             <div
                               className="mt-1 line-clamp-2 text-[11px] font-bold leading-[1.2]"
-                              title={alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                              title={(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")}
                             >
-                              {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                              {(clase.nombre_grupo_libre ? `${alumnos || clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : alumnos || "Sin alumnos")}
                             </div>
 
                             {clase.ubicaciones?.nombre && (
@@ -2956,7 +2954,7 @@ export default function VistaHorarioAgenda({
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
               {creacionPendiente.motivoNoDisponibilidad
-                ? `Tu horario está marcado como no disponible: ${creacionPendiente.motivoNoDisponibilidad}. Puedes crear una clase puntual e indicar el profesor que la impartirá.`
+                ? `Tu horario está marcado como no disponible: ${creacionPendiente.motivoNoDisponibilidad}. Puedes seleccionar tus alumnos y el profesor que impartirá la clase.`
                 : "Elige si quieres programar una sola clase, una serie recurrente o una clase puntual con otro profesor."}
             </p>
 
