@@ -4,6 +4,10 @@ import { useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
 import { sincronizarClaseConGoogleCalendar } from "../../lib/googleCalendarClient";
+import { sincronizarParticipantesPuntuales } from "../../lib/participantesClasePuntual";
+
+type Alumno = { id: string; nombre: string; apellidos: string | null; apodo?: string | null };
+const nombreAlumno = (alumno: Alumno) => alumno.apodo?.trim() || [alumno.nombre, alumno.apellidos].filter(Boolean).join(" ");
 
 type ClasePuntual = DatosClasePuntual & {
   id: string; fecha: string; hora_inicio: string; duracion_minutos: number;
@@ -11,12 +15,15 @@ type ClasePuntual = DatosClasePuntual & {
   cobrada: boolean; importe_total: number | null; coste_pista: number;
   motivo_cancelacion: string | null; observaciones: string | null;
   google_calendar_event_id: string | null;
+  clase_alumnos?: { alumno_id: string }[];
 };
 type Pago = { clase_id: string | null; alumno_id: string | null; estado: string; metodo: string; fecha_pago?: string };
 type Props = {
   clase: ClasePuntual | null;
   ubicaciones: { id: string; nombre: string; tipo: string; coste_pista: number | null }[];
   monitores: string[];
+  alumnos: Alumno[];
+  grupos: { id: string; nombre: string; grupo_alumnos: { alumno_id: string }[] }[];
   pagos: Pago[];
   fechaInicial?: string;
   horaInicial?: string;
@@ -29,9 +36,12 @@ const input = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2
 const metodos = ["efectivo", "bizum", "transferencia", "tarjeta"];
 function hoy() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
-export default function FormularioClasePuntual({ clase, ubicaciones, monitores, pagos, fechaInicial, horaInicial, duracionInicial, otroProfesor, onCancelar, onGuardada }: Props) {
+export default function FormularioClasePuntual({ clase, ubicaciones, monitores, alumnos, grupos, pagos, fechaInicial, horaInicial, duracionInicial, otroProfesor, onCancelar, onGuardada }: Props) {
   const pago = pagos.find(p => p.clase_id === clase?.id && p.alumno_id === null);
   const [nombre, setNombre] = useState(clase?.nombre_grupo_libre || "");
+  const [seleccionados, setSeleccionados] = useState<string[]>(clase?.clase_alumnos?.map(p => p.alumno_id) || []);
+  const [participantesRegistrados, setParticipantesRegistrados] = useState(Boolean(clase?.clase_alumnos?.length || (!clase && otroProfesor)));
+  const [busquedaAlumno, setBusquedaAlumno] = useState("");
   const [personas, setPersonas] = useState(String(clase?.numero_participantes || 4));
   const [fecha, setFecha] = useState(clase?.fecha || fechaInicial || hoy());
   const [hora, setHora] = useState(clase?.hora_inicio.slice(0,5) || horaInicial || "");
@@ -54,6 +64,9 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
   const [motivo, setMotivo] = useState(clase?.motivo_cancelacion || "");
   const [observaciones, setObservaciones] = useState(clase?.observaciones || "");
   const guardandoRef = useRef(false);
+  const claseGuardadaId = useRef(clase?.id || null);
+  const nombresSeleccionados = alumnos.filter(a => seleccionados.includes(a.id)).map(nombreAlumno);
+  const alumnosVisibles = alumnos.filter(a => `${a.nombre} ${a.apellidos || ""} ${a.apodo || ""}`.toLocaleLowerCase().includes(busquedaAlumno.trim().toLocaleLowerCase()));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
@@ -62,8 +75,11 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
     guardandoRef.current = true;
     setError(""); setGuardando(true);
     try {
+      if (participantesRegistrados && !seleccionados.length) throw new Error("Selecciona al menos un alumno registrado.");
+      if (participantesRegistrados && nombresSeleccionados.length !== seleccionados.length) throw new Error("No se han podido cargar todos los alumnos seleccionados. Actualiza la lista antes de guardar.");
+      const nombreClase = nombre.trim() || nombresSeleccionados.join(" · ");
       const datos = {
-        nombre_grupo_libre: nombre.trim(), numero_participantes: Number(personas),
+        nombre_grupo_libre: nombreClase, numero_participantes: participantesRegistrados ? seleccionados.length : Number(personas),
         fecha, hora_inicio: hora, duracion_minutos: Number(duracion), ubicacion_id: ubicacion || null,
         pista_nombre: pista.trim() || null, tipo, monitor_nombre: monitor.trim(),
         importe_total: Number(importe), coste_pista: Number(costePista), coste_monitor: Number(costeMonitor),
@@ -74,15 +90,21 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
         motivo_cancelacion: estado === "cancelada" ? motivo.trim() : null,
         observaciones: observaciones.trim() || null,
       };
-      const { data: id, error: fallo } = await supabase.rpc("guardar_clase_puntual", { p_clase_id: clase?.id || null, p_datos: datos });
+      const { data: id, error: fallo } = await supabase.rpc("guardar_clase_puntual", { p_clase_id: claseGuardadaId.current, p_datos: datos });
       if (fallo || !id) throw new Error(fallo?.message || "No se ha podido guardar la clase");
+      claseGuardadaId.current = String(id);
+      try {
+        await sincronizarParticipantesPuntuales(supabase, String(id), participantesRegistrados ? seleccionados : [], cobrada && (estado !== "cancelada" || facturable));
+      } catch (e) {
+        throw new Error(`La clase se ha guardado, pero falta completar la selección de alumnos. ${e instanceof Error ? e.message : "Error de conexión."} Vuelve a guardar para completar esta misma clase.`);
+      }
       let aviso = "Clase puntual guardada.";
       try {
         const u = ubicaciones.find(u => u.id === ubicacion);
         await sincronizarClaseConGoogleCalendar({
           id: String(id), google_calendar_event_id: clase?.google_calendar_event_id || null,
           fecha, hora_inicio: hora, duracion_minutos: Number(duracion), tipo, estado,
-          alumnos: [nombre.trim()], ubicacion: u?.nombre || null, tipo_ubicacion: u?.tipo || null,
+          alumnos: participantesRegistrados ? nombresSeleccionados : [nombreClase], ubicacion: u?.nombre || null, tipo_ubicacion: u?.tipo || null,
           observaciones: [`Monitor: ${monitor.trim()}`, pista.trim() ? `Pista: ${pista.trim()}` : "", observaciones.trim(), estado === "cancelada" ? `Cancelación: ${motivo.trim()}` : ""].filter(Boolean).join("\n"),
         });
       } catch { aviso += " No se ha podido sincronizar con Google Calendar."; }
@@ -92,12 +114,28 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
   }
 
   return <form onSubmit={guardar} className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-    <div className="rounded-xl bg-[#0F2742] p-4 text-white"><h2 className="text-xl font-bold">{clase ? "Editar clase puntual" : "Nueva clase puntual"}</h2><p className="mt-1 text-sm text-white/70">Grupo con nombre libre, sin dar de alta alumnos.</p></div>
+    <div className="rounded-xl bg-[#0F2742] p-4 text-white"><h2 className="text-xl font-bold">{clase ? "Editar clase puntual" : "Nueva clase puntual"}</h2><p className="mt-1 text-sm text-white/70">Con alumnos registrados o con un grupo de nombre libre.</p></div>
     <fieldset disabled={guardando} className="mt-4 space-y-5">
       {otroProfesor && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Indica el profesor que dará esta clase. La no disponibilidad personal se aplica a Fran; otro profesor puede impartirla durante ese periodo.</p>}
+      <section><h3 className="mb-3 font-bold text-[#17324D]">Participantes</h3>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" aria-pressed={participantesRegistrados} onClick={() => setParticipantesRegistrados(true)} className={`rounded-xl border px-4 py-2 text-sm ${participantesRegistrados ? "border-[#00A79C] bg-[#E8F7F5] text-[#008C83]" : "border-slate-200"}`}>Alumnos registrados</button>
+          <button type="button" aria-pressed={!participantesRegistrados} onClick={() => setParticipantesRegistrados(false)} className={`rounded-xl border px-4 py-2 text-sm ${!participantesRegistrados ? "border-[#00A79C] bg-[#E8F7F5] text-[#008C83]" : "border-slate-200"}`}>Grupo libre</button>
+        </div>
+        {participantesRegistrados && <div className="mt-3 space-y-3">
+          <label className="block text-sm">Seleccionar un grupo existente<select className={input} value="" onChange={e => { const grupo = grupos.find(g => g.id === e.target.value); if (grupo) { setSeleccionados([...new Set(grupo.grupo_alumnos.map(p => p.alumno_id))]); setNombre(grupo.nombre); } }}><option value="">Elegir grupo...</option>{grupos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}</select></label>
+          <label className="block text-sm">Buscar alumno<input className={input} value={busquedaAlumno} onChange={e => setBusquedaAlumno(e.target.value)} placeholder="Nombre, apellidos o apodo" /></label>
+          <p className="text-sm text-slate-600">{seleccionados.length} alumnos seleccionados{nombresSeleccionados.length ? `: ${nombresSeleccionados.join(" · ")}` : ""}</p>
+          <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 p-3">
+            {alumnosVisibles.map(a => <label key={a.id} className="flex cursor-pointer items-center gap-2 py-1.5 text-sm"><input type="checkbox" checked={seleccionados.includes(a.id)} onChange={e => setSeleccionados(actuales => e.target.checked ? [...actuales, a.id] : actuales.filter(id => id !== a.id))} />{nombreAlumno(a)}</label>)}
+            {!alumnosVisibles.length && <p className="text-sm text-slate-500">No hay alumnos que coincidan con la búsqueda.</p>}
+          </div>
+          <p className="text-xs text-slate-500">El precio y el cobro corresponden a la clase completa. Los alumnos seleccionados quedan vinculados a su historial.</p>
+        </div>}
+      </section>
       <section><h3 className="mb-3 font-bold text-[#17324D]">Grupo y horario</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="text-sm">Nombre del grupo<input className={input} required maxLength={200} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Grupo belgas 1" /></label>
-        <label className="text-sm">Número de participantes<input className={input} type="number" min="1" step="1" required value={personas} onChange={e=>setPersonas(e.target.value)} /></label>
+        <label className="text-sm">{participantesRegistrados ? "Nombre de la clase (opcional)" : "Nombre del grupo"}<input className={input} required={!participantesRegistrados} maxLength={200} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder={participantesRegistrados ? "Se usará el nombre de los alumnos" : "Grupo belgas 1"} /></label>
+        <label className="text-sm">Número de participantes<input className={input} type="number" min="1" step="1" required readOnly={participantesRegistrados} value={participantesRegistrados ? seleccionados.length : personas} onChange={e=>setPersonas(e.target.value)} /></label>
         <label className="text-sm">Monitor<input className={input} required maxLength={200} list="monitores-puntuales" value={monitor} onChange={e=>setMonitor(e.target.value)} placeholder="Nombre del monitor" /><datalist id="monitores-puntuales">{[...new Set(["Fran",...monitores])].map(m=><option key={m} value={m}/>)}</datalist></label>
         <label className="text-sm">Fecha<input className={input} type="date" required value={fecha} onChange={e=>setFecha(e.target.value)}/></label>
         <label className="text-sm">Hora<input className={input} type="time" required value={hora} onChange={e=>setHora(e.target.value)}/></label>
