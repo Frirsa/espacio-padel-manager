@@ -40,7 +40,7 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
   const pago = pagos.find(p => p.clase_id === clase?.id && p.alumno_id === null);
   const [nombre, setNombre] = useState(clase?.nombre_grupo_libre || "");
   const [seleccionados, setSeleccionados] = useState<string[]>(clase?.clase_alumnos?.map(p => p.alumno_id) || []);
-  const [participantesRegistrados, setParticipantesRegistrados] = useState(Boolean(clase?.clase_alumnos?.length || (!clase && otroProfesor)));
+  const [participantesRegistrados, setParticipantesRegistrados] = useState(Boolean(clase?.clase_alumnos?.length));
   const [busquedaAlumno, setBusquedaAlumno] = useState("");
   const [personas, setPersonas] = useState(String(clase?.numero_participantes || 4));
   const [fecha, setFecha] = useState(clase?.fecha || fechaInicial || hoy());
@@ -65,6 +65,7 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
   const [observaciones, setObservaciones] = useState(clase?.observaciones || "");
   const guardandoRef = useRef(false);
   const claseGuardadaId = useRef(clase?.id || null);
+  const requiereSincronizarAlumnos = useRef(Boolean(clase?.clase_alumnos?.length));
   const nombresSeleccionados = alumnos.filter(a => seleccionados.includes(a.id)).map(nombreAlumno);
   const alumnosVisibles = alumnos.filter(a => `${a.nombre} ${a.apellidos || ""} ${a.apodo || ""}`.toLocaleLowerCase().includes(busquedaAlumno.trim().toLocaleLowerCase()));
   const [guardando, setGuardando] = useState(false);
@@ -77,7 +78,8 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
     try {
       if (participantesRegistrados && !seleccionados.length) throw new Error("Selecciona al menos un alumno registrado.");
       if (participantesRegistrados && nombresSeleccionados.length !== seleccionados.length) throw new Error("No se han podido cargar todos los alumnos seleccionados. Actualiza la lista antes de guardar.");
-      const nombreClase = nombre.trim() || nombresSeleccionados.join(" · ");
+      const nombreClase = nombre.trim() || (participantesRegistrados ? nombresSeleccionados.join(" · ") : "");
+      if (!nombreClase) throw new Error("Escribe un nombre o concepto para esta clase puntual.");
       const datos = {
         nombre_grupo_libre: nombreClase, numero_participantes: participantesRegistrados ? seleccionados.length : Number(personas),
         fecha, hora_inicio: hora, duracion_minutos: Number(duracion), ubicacion_id: ubicacion || null,
@@ -94,7 +96,11 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
       if (fallo || !id) throw new Error(fallo?.message || "No se ha podido guardar la clase");
       claseGuardadaId.current = String(id);
       try {
-        await sincronizarParticipantesPuntuales(supabase, String(id), participantesRegistrados ? seleccionados : [], cobrada && (estado !== "cancelada" || facturable));
+        if (participantesRegistrados) requiereSincronizarAlumnos.current = true;
+        if (requiereSincronizarAlumnos.current) {
+          await sincronizarParticipantesPuntuales(supabase, String(id), participantesRegistrados ? seleccionados : [], cobrada && (estado !== "cancelada" || facturable));
+          requiereSincronizarAlumnos.current = participantesRegistrados;
+        }
       } catch (e) {
         throw new Error(`La clase se ha guardado, pero falta completar la selección de alumnos. ${e instanceof Error ? e.message : "Error de conexión."} Vuelve a guardar para completar esta misma clase.`);
       }
@@ -114,14 +120,15 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
   }
 
   return <form onSubmit={guardar} className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-    <div className="rounded-xl bg-[#0F2742] p-4 text-white"><h2 className="text-xl font-bold">{clase ? "Editar clase puntual" : "Nueva clase puntual"}</h2><p className="mt-1 text-sm text-white/70">Con alumnos registrados o con un grupo de nombre libre.</p></div>
+    <div className="rounded-xl bg-[#0F2742] p-4 text-white"><h2 className="text-xl font-bold">{clase ? "Editar clase puntual" : "Nueva clase puntual"}</h2><p className="mt-1 text-sm text-white/70">Escribe un nombre o concepto libre, o selecciona alumnos registrados.</p></div>
     <fieldset disabled={guardando} className="mt-4 space-y-5">
       {otroProfesor && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Indica el profesor que dará esta clase. La no disponibilidad personal se aplica a Fran; otro profesor puede impartirla durante ese periodo.</p>}
       <section><h3 className="mb-3 font-bold text-[#17324D]">Participantes</h3>
         <div className="flex flex-wrap gap-2">
           <button type="button" aria-pressed={participantesRegistrados} onClick={() => setParticipantesRegistrados(true)} className={`rounded-xl border px-4 py-2 text-sm ${participantesRegistrados ? "border-[#00A79C] bg-[#E8F7F5] text-[#008C83]" : "border-slate-200"}`}>Alumnos registrados</button>
-          <button type="button" aria-pressed={!participantesRegistrados} onClick={() => setParticipantesRegistrados(false)} className={`rounded-xl border px-4 py-2 text-sm ${!participantesRegistrados ? "border-[#00A79C] bg-[#E8F7F5] text-[#008C83]" : "border-slate-200"}`}>Grupo libre</button>
+          <button type="button" aria-pressed={!participantesRegistrados} onClick={() => setParticipantesRegistrados(false)} className={`rounded-xl border px-4 py-2 text-sm ${!participantesRegistrados ? "border-[#00A79C] bg-[#E8F7F5] text-[#008C83]" : "border-slate-200"}`}>Nombre o concepto libre</button>
         </div>
+        {!participantesRegistrados && <p className="mt-3 text-sm text-slate-600">Puedes escribir el nombre de un grupo, de una persona o un concepto como «Alquiler de pista». No necesitas seleccionar ni dar de alta alumnos.</p>}
         {participantesRegistrados && <div className="mt-3 space-y-3">
           <label className="block text-sm">Seleccionar un grupo existente<select className={input} value="" onChange={e => { const grupo = grupos.find(g => g.id === e.target.value); if (grupo) { setSeleccionados([...new Set(grupo.grupo_alumnos.map(p => p.alumno_id))]); setNombre(grupo.nombre); } }}><option value="">Elegir grupo...</option>{grupos.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}</select></label>
           <label className="block text-sm">Buscar alumno<input className={input} value={busquedaAlumno} onChange={e => setBusquedaAlumno(e.target.value)} placeholder="Nombre, apellidos o apodo" /></label>
@@ -134,7 +141,7 @@ export default function FormularioClasePuntual({ clase, ubicaciones, monitores, 
         </div>}
       </section>
       <section><h3 className="mb-3 font-bold text-[#17324D]">Grupo y horario</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="text-sm">{participantesRegistrados ? "Nombre de la clase (opcional)" : "Nombre del grupo"}<input className={input} required={!participantesRegistrados} maxLength={200} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder={participantesRegistrados ? "Se usará el nombre de los alumnos" : "Grupo belgas 1"} /></label>
+        <label className="text-sm">{participantesRegistrados ? "Nombre de la clase (opcional)" : "Nombre o concepto"}<input className={input} required={!participantesRegistrados} maxLength={200} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder={participantesRegistrados ? "Se usará el nombre de los alumnos" : "Nombre de grupo, persona o concepto"} /></label>
         <label className="text-sm">Número de participantes<input className={input} type="number" min="1" step="1" required readOnly={participantesRegistrados} value={participantesRegistrados ? seleccionados.length : personas} onChange={e=>setPersonas(e.target.value)} /></label>
         <label className="text-sm">Monitor<input className={input} required maxLength={200} list="monitores-puntuales" value={monitor} onChange={e=>setMonitor(e.target.value)} placeholder="Nombre del monitor" /><datalist id="monitores-puntuales">{[...new Set(["Fran",...monitores])].map(m=><option key={m} value={m}/>)}</datalist></label>
         <label className="text-sm">Fecha<input className={input} type="date" required value={fecha} onChange={e=>setFecha(e.target.value)}/></label>
