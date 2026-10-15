@@ -12,6 +12,8 @@ import {
   ingresoTotalClase,
   resumirCostesOtrasPistas,
   type CosteOtraPista,
+  resumirCostesMonitores,
+  type CosteMonitor,
 } from "../lib/economia";
 
 const MESES = [
@@ -291,6 +293,7 @@ export default function Home() {
   const [gastosMonitorMes, setGastosMonitorMes] = useState(0);
 
   const [costesOtrasPistas, setCostesOtrasPistas] = useState<CosteOtraPista[]>([]);
+  const [costesMonitores, setCostesMonitores] = useState<CosteMonitor[]>([]);
 
   const [gastosPistaMes, setGastosPistaMes] =
     useState(0);
@@ -481,6 +484,7 @@ export default function Home() {
     );
     const clasesHastaHoy = clasesMes.filter((clase) => clase.fecha <= hoy);
     setCostesOtrasPistas(resumirCostesOtrasPistas(clasesHastaHoy));
+    setCostesMonitores(resumirCostesMonitores(clasesHastaHoy));
 
     const clasesRealizadas =
       clasesHastaHoy.filter(
@@ -2127,6 +2131,37 @@ export default function Home() {
               <p className="text-xl font-bold text-red-600">
                 {costesOtrasPistas.reduce((total, pista) => total + pista.coste, 0).toFixed(2)} €
               </p>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Incluido en los gastos del mes.</p>
+          </div>
+        </section>
+
+        <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
+          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+              Otros gastos
+            </p>
+            <h2 className="mt-0.5 text-lg font-bold text-white">Gastos de monitores</h2>
+            <p className="mt-1 text-xs text-white/50">
+              Costes de {mesSeleccionadoCapitalizado.toLowerCase()} hasta hoy
+            </p>
+          </div>
+          <div className="p-3 sm:p-4">
+            {costesMonitores.length > 0 ? (
+              <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {costesMonitores.map((monitor) => (
+                  <div key={monitor.clave} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <dt className="min-w-0 break-words text-sm font-semibold text-[#17324D]">{monitor.nombre}</dt>
+                    <dd className="shrink-0 text-lg font-bold text-red-600">{monitor.coste.toFixed(2)} €</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-slate-500">Sin gastos de monitores en este periodo.</p>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+              <p className="text-sm font-bold text-[#17324D]">Total monitores</p>
+              <p className="text-xl font-bold text-red-600">{gastosMonitorMes.toFixed(2)} €</p>
             </div>
             <p className="mt-2 text-xs text-slate-500">Incluido en los gastos del mes.</p>
           </div>

@@ -9,6 +9,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/economia.ts', 'utf8')
 }).outputText, { exports: exported });
 const { calcularEconomiaClase, recalcularImportesBonos } = exported;
 const { resumirCostesOtrasPistas } = exported;
+const { resumirCostesMonitores } = exported;
 const clase = { tipo: 'propia', estado: 'realizada', modo_cobro: 'total', importe_total: 100,
   coste_pista: 12, coste_monitor: 30, clase_alumnos: [], ubicaciones: { es_club_referencia: true } };
 
@@ -97,4 +98,41 @@ test('Otras pistas conserva costes sin ubicación y separa ubicaciones con el mi
   assert.equal(r.find(pista => pista.clave === 'b').coste, 10);
   assert.equal(r.find(pista => pista.nombre === 'Pista libre').coste, 12);
   assert.equal(r.find(pista => pista.nombre === 'Sin ubicación').coste, 12);
+});
+
+test('Monitores agrupa nombres y suma costes sin añadir las pistas ni depender del pago', () => {
+  const clases = [
+    { ...clase, monitor_nombre: ' Ana  López ', monitor_pagado: false },
+    { ...clase, monitor_nombre: 'ana lópez', monitor_pagado: true, coste_monitor: '25.50' },
+    { ...clase, monitor_nombre: 'Pedro', coste_monitor: 20, ubicaciones: { es_club_referencia: false } },
+  ];
+  const r = resumirCostesMonitores(clases);
+  assert.deepEqual(JSON.parse(JSON.stringify(r)), [
+    { clave: 'nombre:ana lópez', nombre: 'Ana López', coste: 55.5 },
+    { clave: 'nombre:pedro', nombre: 'Pedro', coste: 20 },
+  ]);
+  assert.equal(r.reduce((total, monitor) => total + monitor.coste, 0),
+    clases.reduce((total, c) => total + calcularEconomiaClase(c).gastoMonitor, 0));
+});
+
+test('Monitores omite programadas, canceladas y clases sin coste de monitor', () => {
+  const r = resumirCostesMonitores([
+    { ...clase, estado: 'programada' },
+    { ...clase, estado: 'cancelada', facturable: true },
+    { ...clase, estado: 'cancelada', facturable: false },
+    { ...clase, coste_monitor: null },
+    { ...clase, coste_monitor: 0 },
+  ]);
+  assert.equal(r.length, 0);
+  assert.equal(resumirCostesMonitores([]).length, 0);
+});
+
+test('Monitores conserva costes sin nombre y suma céntimos con precisión', () => {
+  const r = resumirCostesMonitores([
+    { ...clase, monitor_nombre: null, coste_monitor: 0.1 },
+    { ...clase, monitor_nombre: ' ', coste_monitor: 0.2 },
+  ]);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].nombre, 'Sin monitor indicado');
+  assert.equal(r[0].coste, 0.3);
 });
