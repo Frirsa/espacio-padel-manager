@@ -62,6 +62,7 @@ export function recalcularImportesBonos<
 }
 
 export type UbicacionEconomica = {
+  nombre?: string | null;
   es_club_referencia?: boolean | null;
 };
 
@@ -192,4 +193,35 @@ export function calcularEconomiaClase(clase: ClaseEconomica) {
     clubCobrado,
     pistasPagadasClub,
   };
+}
+
+export type CosteOtraPista = {
+  clave: string;
+  nombre: string;
+  coste: number;
+};
+
+// El periodo y el límite de fecha los aplica el dashboard antes de agrupar.
+export function resumirCostesOtrasPistas(
+  clases: readonly (ClaseEconomica & {
+    ubicacion_id?: string | null;
+    pista_nombre?: string | null;
+  })[]
+): CosteOtraPista[] {
+  const costes = new Map<string, CosteOtraPista>();
+
+  for (const clase of clases) {
+    if (esClaseClubReferencia(clase)) continue;
+    const coste = calcularEconomiaClase(clase).gastoPista;
+    if (!Number.isFinite(coste) || coste <= 0) continue;
+
+    const ubicacion = obtenerUbicacionEconomica(clase.ubicaciones);
+    const nombre = ubicacion?.nombre?.trim() || clase.pista_nombre?.trim() || "Sin ubicación";
+    const clave = clase.ubicacion_id || `nombre:${nombre}`;
+    const actual = costes.get(clave) || { clave, nombre, coste: 0 };
+    actual.coste = (Math.round(actual.coste * 100) + Math.round(coste * 100)) / 100;
+    costes.set(clave, actual);
+  }
+
+  return Array.from(costes.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }

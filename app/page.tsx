@@ -10,6 +10,8 @@ import {
   gastoMonitorClase,
   ingresoBaseClase,
   ingresoTotalClase,
+  resumirCostesOtrasPistas,
+  type CosteOtraPista,
 } from "../lib/economia";
 
 const MESES = [
@@ -288,6 +290,8 @@ export default function Home() {
 
   const [gastosMonitorMes, setGastosMonitorMes] = useState(0);
 
+  const [costesOtrasPistas, setCostesOtrasPistas] = useState<CosteOtraPista[]>([]);
+
   const [gastosPistaMes, setGastosPistaMes] =
     useState(0);
 
@@ -441,6 +445,7 @@ export default function Home() {
           id,
           fecha,
           duracion_minutos,
+          ubicacion_id,
           tipo,
           estado,
           facturable,
@@ -475,6 +480,7 @@ export default function Home() {
       recalcularImportesBonos(clase, bonosPrecioData || [])
     );
     const clasesHastaHoy = clasesMes.filter((clase) => clase.fecha <= hoy);
+    setCostesOtrasPistas(resumirCostesOtrasPistas(clasesHastaHoy));
 
     const clasesRealizadas =
       clasesHastaHoy.filter(
@@ -2092,6 +2098,39 @@ export default function Home() {
             </div>
           </section>
         </div>
+
+        <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
+          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+              Gastos de pistas
+            </p>
+            <h2 className="mt-0.5 text-lg font-bold text-white">Otras pistas</h2>
+            <p className="mt-1 text-xs text-white/50">
+              Costes de {mesSeleccionadoCapitalizado.toLowerCase()} hasta hoy · Excluye IQL
+            </p>
+          </div>
+          <div className="p-3 sm:p-4">
+            {costesOtrasPistas.length > 0 ? (
+              <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {costesOtrasPistas.map((pista) => (
+                  <div key={pista.clave} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <dt className="min-w-0 break-words text-sm font-semibold text-[#17324D]">{pista.nombre}</dt>
+                    <dd className="shrink-0 text-lg font-bold text-red-600">{pista.coste.toFixed(2)} €</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-slate-500">Sin gastos en otras pistas en este periodo.</p>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+              <p className="text-sm font-bold text-[#17324D]">Total otras pistas</p>
+              <p className="text-xl font-bold text-red-600">
+                {costesOtrasPistas.reduce((total, pista) => total + pista.coste, 0).toFixed(2)} €
+              </p>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Incluido en los gastos del mes.</p>
+          </div>
+        </section>
 
         {/* DETALLE DIARIO */}
         <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
