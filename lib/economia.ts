@@ -76,6 +76,7 @@ export type ClaseEconomica = {
   importe_club?: number | string | null;
   coste_pista?: number | string | null;
   coste_monitor?: number | string | null;
+  monitor_nombre?: string | null;
   ingreso_extra?: number | string | null;
   modo_cobro?: string | null;
   importe_total?: number | string | null;
@@ -218,6 +219,33 @@ export function resumirCostesOtrasPistas(
     const ubicacion = obtenerUbicacionEconomica(clase.ubicaciones);
     const nombre = ubicacion?.nombre?.trim() || clase.pista_nombre?.trim() || "Sin ubicación";
     const clave = clase.ubicacion_id || `nombre:${nombre}`;
+    const actual = costes.get(clave) || { clave, nombre, coste: 0 };
+    actual.coste = (Math.round(actual.coste * 100) + Math.round(coste * 100)) / 100;
+    costes.set(clave, actual);
+  }
+
+  return Array.from(costes.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+}
+
+export type CosteMonitor = {
+  clave: string;
+  nombre: string;
+  coste: number;
+};
+
+// Agrupa costes generados, independientemente de si ya se han pagado.
+// El dashboard aplica el periodo y el límite de fecha antes de agrupar.
+export function resumirCostesMonitores(clases: readonly ClaseEconomica[]): CosteMonitor[] {
+  const costes = new Map<string, CosteMonitor>();
+
+  for (const clase of clases) {
+    const coste = calcularEconomiaClase(clase).gastoMonitor;
+    if (!Number.isFinite(coste) || coste <= 0) continue;
+
+    const nombre = clase.monitor_nombre?.trim().replace(/\s+/g, " ") || "Sin monitor indicado";
+    const clave = clase.monitor_nombre?.trim()
+      ? `nombre:${nombre.toLocaleLowerCase("es")}`
+      : "sin-monitor";
     const actual = costes.get(clave) || { clave, nombre, coste: 0 };
     actual.coste = (Math.round(actual.coste * 100) + Math.round(coste * 100)) / 100;
     costes.set(clave, actual);
