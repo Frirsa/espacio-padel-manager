@@ -8,6 +8,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/economia.ts', 'utf8')
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
 }).outputText, { exports: exported });
 const { calcularEconomiaClase, recalcularImportesBonos } = exported;
+const { resumirCostesOtrasPistas } = exported;
 const clase = { tipo: 'propia', estado: 'realizada', modo_cobro: 'total', importe_total: 100,
   coste_pista: 12, coste_monitor: 30, clase_alumnos: [], ubicaciones: { es_club_referencia: true } };
 
@@ -56,4 +57,44 @@ test('El informe IQL utiliza el alquiler de pista y excluye al monitor de su sal
   const context = { clasesPropiasIQL: [clase, { ...clase, coste_monitor: 0 }], calcularEconomiaClase };
   vm.runInNewContext(fragment + '\nthis.total = totalAlquiler;', context);
   assert.equal(context.total, 24);
+});
+
+test('Otras pistas agrupa Alfaz, Cap Blanc y nuevas ubicaciones sin incluir IQL ni monitores', () => {
+  const alfaz = { ...clase, ubicacion_id: 'alfaz', ubicaciones: { nombre: 'Alfaz', es_club_referencia: false } };
+  const capBlanc = { ...clase, ubicacion_id: 'cap', coste_pista: '8.50', ubicaciones: [{ nombre: 'Cap Blanc', es_club_referencia: false }] };
+  const otra = { ...clase, ubicacion_id: 'otra', coste_pista: 4, ubicaciones: { nombre: 'Otra pista' } };
+  const r = resumirCostesOtrasPistas([alfaz, alfaz, capBlanc, otra, clase]);
+  assert.deepEqual(JSON.parse(JSON.stringify(r)), [
+    { clave: 'alfaz', nombre: 'Alfaz', coste: 24 },
+    { clave: 'cap', nombre: 'Cap Blanc', coste: 8.5 },
+    { clave: 'otra', nombre: 'Otra pista', coste: 4 },
+  ]);
+  assert.equal(r.reduce((total, pista) => total + pista.coste, 0), 36.5);
+});
+
+test('Otras pistas omite programadas, canceladas, costes nulos y periodos sin gastos', () => {
+  const propia = { ...clase, ubicaciones: { nombre: 'Alfaz' } };
+  const r = resumirCostesOtrasPistas([
+    { ...propia, estado: 'programada' },
+    { ...propia, estado: 'cancelada', facturable: true },
+    { ...propia, estado: 'cancelada', facturable: false },
+    { ...propia, coste_pista: null },
+  ]);
+  assert.equal(r.length, 0);
+  assert.equal(resumirCostesOtrasPistas([]).length, 0);
+});
+
+test('Otras pistas conserva costes sin ubicación y separa ubicaciones con el mismo nombre', () => {
+  const r = resumirCostesOtrasPistas([
+    { ...clase, ubicacion_id: 'a', ubicaciones: { nombre: 'Club' }, coste_pista: 0.1 },
+    { ...clase, ubicacion_id: 'a', ubicaciones: { nombre: 'Club' }, coste_pista: 0.2 },
+    { ...clase, ubicacion_id: 'b', ubicaciones: { nombre: 'Club' }, coste_pista: 10 },
+    { ...clase, ubicaciones: null, pista_nombre: 'Pista libre' },
+    { ...clase, ubicaciones: null },
+  ]);
+  assert.equal(r.length, 4);
+  assert.equal(r.find(pista => pista.clave === 'a').coste, 0.3);
+  assert.equal(r.find(pista => pista.clave === 'b').coste, 10);
+  assert.equal(r.find(pista => pista.nombre === 'Pista libre').coste, 12);
+  assert.equal(r.find(pista => pista.nombre === 'Sin ubicación').coste, 12);
 });
