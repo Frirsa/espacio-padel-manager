@@ -540,7 +540,7 @@ export default function VistaMensualAgenda({
       `/agenda?vista=mes&fecha=${fechaSeleccionada}`;
 
     window.location.href =
-      `/clases?fecha=${fecha}${ausenciaPersonal ? "&modo=puntual" : ""}&volver=${encodeURIComponent(
+      `/clases?fecha=${fecha}${ausenciaPersonal ? "&sustituto=1" : ""}&volver=${encodeURIComponent(
         volver
       )}`;
   }

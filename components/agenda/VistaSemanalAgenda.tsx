@@ -526,7 +526,7 @@ export default function VistaSemanalAgenda({
       `/agenda?vista=semana&fecha=${fechaSeleccionada}`;
 
     window.location.href =
-      `/clases?fecha=${fecha}${ausenciaPersonal ? "&modo=puntual" : ""}&volver=${encodeURIComponent(
+      `/clases?fecha=${fecha}${ausenciaPersonal ? "&sustituto=1" : ""}&volver=${encodeURIComponent(
         volver
       )}`;
   }

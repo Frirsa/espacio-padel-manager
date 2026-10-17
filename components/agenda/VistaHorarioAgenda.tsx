@@ -13,6 +13,7 @@ import SeleccionHorarioAgenda from "./SeleccionHorarioAgenda";
 
 type Clase = DatosClasePuntual & {
   id: string;
+  ubicacion_id?: string | null;
   google_calendar_event_id: string | null;
   google_calendar_synced_at: string | null;
   fecha: string;
@@ -1706,6 +1707,7 @@ export default function VistaHorarioAgenda({
     horaNueva: string,
     duracion: number
   ) {
+    const claseMovida = clases.find(c => c.id === claseId);
     const inicioNuevo =
       minutosDesdeMedianoche(
         horaNueva
@@ -1727,6 +1729,10 @@ export default function VistaHorarioAgenda({
         ) {
           return false;
         }
+
+        const mismoMonitor = (otraClase.monitor_nombre || "Fran").trim().toLocaleLowerCase("es") === (claseMovida?.monitor_nombre || "Fran").trim().toLocaleLowerCase("es");
+        const mismaPista = Boolean(claseMovida?.ubicacion_id && otraClase.ubicacion_id === claseMovida.ubicacion_id && claseMovida.pista_nombre?.trim() && otraClase.pista_nombre?.trim().toLocaleLowerCase("es") === claseMovida.pista_nombre.trim().toLocaleLowerCase("es"));
+        if (!mismoMonitor && !mismaPista) return false;
 
         const inicioOtra =
           minutosDesdeMedianoche(
@@ -1765,7 +1771,7 @@ export default function VistaHorarioAgenda({
     }
 
     if (
-      noDisponible(
+      (clase.monitor_nombre || "Fran").trim().toLocaleLowerCase("es") === "fran" && noDisponible(
         fechaNueva,
         hora,
         minuto,
@@ -2029,7 +2035,7 @@ export default function VistaHorarioAgenda({
   }
 
   function continuarCreacionDesdeAgenda(
-    modo: "individual" | "serie" | "puntual"
+    modo: "individual" | "serie"
   ) {
     if (!creacionPendiente) {
       return;
@@ -2057,10 +2063,7 @@ export default function VistaHorarioAgenda({
     const volver =
       `/agenda?vista=horario&fecha=${fechaSeleccionada}`;
 
-    // Durante la ausencia personal solo se ofrece el formulario con monitor.
-    // Su guardado comprueba en la base de datos que Fran no esté bloqueado.
-    if (creacionPendiente.motivoNoDisponibilidad && modo !== "puntual") return;
-    const parametroModo = modo === "individual" ? "" : `&modo=${modo}`;
+    const parametroModo = (modo === "individual" ? "" : `&modo=${modo}`) + (creacionPendiente.motivoNoDisponibilidad ? "&sustituto=1" : "");
 
     window.location.href =
       `/clases?fecha=${fecha}&hora=${encodeURIComponent(
@@ -2956,8 +2959,8 @@ export default function VistaHorarioAgenda({
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
               {creacionPendiente.motivoNoDisponibilidad
-                ? `Tu horario está marcado como no disponible: ${creacionPendiente.motivoNoDisponibilidad}. Puedes crear una clase puntual e indicar el profesor que la impartirá.`
-                : "Elige si quieres programar una sola clase, una serie recurrente o una clase puntual con otro profesor."}
+                ? `Tu horario está marcado como no disponible: ${creacionPendiente.motivoNoDisponibilidad}. Selecciona otro monitor en el formulario de la clase.`
+                : "Elige si quieres programar una clase o una serie. Podrás asignar el monitor en el formulario."}
             </p>
 
             <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -2974,7 +2977,7 @@ export default function VistaHorarioAgenda({
             </div>
 
             <div className="mt-5 grid gap-3">
-              {!creacionPendiente.motivoNoDisponibilidad && <>
+              <>
               <button
                 type="button"
                 onClick={() =>
@@ -2998,11 +3001,8 @@ export default function VistaHorarioAgenda({
               >
                 Serie recurrente
               </button>
-              </>}
-              <button type="button" onClick={() => continuarCreacionDesdeAgenda("puntual")}
-                className="rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-5 py-3 text-left font-semibold text-[#008C83]">
-                Clase puntual con otro profesor
-              </button>
+              </>
+
             </div>
 
             <button

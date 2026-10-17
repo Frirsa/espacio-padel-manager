@@ -43,18 +43,19 @@ test('Pulsar un horario de vacaciones abre la creación con otro profesor', () =
   assert.ok(boton); assert.ok(!boton.props.disabled);
   boton.props.onClick();
   const dialogo = app.render();
-  assert.equal(nodos(dialogo, n => n.type === 'button' && texto(n) === 'Clase individual').length, 0);
-  assert.equal(nodos(dialogo, n => n.type === 'button' && texto(n) === 'Serie recurrente').length, 0);
-  nodos(dialogo, n => n.type === 'button' && texto(n) === 'Clase puntual con otro profesor')[0].props.onClick();
+  assert.equal(nodos(dialogo, n => n.type === 'button' && texto(n) === 'Clase individual').length, 1);
+  assert.equal(nodos(dialogo, n => n.type === 'button' && texto(n) === 'Serie recurrente').length, 1);
+  nodos(dialogo, n => n.type === 'button' && texto(n) === 'Clase individual')[0].props.onClick();
   const url = new URL(app.window.location.href, 'https://manager.espaciopadel.com');
-  assert.equal(url.searchParams.get('modo'), 'puntual');
+  assert.equal(url.searchParams.get('modo'), null);
+  assert.equal(url.searchParams.get('sustituto'), '1');
   assert.equal(url.searchParams.get('fecha'), '2026-10-19');
 });
 test('Seleccionar un tramo de vacaciones conserva hora y duración', () => {
   const app = montar('components/agenda/VistaHorarioAgenda.tsx', props);
   const columna = nodos(app.render(), n => n.props?.onSeleccion && n.props?.estaBloqueado)[0];
   columna.props.onSeleccion(630, 90);
-  nodos(app.render(), n => n.type === 'button' && texto(n) === 'Clase puntual con otro profesor')[0].props.onClick();
+  nodos(app.render(), n => n.type === 'button' && texto(n) === 'Clase individual')[0].props.onClick();
   const url = new URL(app.window.location.href, 'https://manager.espaciopadel.com');
   assert.equal(url.searchParams.get('hora'), '10:30');
   assert.equal(url.searchParams.get('duracion'), '90');

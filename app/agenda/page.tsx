@@ -54,6 +54,7 @@ type NoDisponibilidad = {
 
 type Clase = DatosClasePuntual & {
   id: string;
+  ubicacion_id: string | null;
   serie_id: string | null;
   google_calendar_event_id: string | null;
   google_calendar_synced_at: string | null;
@@ -369,7 +370,7 @@ export default function AgendaPage() {
         observaciones,
         modo_cobro,
         importe_total,
-        nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+        ubicacion_id, nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
         ubicaciones (
           nombre,
           tipo

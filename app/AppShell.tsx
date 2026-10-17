@@ -34,6 +34,7 @@ const menu: Array<{
   { nombre: "Clases", ruta: "/clases", icono: "clases" },
   { nombre: "Alumnos", ruta: "/alumnos", icono: "alumnos" },
   { nombre: "Grupos", ruta: "/grupos", icono: "grupos" },
+  { nombre: "Monitores", ruta: "/monitores", icono: "alumnos" },
   { nombre: "Ubicaciones", ruta: "/ubicaciones", icono: "ubicaciones" },
   { nombre: "No disponibilidad", ruta: "/no-disponibilidad", icono: "nodisponibilidad" },
   { nombre: "Disponibilidad", ruta: "/disponibilidad", icono: "disponibilidad" },
