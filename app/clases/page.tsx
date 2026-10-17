@@ -4,7 +4,8 @@ import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import FormularioClasePuntual from "../../components/clases/FormularioClasePuntual";
+import CamposMonitor from "../../components/clases/CamposMonitor";
+import { cargarMonitores, type Monitor } from "../../lib/monitores";
 import { detalleClasePuntual } from "../../lib/clasesPuntuales";
 import { recalcularImportesBonos } from "../../lib/economia";
 import {
@@ -1124,8 +1125,31 @@ function CampoEstadoClases({
 }
 
 export default function ClasesPage() {
-  const [puntual, setPuntual] = useState<{ clase: Clase | null } | null>(null);
-  const [otroProfesorDesdeAgenda, setOtroProfesorDesdeAgenda] = useState(false);
+  const [monitores, setMonitores] = useState<Monitor[]>([]);
+  const [monitorNombre, setMonitorNombre] = useState("Fran");
+  const [costeMonitor, setCosteMonitor] = useState("0");
+  const [monitorPagado, setMonitorPagado] = useState(false);
+  const [fechaPagoMonitor, setFechaPagoMonitor] = useState("");
+  const [metodoPagoMonitor, setMetodoPagoMonitor] = useState("efectivo");
+  const [conceptoLibre, setConceptoLibre] = useState(false);
+  const [nombreConcepto, setNombreConcepto] = useState("");
+  const [numeroPersonas, setNumeroPersonas] = useState("1");
+  const [pistaNombre, setPistaNombre] = useState("");
+  const [fechaCobroTotal, setFechaCobroTotal] = useState("");
+  const guardandoClaseRef = useRef(false);
+  const [guardandoClase, setGuardandoClase] = useState(false);
+
+  useEffect(() => {
+    const refrescar = () => { cargarMonitores().then(setMonitores).catch(() => {}); };
+    window.addEventListener("focus", refrescar);
+    return () => window.removeEventListener("focus", refrescar);
+  }, []);
+
+  function datosMonitor() {
+    return { monitor_nombre: monitorNombre, coste_monitor: Number(costeMonitor),
+      monitor_pagado: monitorPagado, fecha_pago_monitor: monitorPagado ? fechaPagoMonitor : null,
+      metodo_pago_monitor: monitorPagado ? metodoPagoMonitor : null, pista_nombre: pistaNombre.trim() || null };
+  }
   const [alumnos, setAlumnos] =
     useState<Alumno[]>([]);
 
@@ -1505,9 +1529,8 @@ export default function ClasesPage() {
         setModoCreacion("individual");
       }
 
-      setFormularioAbierto(modoDesdeAgenda !== "puntual");
-      setOtroProfesorDesdeAgenda(modoDesdeAgenda === "puntual");
-      if (modoDesdeAgenda === "puntual") setPuntual({ clase: null });
+      setFormularioAbierto(true);
+      if (modoDesdeAgenda === "puntual" || parametros.get("sustituto") === "1") setMensaje("Selecciona el monitor que impartirá la clase durante tu ausencia.");
 
       const url =
         new URL(
@@ -1684,6 +1707,9 @@ export default function ClasesPage() {
         .select(
           "bono_id,alumno_id"
         );
+
+    try { setMonitores(await cargarMonitores()); }
+    catch (error) { setMensaje(`❌ ${error instanceof Error ? error.message : "No se pudieron cargar los monitores"}`); }
 
     const {
       data: clasesData,
@@ -1935,8 +1961,9 @@ export default function ClasesPage() {
     setFacturableCancelacion(null);
     setMotivoCancelacion("");
     setObservaciones("");
-    setPuntual(null);
-    setOtroProfesorDesdeAgenda(false);
+    setMonitorNombre("Fran"); setCosteMonitor("0"); setMonitorPagado(false);
+    setFechaPagoMonitor(""); setMetodoPagoMonitor("efectivo"); setConceptoLibre(false);
+    setNombreConcepto(""); setNumeroPersonas("1"); setPistaNombre(""); setFechaCobroTotal("");
 
     setAlumnosSeleccionados(
       []
@@ -2262,6 +2289,8 @@ export default function ClasesPage() {
   }
 
 
+  const conceptoExistente = Boolean(claseEditandoId && clases.find(c => c.id === claseEditandoId)?.nombre_grupo_libre);
+
   const hayBonoSeleccionado =
     alumnosSeleccionados.some(
       (alumnoId) =>
@@ -2270,6 +2299,7 @@ export default function ClasesPage() {
     );
 
   useEffect(() => {
+    if (conceptoLibre || nombreConcepto || conceptoExistente) { setModoCobroClase("total"); return; }
     if (
       tipo === "club" ||
       hayBonoSeleccionado
@@ -2306,6 +2336,9 @@ export default function ClasesPage() {
       );
     }
   }, [
+    conceptoLibre,
+    nombreConcepto,
+    conceptoExistente,
     tipo,
     hayBonoSeleccionado,
     alumnosSeleccionados.length,
@@ -2523,7 +2556,7 @@ export default function ClasesPage() {
       );
     }
 
-    if (
+    if (!nombreConcepto && !conceptoExistente &&
       primerAlumno
         ?.tipo_clase_habitual
     ) {
@@ -2591,7 +2624,7 @@ export default function ClasesPage() {
           );
 
         const tieneBono =
-          bonosAlumno.length >
+          !nombreConcepto && !conceptoExistente && bonosAlumno.length >
           0;
 
         nuevosModos[
@@ -2847,11 +2880,11 @@ export default function ClasesPage() {
     if (
       alumnosSeleccionados.length === 0
     ) {
-      const tipoHabitual =
+      const tipoHabitual = nombreConcepto || conceptoExistente ? tipo :
         alumno.tipo_clase_habitual ||
         tipo;
 
-      if (alumno.tipo_clase_habitual) {
+      if (alumno.tipo_clase_habitual && !nombreConcepto && !conceptoExistente) {
         setTipo(
           alumno.tipo_clase_habitual
         );
@@ -2894,7 +2927,7 @@ export default function ClasesPage() {
       );
 
     const tieneBono =
-      bonosAlumno.length >
+      !nombreConcepto && !conceptoExistente && bonosAlumno.length >
       0;
 
     setAlumnosSeleccionados(
@@ -3031,12 +3064,13 @@ export default function ClasesPage() {
   function editarClase(
     clase: Clase
   ) {
-    if (clase.nombre_grupo_libre) {
-      setFormularioAbierto(false);
-      setPuntual({ clase });
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
+    setMonitorNombre(clase.monitor_nombre || "Fran"); setCosteMonitor(String(clase.coste_monitor ?? 0));
+    setMonitorPagado(Boolean(clase.monitor_pagado)); setFechaPagoMonitor(clase.fecha_pago_monitor || "");
+    setMetodoPagoMonitor(clase.metodo_pago_monitor || "efectivo");
+    setConceptoLibre(Boolean(clase.nombre_grupo_libre && !clase.clase_alumnos.length));
+    setNombreConcepto(clase.nombre_grupo_libre || ""); setNumeroPersonas(String(clase.numero_participantes || 1));
+    setPistaNombre(clase.pista_nombre || "");
+    setFechaCobroTotal(pagosClase.find(p => p.clase_id === clase.id && !p.alumno_id)?.fecha_pago?.slice(0, 10) || "");
     setClaseEditandoId(
       clase.id
     );
@@ -3681,11 +3715,11 @@ export default function ClasesPage() {
       tipo,
       estado: estadoClase,
       observaciones:
-        detalleGoogle || null,
+        [`Monitor: ${monitorNombre}`, pistaNombre ? `Pista: ${pistaNombre}` : "", detalleGoogle].filter(Boolean).join("\n"),
       ubicacion,
       tipo_ubicacion:
         tipoUbicacion,
-      alumnos: nombres,
+      alumnos: conceptoLibre ? [nombreConcepto] : nombres,
     };
   }
 
@@ -3727,7 +3761,7 @@ export default function ClasesPage() {
 
     setCreandoSerie(true);
 
-    const bloqueosSerie =
+    const bloqueosSerie = monitorNombre.trim().toLocaleLowerCase("es") !== "fran" ? [] :
       await obtenerNoDisponibilidadesSerie(
         fechas,
         hora,
@@ -3813,9 +3847,7 @@ export default function ClasesPage() {
 
     const importeTotalFinalSerie =
       modoCobroFinalSerie === "total"
-        ? Math.floor(
-            Number(importeTotalClase)
-          )
+        ? Math.round(Number(importeTotalClase) * 100) / 100
         : null;
 
     if (
@@ -4016,6 +4048,7 @@ export default function ClasesPage() {
     const registrosClases =
       fechasDisponibles.map(
         (fechaClase) => ({
+          ...datosMonitor(),
           fecha:
             fechaClase,
           hora_inicio:
@@ -4058,7 +4091,7 @@ export default function ClasesPage() {
         errorSerie,
     } =
       await supabase.rpc(
-        "crear_serie_atomica",
+        "crear_serie_con_monitor",
         {
           p_datos_serie: {
             fecha_inicio:
@@ -4552,9 +4585,17 @@ export default function ClasesPage() {
     );
   }
 
-  async function guardarClase(
-    e: React.FormEvent
-  ) {
+  async function guardarClase(e: React.FormEvent) {
+    e.preventDefault();
+    if (guardandoClaseRef.current) return;
+    if (!monitorNombre || !Number.isFinite(Number(costeMonitor)) || Number(costeMonitor) < 0) { setMensaje("❌ Revisa el monitor y su coste."); return; }
+    guardandoClaseRef.current = true; setGuardandoClase(true);
+    try { await guardarClaseInterna(e); }
+    catch (error) { setMensaje(`❌ ${error instanceof Error ? error.message : "Error al guardar la clase"}`); }
+    finally { guardandoClaseRef.current = false; setGuardandoClase(false); }
+  }
+
+  async function guardarClaseInterna(e: React.FormEvent) {
     e.preventDefault();
 
     setMensaje("");
@@ -4568,7 +4609,9 @@ export default function ClasesPage() {
       return;
     }
 
-    if (!claseEditandoId) {
+    const horarioAnterior = clases.find(c => c.id === claseEditandoId);
+    const cambiaHorario = !horarioAnterior || horarioAnterior.fecha !== fecha || horarioAnterior.hora_inicio.slice(0,5) !== hora.slice(0,5) || horarioAnterior.duracion_minutos !== Number(duracion) || (horarioAnterior.monitor_nombre || "Fran") !== monitorNombre;
+    if (cambiaHorario && monitorNombre.trim().toLocaleLowerCase("es") === "fran" && estado !== "cancelada") {
       const bloqueo =
         await obtenerNoDisponibilidad(
           fecha,
@@ -4605,6 +4648,51 @@ export default function ClasesPage() {
     }
 
     if (
+      estado === "cancelada" &&
+      facturableCancelacion === null
+    ) {
+      setMensaje(
+        "❌ Elige si la clase cancelada se cobra o no se cobra."
+      );
+      return;
+    }
+
+    if (
+      estado === "cancelada" &&
+      motivoCancelacion.trim().length === 0
+    ) {
+      setMensaje(
+        "❌ Indica el motivo de la cancelación."
+      );
+      return;
+    }
+
+    if (conceptoLibre || nombreConcepto || conceptoExistente) {
+      if (hayBonoSeleccionado) { setMensaje("❌ Esta clase ya tiene un cobro puntual. Para conservar su historial, gestiona las nuevas clases de bono con alumnos registrados."); return; }
+      if (!nombreConcepto.trim() || (conceptoLibre && !Number.isInteger(Number(numeroPersonas)))) { setMensaje("❌ Revisa el concepto y el número de participantes."); return; }
+      const anterior = clases.find(c => c.id === claseEditandoId);
+      const { data: id, error } = await supabase.rpc("guardar_clase_con_monitor", {
+        p_clase_id: claseEditandoId || null,
+        p_datos_clase: { ...datosMonitor(), nombre_grupo_libre: nombreConcepto.trim(), numero_participantes: conceptoLibre ? Number(numeroPersonas) : alumnosSeleccionados.length,
+          fecha, hora_inicio: hora, duracion_minutos: Number(duracion), ubicacion_id: ubicacionId || null, tipo,
+          importe_total: Number(importeTotalClase), coste_pista: Number(costePista || 0), cobrada: estadoPagoTotal === "pagado",
+          metodo_cobro: metodoPagoTotal, fecha_cobro: fechaCobroTotal || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`,
+          estado, facturable: estado !== "cancelada" || facturableCancelacion === true,
+          motivo_cancelacion: motivoCancelacion.trim() || null, observaciones: observaciones.trim() || null },
+        p_participantes: conceptoLibre ? [] : alumnosSeleccionados.map(alumno_id => ({ alumno_id })),
+        p_uso_anterior: {}, p_uso_nuevo: {}, p_metodos_pago: {}, p_metodo_pago_total: metodoPagoTotal,
+      });
+      if (error || !id) { setMensaje(`❌ ${error?.message || "No se pudo guardar la clase"}`); return; }
+      setClaseEditandoId(String(id));
+      let aviso = "✅ Clase guardada.";
+      try { await sincronizarClaseConGoogleCalendar(datosGoogleDesdeFormulario(String(id), anterior?.google_calendar_event_id, fecha, estado)); }
+      catch { aviso += " No se pudo sincronizar con Google Calendar."; }
+      if (volverAlOrigenSiExiste()) return;
+      limpiarFormulario(); setFormularioAbierto(false); await cargarDatos(); setMensaje(aviso); return;
+    }
+    if (!alumnosSeleccionados.length) { setMensaje("❌ Selecciona alumnos o utiliza Nombre o concepto libre."); return; }
+
+    if (
       tipo !==
       "club"
     ) {
@@ -4628,26 +4716,6 @@ export default function ClasesPage() {
           return;
         }
       }
-    }
-
-    if (
-      estado === "cancelada" &&
-      facturableCancelacion === null
-    ) {
-      setMensaje(
-        "❌ Elige si la clase cancelada se cobra o no se cobra."
-      );
-      return;
-    }
-
-    if (
-      estado === "cancelada" &&
-      motivoCancelacion.trim().length === 0
-    ) {
-      setMensaje(
-        "❌ Indica el motivo de la cancelación."
-      );
-      return;
     }
 
     const claseAnterior =
@@ -4698,9 +4766,7 @@ export default function ClasesPage() {
 
     const importeTotalFinal =
       modoCobroFinal === "total"
-        ? Math.floor(
-            Number(importeTotalClase)
-          )
+        ? Math.round(Number(importeTotalClase) * 100) / 100
         : null;
 
     if (
@@ -4924,6 +4990,9 @@ export default function ClasesPage() {
       );
 
     const datosClase = {
+      ...datosMonitor(),
+      nombre_grupo_libre: nombreConcepto.trim() || null,
+      numero_participantes: conceptoLibre ? Number(numeroPersonas) : alumnosSeleccionados.length,
       fecha,
 
       hora_inicio:
@@ -5120,7 +5189,7 @@ export default function ClasesPage() {
               errorGuardarClase,
           } =
             await supabase.rpc(
-              "guardar_clase_atomica",
+              "guardar_clase_con_monitor",
               {
                 p_clase_id:
                   claseObjetivo.id,
@@ -5232,7 +5301,7 @@ export default function ClasesPage() {
         errorClase,
     } =
       await supabase.rpc(
-        "guardar_clase_atomica",
+        "guardar_clase_con_monitor",
         {
           p_clase_id:
             claseEditandoId ||
@@ -5729,9 +5798,9 @@ export default function ClasesPage() {
             </div>
           </div>
 
-          {!formularioAbierto && !puntual && (
+          {!formularioAbierto && (
             <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/10 pt-4 sm:mt-5 sm:flex sm:justify-end">
-              <button type="button" onClick={() => { limpiarFormulario(); setMensaje(""); setPuntual({ clase: null }); }} className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white sm:text-sm">+ Clase puntual sin alumnos</button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -5768,11 +5837,6 @@ export default function ClasesPage() {
             </div>
           )}
         </section>
-
-        {puntual && <FormularioClasePuntual key={puntual.clase?.id || "nueva"} clase={puntual.clase} ubicaciones={ubicaciones} alumnos={alumnos} grupos={grupos} otroProfesor={otroProfesorDesdeAgenda}
-          monitores={clases.map(c => c.monitor_nombre || "").filter(Boolean)} pagos={pagosClase} fechaInicial={fecha} horaInicial={hora} duracionInicial={Number(duracion)}
-          onCancelar={() => { if (!volverAlOrigenSiExiste()) setPuntual(null); }}
-          onGuardada={async aviso => { setPuntual(null); setMensaje(aviso); if (!volverAlOrigenSiExiste()) await cargarDatos(); }} />}
 
         {formularioAbierto && (
         <form
@@ -5841,8 +5905,21 @@ export default function ClasesPage() {
 
           </div>
 
-          {!claseEditandoId && modoCreacion === "individual" && <button type="button" onClick={() => { setFormularioAbierto(false); setPuntual({ clase: null }); }} className="mt-4 rounded-xl border border-[#00A79C]/30 bg-[#E8F7F5] px-4 py-2.5 text-sm font-bold text-[#008C83]">Crear clase puntual sin dar de alta alumnos</button>}
+          <CamposMonitor monitores={monitores} nombre={monitorNombre} coste={costeMonitor} pagado={monitorPagado}
+            fecha={fechaPagoMonitor} metodo={metodoPagoMonitor} onNombre={setMonitorNombre} onCoste={setCosteMonitor}
+            onPagado={setMonitorPagado} onFecha={setFechaPagoMonitor} onMetodo={setMetodoPagoMonitor} />
+          {modoCreacion === "individual" && (!claseEditandoId || conceptoExistente) && <div className="mt-4 flex gap-2">
+            <button type="button" onClick={() => { setConceptoLibre(false); if (!conceptoExistente) setNombreConcepto(""); setModoCobroManual(false); }} className="rounded-xl border px-4 py-2 text-sm" aria-pressed={!conceptoLibre}>Alumnos registrados</button>
+            <button type="button" onClick={() => { setConceptoLibre(true); setTipo("propia"); setAlumnosSeleccionados([]); setGrupoId(""); setModoCobroClase("total"); setModoCobroManual(true); }} className="rounded-xl border px-4 py-2 text-sm" aria-pressed={conceptoLibre}>Nombre o concepto libre</button>
+          </div>}
+          {(nombreConcepto || conceptoExistente) && !conceptoLibre && <label className="mt-4 block text-sm">Nombre de la clase<input value={nombreConcepto} onChange={e => setNombreConcepto(e.target.value)} required className="mt-1 w-full rounded-xl border px-3 py-2" /></label>}
+          {conceptoLibre && <section className="mt-4 grid gap-3 rounded-2xl border bg-white p-4 sm:grid-cols-2">
+            <label className="text-sm">Nombre o concepto<input required value={nombreConcepto} onChange={e => setNombreConcepto(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
+            <label className="text-sm">Número de participantes<input required type="number" min="1" step="1" value={numeroPersonas} onChange={e => setNumeroPersonas(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
+          </section>}
 
+
+          {!conceptoLibre && <>
           <section className="relative z-10 mt-4 overflow-visible rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
 
               <div className="-mx-4 -mt-4 mb-4 flex flex-col gap-2 rounded-t-2xl bg-[#0F2742] px-4 py-3.5 text-white sm:flex-row sm:items-center sm:justify-between">
@@ -6167,6 +6244,7 @@ export default function ClasesPage() {
 
             </section>
 
+          </>}
           <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
             <div className="border-b border-slate-100 bg-[#0F2742]/[0.035] px-4 py-3.5">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#17324D]">
@@ -6179,6 +6257,7 @@ export default function ClasesPage() {
 
             <div className="p-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <label className="text-xs font-bold text-slate-500">Pista (opcional)<input value={pistaNombre} onChange={e => setPistaNombre(e.target.value)} placeholder="Pista 1" className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-normal" /></label>
 
             <CampoFechaAgenda
               etiqueta={
@@ -6512,7 +6591,7 @@ export default function ClasesPage() {
                         );
 
                       const tieneBono =
-                        bonosAlumno.length >
+                        !nombreConcepto && !conceptoExistente && bonosAlumno.length >
                         0;
 
                       nuevosModos[
@@ -6641,9 +6720,9 @@ export default function ClasesPage() {
                 }}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               >
-                <option value="club">
+                {!conceptoLibre && !nombreConcepto && !conceptoExistente && <option value="club">
                   Clase para club
-                </option>
+                </option>}
 
                 <option value="propia">
                   Clase propia en club / pista de pago
@@ -6747,6 +6826,14 @@ export default function ClasesPage() {
 
           )}
 
+          {conceptoLibre && <section className="mt-4 grid gap-3 rounded-2xl border bg-white p-4 sm:grid-cols-2">
+            <label className="text-sm">Importe total de la clase (€)<input required type="number" min="0" step="0.01" value={importeTotalClase} onChange={e => setImporteTotalClase(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
+            <label className="text-sm">Coste de pista (€)<input required type="number" min="0" step="0.01" value={costePista} onChange={e => setCostePista(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
+            <label className="text-sm">Estado del cobro<select value={estadoPagoTotal} onChange={e => setEstadoPagoTotal(e.target.value as "pagado" | "pendiente")} className="mt-1 w-full rounded-xl border px-3 py-2"><option value="pendiente">Pendiente</option><option value="pagado">Pagado</option></select></label>
+            <label className="text-sm">Método de cobro<select value={metodoPagoTotal} onChange={e => setMetodoPagoTotal(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2">{["efectivo", "bizum", "transferencia", "tarjeta"].map(m => <option key={m}>{m}</option>)}</select></label>
+          </section>}
+          {nombreConcepto && <label className="mt-3 block text-sm">Fecha del cobro<input type="date" value={fechaCobroTotal} onChange={e => setFechaCobroTotal(e.target.value)} className="ml-3 rounded-xl border px-3 py-2" /></label>}
+          <div hidden={conceptoLibre}>
           <div
             className={
               tipo ===
@@ -7025,7 +7112,7 @@ export default function ClasesPage() {
                             <input
                               type="number"
                               min="0"
-                              step="1"
+                              step="0.01"
                               value={
                                 importeTotalClase
                               }
@@ -7218,6 +7305,8 @@ export default function ClasesPage() {
 
                                 <button
                                   type="button"
+                                  disabled={Boolean(nombreConcepto || conceptoExistente)}
+                                  title={nombreConcepto ? "Esta clase conserva su cobro puntual" : undefined}
                                   onClick={() => {
                                     setModoPagoAlumnos(
                                       (
@@ -7795,6 +7884,8 @@ export default function ClasesPage() {
             </div>
           </section>
 
+          </div>
+          {conceptoLibre && <label className="mt-4 block text-sm">Estado de la clase<select value={estado} onChange={e => setEstado(e.target.value)} className="ml-3 rounded-xl border px-3 py-2"><option value="programada">Programada</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></label>}
           {estado === "cancelada" && (
             <div className="mt-4 rounded-2xl border border-red-200 bg-red-50/70 p-4">
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-700">
@@ -7910,10 +8001,10 @@ export default function ClasesPage() {
 
               <button
                 type="button"
-                disabled={
+                disabled={guardandoClase || (
                   modoCreacion ===
                     "serie" &&
-                  creandoSerie
+                  creandoSerie)
                 }
                 onClick={() => {
                   if (
@@ -7943,10 +8034,10 @@ export default function ClasesPage() {
 
               <button
                 type="submit"
-                disabled={
+                disabled={guardandoClase || (
                   modoCreacion ===
                     "serie" &&
-                  creandoSerie
+                  creandoSerie)
                 }
                 className="h-11 min-w-[180px] rounded-xl bg-[#00A79C] px-6 text-sm font-bold text-white shadow-[0_8px_20px_rgba(0,167,156,0.12)] transition hover:bg-[#008C83] disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -8406,6 +8497,7 @@ export default function ClasesPage() {
                           </div>
                         </div>
 
+                        <p className="mt-3 text-xs text-slate-500">Monitor: {clase.monitor_nombre || "Fran"}{Number(clase.coste_monitor || 0) > 0 ? ` · ${Number(clase.coste_monitor).toFixed(2)} € · ${clase.monitor_pagado ? "Pagado" : "Pendiente"}` : ""}</p>
                         {clase.clase_alumnos.length >
                         0 ? (
                           <div className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-[#FBFCFD]">
@@ -8473,6 +8565,7 @@ export default function ClasesPage() {
                           </div>
                         ) : (
                           <p className="mt-3 text-xs font-medium text-slate-400">
+
                             {clase.nombre_grupo_libre ? <><strong className="block text-sm text-[#17324D]">{clase.nombre_grupo_libre}</strong><span className="mt-1 block">{detalleClasePuntual(clase)}</span><span className="mt-2 block">Monitor: {Number(clase.coste_monitor || 0).toFixed(2)} € · {Number(clase.coste_monitor || 0) === 0 ? "Sin coste" : clase.monitor_pagado ? `Pagado (${clase.fecha_pago_monitor})` : "Pendiente"}</span></> : "Sin alumnos asignados."}
                           </p>
                         )}

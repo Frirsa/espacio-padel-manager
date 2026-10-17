@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 const tablas = [
+  "monitores",
   "alumnos",
   "ubicaciones",
   "grupos",
@@ -17,6 +18,7 @@ const tablas = [
 ];
 
 const ordenBorrado = [
+  "monitores",
   "pagos",
   "clase_alumnos",
   "bono_alumnos",
@@ -30,6 +32,7 @@ const ordenBorrado = [
 ];
 
 const ordenRestauracion = [
+  "monitores",
   "alumnos",
   "ubicaciones",
   "grupos",
@@ -210,6 +213,7 @@ export default function CopiasPage() {
       );
     }
 
+    if (!Object.prototype.hasOwnProperty.call(datos.tablas, "monitores")) datos.tablas.monitores = [];
     for (const tabla of tablas) {
       if (!Array.isArray(datos.tablas[tabla])) {
         throw new Error(
