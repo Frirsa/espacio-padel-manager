@@ -1,5 +1,7 @@
 "use client";
 
+import EtiquetaMonitor from "./EtiquetaMonitor";
+
 import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
 
 import { useEffect, useState } from "react";
@@ -2517,7 +2519,7 @@ export default function VistaHorarioAgenda({
                     }}
                     title={
                       canceladaSolapada
-                        ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                        ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre || "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
                         : "Abrir acciones rápidas"
                     }
                   >
@@ -2528,8 +2530,9 @@ export default function VistaHorarioAgenda({
                         </span>
                         <span className="shrink-0 opacity-50">·</span>
                         <span className="min-w-0 truncate">
-                          {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                          {alumnos || (clase.nombre_grupo_libre || "Sin alumnos")}
                         </span>
+                        <EtiquetaMonitor nombre={clase.monitor_nombre} className="min-w-0 truncate" />
                         <span className="shrink-0 opacity-50">·</span>
                         <span className="shrink-0">
                           {clase.hora_inicio.slice(0, 5)}–{horaFinVisual}
@@ -2568,12 +2571,14 @@ export default function VistaHorarioAgenda({
                           className="mt-1 line-clamp-2 pr-1 text-xs font-extrabold leading-[1.15]"
                           title={
                             alumnos ||
-                            (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")
+                            (clase.nombre_grupo_libre || "Sin alumnos")
                           }
                         >
                           {alumnos ||
-                            (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                            (clase.nombre_grupo_libre || "Sin alumnos")}
                         </div>
+
+                        <EtiquetaMonitor nombre={clase.monitor_nombre} />
 
                         {clase.duracion_minutos >=
                           60 &&
@@ -2875,7 +2880,7 @@ export default function VistaHorarioAgenda({
                         }}
                         title={
                           canceladaSolapada
-                            ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                            ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre || "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
                             : clase.nombre_grupo_libre ? "Editar clase puntual" : clase.estado === "programada"
                             ? "Pulsa para acciones rápidas o arrastra para mover"
                             : "Abrir acciones rápidas"
@@ -2888,8 +2893,9 @@ export default function VistaHorarioAgenda({
                             </span>
                             <span className="shrink-0 opacity-50">·</span>
                             <span className="min-w-0 truncate">
-                              {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                              {alumnos || (clase.nombre_grupo_libre || "Sin alumnos")}
                             </span>
+                        <EtiquetaMonitor nombre={clase.monitor_nombre} className="min-w-0 truncate" />
                             <span className="shrink-0 opacity-50">·</span>
                             <span className="shrink-0">
                               {clase.hora_inicio.slice(0,5)}–{horaFinVisual}
@@ -2912,10 +2918,12 @@ export default function VistaHorarioAgenda({
 
                             <div
                               className="mt-1 line-clamp-2 text-[11px] font-bold leading-[1.2]"
-                              title={alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                              title={alumnos || (clase.nombre_grupo_libre || "Sin alumnos")}
                             >
-                              {alumnos || (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                              {alumnos || (clase.nombre_grupo_libre || "Sin alumnos")}
                             </div>
+
+                            <EtiquetaMonitor nombre={clase.monitor_nombre} />
 
                             {clase.ubicaciones?.nombre && (
                               <div

@@ -1,5 +1,7 @@
 "use client";
 
+import EtiquetaMonitor from "./EtiquetaMonitor";
+
 import { useState } from "react";
 import AccionesRapidasClase, { type ClaseAccionesRapidas } from "./AccionesRapidasClase";
 
@@ -599,7 +601,7 @@ export default function ListadoAgenda({
                                   clase.nombre_grupo_libre || "Sin alumnos"}
                               </span>
 
-                              {clase.nombre_grupo_libre && <p className="mt-1 text-[11px] text-slate-500">{clase.numero_participantes} personas · {clase.pista_nombre} · Monitor: {clase.monitor_nombre}</p>}
+                              {clase.nombre_grupo_libre && <p className="mt-1 text-[11px] text-slate-500">{clase.numero_participantes} personas · {clase.pista_nombre}</p>}
       {clase.observaciones?.trim() && (
                                 <span
                                   className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white"
@@ -621,6 +623,8 @@ export default function ListadoAgenda({
                                 clase.tipo
                               )}
                             </p>
+
+                            <EtiquetaMonitor nombre={clase.monitor_nombre} />
 
                             {clase.estado ===
                               "cancelada" &&
