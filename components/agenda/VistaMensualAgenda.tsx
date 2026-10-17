@@ -1,5 +1,7 @@
 "use client";
 
+import EtiquetaMonitor from "./EtiquetaMonitor";
+
 import { useEffect, useState } from "react";
 import AccionesRapidasClase, { type ClaseAccionesRapidas } from "./AccionesRapidasClase";
 
@@ -906,12 +908,14 @@ export default function VistaMensualAgenda({
                       className="mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-[#17324D]"
                       title={
                         alumnos ||
-                        (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")
+                        (clase.nombre_grupo_libre || "Sin alumnos")
                       }
                     >
                       {alumnos ||
-                        (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                        (clase.nombre_grupo_libre || "Sin alumnos")}
                     </p>
+
+                    <EtiquetaMonitor nombre={clase.monitor_nombre} />
 
                     <p className="mt-1 truncate text-[11px] font-medium text-slate-500">
                       {clase
@@ -1180,10 +1184,12 @@ export default function VistaMensualAgenda({
 
                               <span className="min-w-0 truncate font-medium">
                                 {nombres ||
-                                  (clase.nombre_grupo_libre ? `${clase.nombre_grupo_libre} · ${clase.monitor_nombre}` : "Sin alumnos")}
+                                  (clase.nombre_grupo_libre || "Sin alumnos")}
                               </span>
 
                             </div>
+                            <EtiquetaMonitor nombre={clase.monitor_nombre} />
+
 
                           </button>
                         );
