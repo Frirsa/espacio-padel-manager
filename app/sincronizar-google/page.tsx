@@ -19,6 +19,8 @@ type UbicacionRelacion =
   | null;
 
 type ClaseSincronizable = {
+  concepto_clase: string | null;
+  nombre_grupo_libre: string | null;
   id: string;
   google_calendar_event_id: string | null;
   fecha: string;
@@ -32,6 +34,7 @@ type ClaseSincronizable = {
 };
 
 const CAMPOS_CLASES = `
+  concepto_clase, nombre_grupo_libre,
   id,
   google_calendar_event_id,
   fecha,
@@ -202,7 +205,7 @@ export default function SincronizarGooglePage() {
           observaciones: clase.observaciones,
           ubicacion: nombreUbicacion(clase.ubicaciones),
           tipo_ubicacion: tipoUbicacion(clase.ubicaciones),
-          alumnos: nombresAlumnos(clase.clase_alumnos),
+          alumnos: [clase.concepto_clase || clase.nombre_grupo_libre || "", ...nombresAlumnos(clase.clase_alumnos)].filter(Boolean),
         });
 
         totalCorrectas += 1;
@@ -490,3 +493,4 @@ export default function SincronizarGooglePage() {
     </main>
   );
 }
+

@@ -370,7 +370,7 @@ export default function AgendaPage() {
         observaciones,
         modo_cobro,
         importe_total,
-        ubicacion_id, nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+        ubicacion_id, nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
         ubicaciones (
           nombre,
           tipo
@@ -514,7 +514,7 @@ export default function AgendaPage() {
               .toLowerCase();
 
           const coincideBusqueda =
-            [clase.nombre_grupo_libre, clase.monitor_nombre, clase.pista_nombre, clase.observaciones].filter(Boolean).join(" ").toLowerCase().includes(textoBusqueda) ||
+            [clase.concepto_clase, clase.nombre_grupo_libre, clase.monitor_nombre, clase.pista_nombre, clase.observaciones].filter(Boolean).join(" ").toLowerCase().includes(textoBusqueda) ||
             nombresAlumnos.includes(
               textoBusqueda
             ) ||

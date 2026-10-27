@@ -230,12 +230,12 @@ function estadoEconomicoClase(
   }
 
   if (
-    !clase.nombre_grupo_libre && clase.clase_alumnos.length === 0
+    !clase.nombre_grupo_libre && !clase.concepto_clase && clase.clase_alumnos.length === 0
   ) {
     return "pendiente" as const;
   }
 
-  if (clase.nombre_grupo_libre) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
+  if (clase.nombre_grupo_libre || (clase.concepto_clase && !clase.clase_alumnos.length)) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
 
   const pagosNormales =
     clase.clase_alumnos.filter(
@@ -597,8 +597,7 @@ export default function ListadoAgenda({
                               </span>
 
                               <span className="min-w-0 truncate text-sm font-bold text-[#17324D]">
-                                {nombresAlumnos ||
-                                  clase.nombre_grupo_libre || "Sin alumnos"}
+                                {clase.concepto_clase || nombresAlumnos || clase.nombre_grupo_libre || "Sin alumnos"}
                               </span>
 
                               {clase.nombre_grupo_libre && <p className="mt-1 text-[11px] text-slate-500">{clase.numero_participantes} personas · {clase.pista_nombre}</p>}
@@ -677,3 +676,4 @@ export default function ListadoAgenda({
     </div>
   );
 }
+

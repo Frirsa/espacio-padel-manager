@@ -1900,14 +1900,14 @@ export default function AccionesRapidasClase({
     },
   ];
 
-  if (clase.nombre_grupo_libre) return (
+  if (clase.nombre_grupo_libre || !clase.clase_alumnos.length) return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-5">
-        <h2 className="text-lg font-bold">{clase.nombre_grupo_libre}</h2>
+        <h2 className="text-lg font-bold">{clase.concepto_clase || clase.nombre_grupo_libre}</h2>
         <p className="mt-2 text-sm text-slate-600">{clase.numero_participantes} personas</p>
         <EtiquetaMonitor nombre={clase.monitor_nombre} />
         {clase.observaciones && <p className="mt-3 whitespace-pre-wrap text-sm">{clase.observaciones}</p>}
-        <div className="mt-5 flex justify-end gap-3"><button onClick={onCerrar} className="rounded-xl border px-4 py-2">Cerrar</button><a className="rounded-xl bg-[#00A79C] px-4 py-2 font-bold text-white" href={`/clases?editar=${clase.id}&volver=${encodeURIComponent(volverA)}`}>Editar clase puntual</a></div>
+        <div className="mt-5 flex justify-end gap-3"><button onClick={onCerrar} className="rounded-xl border px-4 py-2">Cerrar</button><a className="rounded-xl bg-[#00A79C] px-4 py-2 font-bold text-white" href={`/clases?editar=${clase.id}&volver=${encodeURIComponent(volverA)}`}>Editar clase</a></div>
       </div>
     </div>
   );
@@ -2781,3 +2781,4 @@ export default function AccionesRapidasClase({
     </div>
   );
 }
+

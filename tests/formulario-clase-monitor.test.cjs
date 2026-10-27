@@ -70,7 +70,7 @@ test('Una clase programada con sustituto conserva el bono sin consumirlo todaví
 test('El concepto libre usa la misma pantalla sin exigir alumnos y conserva céntimos',async()=>{
  const app=montar({...base,conceptoLibre:true,nombreConcepto:'Alquiler de pista',numeroPersonas:'2',alumnosSeleccionados:[],importeTotalClase:'60.75',estadoPagoTotal:'pagado',modoCobroClase:'total'});
  await app.save();const args=app.calls[0].args;
- assert.equal(args.p_datos_clase.nombre_grupo_libre,'Alquiler de pista');assert.equal(args.p_datos_clase.importe_total,60.75);
+ assert.equal(args.p_datos_clase.concepto_clase,'Alquiler de pista');assert.equal(args.p_datos_clase.importe_total,60.75);
  assert.equal(args.p_participantes.length,0);assert.equal(args.p_datos_clase.cobrada,true);
 });
 test('Crear una clase abre la pantalla habitual con Fran y sin una entrada especial para sustitutos',()=>{
@@ -86,11 +86,31 @@ test('Editar una puntual anterior conserva el identificador y permite pasar de c
    monitor_nombre:'Ana',coste_monitor:20,clase_alumnos:[],ubicaciones:null};
  const app=montar({...base,claseEditandoId:'anterior',clases:[anterior],conceptoLibre:true,nombreConcepto:'Grupo anterior',alumnosSeleccionados:[],
    modoPagoAlumnos:{},bonosSeleccionados:{},modoCobroClase:'total',importeTotalClase:'60.75'});
- app.click('Alumnos registrados');
+
  const label=nodos(app.render(),n=>n.type==='label'&&texto(n).includes('Alumna'))[0];
  assert.ok(label,'La selección habitual de alumnos sigue disponible');
  nodos(label,n=>n.type==='input'&&n.props.type==='checkbox')[0].props.onChange();
  await app.save();assert.ok(app.calls.length,nodos(app.render(),n=>n.type==='p'&&texto(n).includes('❌')).map(texto).join(' '));const args=app.calls[0].args;
  assert.equal(args.p_clase_id,'anterior');assert.equal(args.p_datos_clase.nombre_grupo_libre,'Grupo anterior');
  assert.equal(args.p_participantes[0].alumno_id,'a1');assert.equal(args.p_datos_clase.importe_total,60.75);
+});
+
+
+test('El concepto y el ingreso extra conviven con un alumno de bono',async()=>{
+ const app=montar({...base,nombreConcepto:'Clase con invitado',ingresoExtra:'5.25',descripcionExtra:'Propina'});
+ await app.save();const args=app.calls[0].args;
+ assert.equal(args.p_datos_clase.concepto_clase,'Clase con invitado');
+ assert.equal(args.p_datos_clase.ingreso_extra,5.25);
+ assert.equal(args.p_datos_clase.ingreso_extra_concepto,'Propina');
+ assert.equal(args.p_participantes[0].bono_id,'b1');assert.equal(args.p_uso_nuevo.b1,1);
+});
+test('Sin concepto ni alumnos no se guarda una clase',async()=>{
+ const app=montar({...base,alumnosSeleccionados:[]});await app.save();assert.equal(app.calls.length,0);
+});
+test('La misma pantalla muestra alumnos, concepto e ingreso extra sin cambiar de modalidad',()=>{
+ const app=montar({...base,alumnosSeleccionados:[]});const root=app.render();
+ assert.ok(nodos(root,n=>n.type==='label'&&texto(n).includes('Alumna')).length);
+ assert.ok(nodos(root,n=>n.type==='input'&&n.props.placeholder?.startsWith('Grupo belgas')).length);
+ assert.ok(nodos(root,n=>n.type==='label'&&texto(n).trim()==='Ingreso extra').length);
+ assert.equal(nodos(root,n=>n.props?.hidden===true&&texto(n).includes('Ingreso extra')).length,0);
 });
