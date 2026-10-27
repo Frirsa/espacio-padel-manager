@@ -29,6 +29,8 @@ type Pago = {
 
   clases: {
     nombre_grupo_libre?: string | null;
+  concepto_clase?: string | null;
+  ingreso_extra_concepto?: string | null;
     id: string;
     fecha: string;
     hora_inicio: string;
@@ -551,6 +553,7 @@ function SelectorMesPagos({
 function nombreVisiblePago(
   pago: Pago
 ) {
+  if (pago.clases?.concepto_clase) return pago.clases.concepto_clase;
   if (pago.clases?.nombre_grupo_libre) return pago.clases.nombre_grupo_libre;
 
   if (pago.alumnos) {
@@ -745,7 +748,7 @@ export default function PagosPage() {
           tipo,
           modo_cobro,
           importe_total,
-          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+          nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           clase_alumnos (
             alumnos (
               nombre,
@@ -2810,3 +2813,4 @@ export default function PagosPage() {
     </main>
   );
 }
+

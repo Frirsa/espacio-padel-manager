@@ -160,7 +160,7 @@ function estadoEconomicoClase(clase: Clase) {
       : "pendiente" as const;
   }
 
-  if (clase.nombre_grupo_libre) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
+  if (clase.nombre_grupo_libre || (clase.concepto_clase && !clase.clase_alumnos.length)) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
 
   if (clase.clase_alumnos.length === 0) {
     return "pendiente" as const;
@@ -907,11 +907,11 @@ export default function VistaMensualAgenda({
                     <p
                       className="mt-2 line-clamp-2 text-sm font-extrabold leading-snug text-[#17324D]"
                       title={
-                        alumnos ||
+                        clase.concepto_clase || alumnos ||
                         (clase.nombre_grupo_libre || "Sin alumnos")
                       }
                     >
-                      {alumnos ||
+                      {clase.concepto_clase || alumnos ||
                         (clase.nombre_grupo_libre || "Sin alumnos")}
                     </p>
 
@@ -1183,8 +1183,7 @@ export default function VistaMensualAgenda({
                               </span>
 
                               <span className="min-w-0 truncate font-medium">
-                                {nombres ||
-                                  (clase.nombre_grupo_libre || "Sin alumnos")}
+                                {clase.concepto_clase || nombres || clase.nombre_grupo_libre || "Sin alumnos"}
                               </span>
 
                             </div>
@@ -1245,3 +1244,4 @@ export default function VistaMensualAgenda({
     </div>
   );
 }
+

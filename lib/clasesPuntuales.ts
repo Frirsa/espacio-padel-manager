@@ -1,5 +1,7 @@
 export type DatosClasePuntual = {
   nombre_grupo_libre?: string | null;
+  concepto_clase?: string | null;
+  ingreso_extra_concepto?: string | null;
   numero_participantes?: number | null;
   pista_nombre?: string | null;
   monitor_nombre?: string | null;
@@ -16,3 +18,4 @@ export function detalleClasePuntual(clase: DatosClasePuntual) {
     clase.monitor_nombre?.trim() ? `Monitor: ${clase.monitor_nombre.trim()}` : "",
   ].filter(Boolean).join(" · ");
 }
+

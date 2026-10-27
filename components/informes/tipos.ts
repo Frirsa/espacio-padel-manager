@@ -44,6 +44,8 @@ export type Pago = {
   } | null;
   clases?: {
     nombre_grupo_libre?: string | null;
+    concepto_clase?: string | null;
+    ingreso_extra_concepto?: string | null;
     id: string;
     fecha: string;
     hora_inicio: string;
@@ -62,3 +64,4 @@ export type TipoInforme =
   | "iql"
   | "economico"
   | "pendientes";
+

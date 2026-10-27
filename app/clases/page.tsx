@@ -316,7 +316,7 @@ function estadoEconomicoClase(
       : "pendiente" as const;
   }
 
-  if (clase.nombre_grupo_libre) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
+  if (clase.nombre_grupo_libre || (clase.concepto_clase && !clase.clase_alumnos.length)) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
 
   if (clase.clase_alumnos.length === 0) {
     return "pendiente" as const;
@@ -1131,7 +1131,7 @@ export default function ClasesPage() {
   const [monitorPagado, setMonitorPagado] = useState(false);
   const [fechaPagoMonitor, setFechaPagoMonitor] = useState("");
   const [metodoPagoMonitor, setMetodoPagoMonitor] = useState("efectivo");
-  const [conceptoLibre, setConceptoLibre] = useState(false);
+  const [descripcionExtra, setDescripcionExtra] = useState("");
   const [nombreConcepto, setNombreConcepto] = useState("");
   const [numeroPersonas, setNumeroPersonas] = useState("1");
   const [pistaNombre, setPistaNombre] = useState("");
@@ -1737,7 +1737,7 @@ export default function ClasesPage() {
           ingreso_extra,
           modo_cobro,
           importe_total,
-          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+          nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           ubicaciones (
             nombre
           ),
@@ -1962,7 +1962,7 @@ export default function ClasesPage() {
     setMotivoCancelacion("");
     setObservaciones("");
     setMonitorNombre("Fran"); setCosteMonitor("0"); setMonitorPagado(false);
-    setFechaPagoMonitor(""); setMetodoPagoMonitor("efectivo"); setConceptoLibre(false);
+    setFechaPagoMonitor(""); setMetodoPagoMonitor("efectivo"); setDescripcionExtra("");
     setNombreConcepto(""); setNumeroPersonas("1"); setPistaNombre(""); setFechaCobroTotal("");
 
     setAlumnosSeleccionados(
@@ -2289,6 +2289,7 @@ export default function ClasesPage() {
   }
 
 
+  const conceptoLibre = alumnosSeleccionados.length === 0;
   const conceptoExistente = Boolean(claseEditandoId && clases.find(c => c.id === claseEditandoId)?.nombre_grupo_libre);
 
   const hayBonoSeleccionado =
@@ -2299,7 +2300,7 @@ export default function ClasesPage() {
     );
 
   useEffect(() => {
-    if (conceptoLibre || nombreConcepto || conceptoExistente) { setModoCobroClase("total"); return; }
+    if (conceptoExistente || (conceptoLibre && tipo !== "club")) { setModoCobroClase("total"); return; }
     if (
       tipo === "club" ||
       hayBonoSeleccionado
@@ -2556,7 +2557,7 @@ export default function ClasesPage() {
       );
     }
 
-    if (!nombreConcepto && !conceptoExistente &&
+    if (!conceptoExistente &&
       primerAlumno
         ?.tipo_clase_habitual
     ) {
@@ -2624,7 +2625,7 @@ export default function ClasesPage() {
           );
 
         const tieneBono =
-          !nombreConcepto && !conceptoExistente && bonosAlumno.length >
+          !conceptoExistente && bonosAlumno.length >
           0;
 
         nuevosModos[
@@ -2880,11 +2881,11 @@ export default function ClasesPage() {
     if (
       alumnosSeleccionados.length === 0
     ) {
-      const tipoHabitual = nombreConcepto || conceptoExistente ? tipo :
+      const tipoHabitual = conceptoExistente ? tipo :
         alumno.tipo_clase_habitual ||
         tipo;
 
-      if (alumno.tipo_clase_habitual && !nombreConcepto && !conceptoExistente) {
+      if (alumno.tipo_clase_habitual && !conceptoExistente) {
         setTipo(
           alumno.tipo_clase_habitual
         );
@@ -2927,7 +2928,7 @@ export default function ClasesPage() {
       );
 
     const tieneBono =
-      !nombreConcepto && !conceptoExistente && bonosAlumno.length >
+      !conceptoExistente && bonosAlumno.length >
       0;
 
     setAlumnosSeleccionados(
@@ -3067,8 +3068,8 @@ export default function ClasesPage() {
     setMonitorNombre(clase.monitor_nombre || "Fran"); setCosteMonitor(String(clase.coste_monitor ?? 0));
     setMonitorPagado(Boolean(clase.monitor_pagado)); setFechaPagoMonitor(clase.fecha_pago_monitor || "");
     setMetodoPagoMonitor(clase.metodo_pago_monitor || "efectivo");
-    setConceptoLibre(Boolean(clase.nombre_grupo_libre && !clase.clase_alumnos.length));
-    setNombreConcepto(clase.nombre_grupo_libre || ""); setNumeroPersonas(String(clase.numero_participantes || 1));
+    setDescripcionExtra(clase.ingreso_extra_concepto || "");
+    setNombreConcepto(clase.concepto_clase || clase.nombre_grupo_libre || ""); setNumeroPersonas(String(clase.numero_participantes || 1));
     setPistaNombre(clase.pista_nombre || "");
     setFechaCobroTotal(pagosClase.find(p => p.clase_id === clase.id && !p.alumno_id)?.fecha_pago?.slice(0, 10) || "");
     setClaseEditandoId(
@@ -3204,6 +3205,7 @@ export default function ClasesPage() {
       );
 
     setEstadoPagoTotal(
+      (clase.clase_alumnos.length === 0 && clase.cobrada) ||
       pagoTotalClase?.estado === "pagado" ||
       (
         participantesNormalesClase.length > 0 &&
@@ -3719,7 +3721,7 @@ export default function ClasesPage() {
       ubicacion,
       tipo_ubicacion:
         tipoUbicacion,
-      alumnos: conceptoLibre ? [nombreConcepto] : nombres,
+      alumnos: nombreConcepto.trim() ? [nombreConcepto.trim(), ...nombres] : nombres,
     };
   }
 
@@ -4049,6 +4051,12 @@ export default function ClasesPage() {
       fechasDisponibles.map(
         (fechaClase) => ({
           ...datosMonitor(),
+          concepto_clase: nombreConcepto.trim() || null,
+          ingreso_extra_concepto: descripcionExtra.trim() || null,
+          numero_participantes: conceptoLibre ? Number(numeroPersonas) : alumnosSeleccionados.length,
+          cobrada: conceptoLibre && estadoPagoTotal === "pagado",
+          fecha_cobro: fechaCobroTotal || null,
+          metodo_cobro: metodoPagoTotal,
           fecha:
             fechaClase,
           hora_inicio:
@@ -4600,6 +4608,15 @@ export default function ClasesPage() {
 
     setMensaje("");
 
+    if (!nombreConcepto.trim() && alumnosSeleccionados.length === 0) {
+      setMensaje("❌ Indica un nombre o concepto, o selecciona alumnos."); return;
+    }
+    if (!Number.isFinite(Number(ingresoExtra || 0)) || Number(ingresoExtra || 0) < 0) {
+      setMensaje("❌ Revisa el ingreso extra."); return;
+    }
+    if (alumnosSeleccionados.length === 0 && (!Number.isInteger(Number(numeroPersonas)) || Number(numeroPersonas) < 1)) {
+      setMensaje("❌ Indica un número de participantes válido."); return;
+    }
     if (
       modoCreacion ===
         "serie" &&
@@ -4667,7 +4684,7 @@ export default function ClasesPage() {
       return;
     }
 
-    if (conceptoLibre || nombreConcepto || conceptoExistente) {
+    if (conceptoExistente) {
       if (hayBonoSeleccionado) { setMensaje("❌ Esta clase ya tiene un cobro puntual. Para conservar su historial, gestiona las nuevas clases de bono con alumnos registrados."); return; }
       if (!nombreConcepto.trim() || (conceptoLibre && !Number.isInteger(Number(numeroPersonas)))) { setMensaje("❌ Revisa el concepto y el número de participantes."); return; }
       const anterior = clases.find(c => c.id === claseEditandoId);
@@ -4675,6 +4692,7 @@ export default function ClasesPage() {
         p_clase_id: claseEditandoId || null,
         p_datos_clase: { ...datosMonitor(), nombre_grupo_libre: nombreConcepto.trim(), numero_participantes: conceptoLibre ? Number(numeroPersonas) : alumnosSeleccionados.length,
           fecha, hora_inicio: hora, duracion_minutos: Number(duracion), ubicacion_id: ubicacionId || null, tipo,
+          ingreso_extra: Number(ingresoExtra || 0), ingreso_extra_concepto: descripcionExtra.trim() || null,
           importe_total: Number(importeTotalClase), coste_pista: Number(costePista || 0), cobrada: estadoPagoTotal === "pagado",
           metodo_cobro: metodoPagoTotal, fecha_cobro: fechaCobroTotal || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`,
           estado, facturable: estado !== "cancelada" || facturableCancelacion === true,
@@ -4690,7 +4708,7 @@ export default function ClasesPage() {
       if (volverAlOrigenSiExiste()) return;
       limpiarFormulario(); setFormularioAbierto(false); await cargarDatos(); setMensaje(aviso); return;
     }
-    if (!alumnosSeleccionados.length) { setMensaje("❌ Selecciona alumnos o utiliza Nombre o concepto libre."); return; }
+
 
     if (
       tipo !==
@@ -4991,7 +5009,8 @@ export default function ClasesPage() {
 
     const datosClase = {
       ...datosMonitor(),
-      nombre_grupo_libre: nombreConcepto.trim() || null,
+      concepto_clase: nombreConcepto.trim() || null,
+      ingreso_extra_concepto: descripcionExtra.trim() || null,
       numero_participantes: conceptoLibre ? Number(numeroPersonas) : alumnosSeleccionados.length,
       fecha,
 
@@ -5052,8 +5071,10 @@ export default function ClasesPage() {
                 ? false
                 : claseAnterior?.cobrada ?? false
             )
-          : false,
+          : conceptoLibre && !(estado === "cancelada" && !facturableNueva) && estadoPagoTotal === "pagado",
 
+      fecha_cobro: fechaCobroTotal || fecha,
+      metodo_cobro: metodoPagoTotal,
       motivo_cancelacion:
         estado === "cancelada"
           ? motivoCancelacion.trim() ||
@@ -5503,7 +5524,7 @@ export default function ClasesPage() {
 
         return (
           (
-            [clase.nombre_grupo_libre, clase.monitor_nombre, clase.pista_nombre, clase.observaciones].filter(Boolean).join(" ").toLowerCase().includes(texto) ||
+            [clase.concepto_clase, clase.nombre_grupo_libre, clase.monitor_nombre, clase.pista_nombre, clase.observaciones].filter(Boolean).join(" ").toLowerCase().includes(texto) ||
             nombres.includes(
               texto
             ) ||
@@ -5908,18 +5929,19 @@ export default function ClasesPage() {
           <CamposMonitor monitores={monitores} nombre={monitorNombre} coste={costeMonitor} pagado={monitorPagado}
             fecha={fechaPagoMonitor} metodo={metodoPagoMonitor} onNombre={setMonitorNombre} onCoste={setCosteMonitor}
             onPagado={setMonitorPagado} onFecha={setFechaPagoMonitor} onMetodo={setMetodoPagoMonitor} />
-          {modoCreacion === "individual" && (!claseEditandoId || conceptoExistente) && <div className="mt-4 flex gap-2">
-            <button type="button" onClick={() => { setConceptoLibre(false); if (!conceptoExistente) setNombreConcepto(""); setModoCobroManual(false); }} className="rounded-xl border px-4 py-2 text-sm" aria-pressed={!conceptoLibre}>Alumnos registrados</button>
-            <button type="button" onClick={() => { setConceptoLibre(true); setTipo("propia"); setAlumnosSeleccionados([]); setGrupoId(""); setModoCobroClase("total"); setModoCobroManual(true); }} className="rounded-xl border px-4 py-2 text-sm" aria-pressed={conceptoLibre}>Nombre o concepto libre</button>
-          </div>}
-          {(nombreConcepto || conceptoExistente) && !conceptoLibre && <label className="mt-4 block text-sm">Nombre de la clase<input value={nombreConcepto} onChange={e => setNombreConcepto(e.target.value)} required className="mt-1 w-full rounded-xl border px-3 py-2" /></label>}
-          {conceptoLibre && <section className="mt-4 grid gap-3 rounded-2xl border bg-white p-4 sm:grid-cols-2">
-            <label className="text-sm">Nombre o concepto<input required value={nombreConcepto} onChange={e => setNombreConcepto(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
-            <label className="text-sm">Número de participantes<input required type="number" min="1" step="1" value={numeroPersonas} onChange={e => setNumeroPersonas(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
-          </section>}
+          <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+            <label className="block text-sm font-semibold text-[#17324D]">Nombre o concepto (opcional si seleccionas alumnos)
+              <input value={nombreConcepto} onChange={e => { setNombreConcepto(e.target.value); if (conceptoLibre && !claseEditandoId && tipo === "club") setTipo("propia"); }} placeholder="Grupo belgas, clase con invitado, alquiler de pista…" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2" />
+            </label>
+            <p className="mt-2 text-xs text-slate-500">Puedes escribir un concepto, seleccionar alumnos o combinar ambas opciones.</p>
+            {!claseEditandoId && <label className="mt-3 block text-sm">Repetición
+              <select value={modoCreacion} onChange={e => setModoCreacion(e.target.value as "individual" | "serie")} className="ml-3 rounded-xl border px-3 py-2">
+                <option value="individual">Una sola fecha</option><option value="serie">Se repite semanalmente</option>
+              </select>
+            </label>}
+            {conceptoLibre && <label className="mt-3 block text-sm">Número de participantes<input required type="number" min="1" step="1" value={numeroPersonas} onChange={e => setNumeroPersonas(e.target.value)} className="ml-3 w-24 rounded-xl border px-3 py-2" /></label>}
+          </section>
 
-
-          {!conceptoLibre && <>
           <section className="relative z-10 mt-4 overflow-visible rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
 
               <div className="-mx-4 -mt-4 mb-4 flex flex-col gap-2 rounded-t-2xl bg-[#0F2742] px-4 py-3.5 text-white sm:flex-row sm:items-center sm:justify-between">
@@ -6244,7 +6266,6 @@ export default function ClasesPage() {
 
             </section>
 
-          </>}
           <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.025)]">
             <div className="border-b border-slate-100 bg-[#0F2742]/[0.035] px-4 py-3.5">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#17324D]">
@@ -6591,7 +6612,7 @@ export default function ClasesPage() {
                         );
 
                       const tieneBono =
-                        !nombreConcepto && !conceptoExistente && bonosAlumno.length >
+                        !conceptoExistente && bonosAlumno.length >
                         0;
 
                       nuevosModos[
@@ -6720,7 +6741,7 @@ export default function ClasesPage() {
                 }}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-[#17324D] outline-none transition focus:border-[#00A79C]/60 focus:ring-2 focus:ring-[#00A79C]/10"
               >
-                {!conceptoLibre && !nombreConcepto && !conceptoExistente && <option value="club">
+                {!conceptoExistente && <option value="club">
                   Clase para club
                 </option>}
 
@@ -6826,14 +6847,7 @@ export default function ClasesPage() {
 
           )}
 
-          {conceptoLibre && <section className="mt-4 grid gap-3 rounded-2xl border bg-white p-4 sm:grid-cols-2">
-            <label className="text-sm">Importe total de la clase (€)<input required type="number" min="0" step="0.01" value={importeTotalClase} onChange={e => setImporteTotalClase(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
-            <label className="text-sm">Coste de pista (€)<input required type="number" min="0" step="0.01" value={costePista} onChange={e => setCostePista(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2" /></label>
-            <label className="text-sm">Estado del cobro<select value={estadoPagoTotal} onChange={e => setEstadoPagoTotal(e.target.value as "pagado" | "pendiente")} className="mt-1 w-full rounded-xl border px-3 py-2"><option value="pendiente">Pendiente</option><option value="pagado">Pagado</option></select></label>
-            <label className="text-sm">Método de cobro<select value={metodoPagoTotal} onChange={e => setMetodoPagoTotal(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2">{["efectivo", "bizum", "transferencia", "tarjeta"].map(m => <option key={m}>{m}</option>)}</select></label>
-          </section>}
-          {nombreConcepto && <label className="mt-3 block text-sm">Fecha del cobro<input type="date" value={fechaCobroTotal} onChange={e => setFechaCobroTotal(e.target.value)} className="ml-3 rounded-xl border px-3 py-2" /></label>}
-          <div hidden={conceptoLibre}>
+          {(conceptoExistente || conceptoLibre) && <label className="mt-3 block text-sm">Fecha del cobro<input type="date" value={fechaCobroTotal} onChange={e => setFechaCobroTotal(e.target.value)} className="ml-3 rounded-xl border px-3 py-2" /></label>}
           <div
             className={
               tipo ===
@@ -7086,19 +7100,6 @@ export default function ClasesPage() {
 
                 </div>
 
-                {alumnosElegidos.length ===
-                0 ? (
-
-                  <div className="mt-4 flex min-h-[150px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/60 px-5 text-center">
-
-                    <p className="text-sm text-slate-400">
-                      Selecciona al menos un alumno para configurar el pago.
-                    </p>
-
-                  </div>
-
-                ) : (
-
                   <div className="mt-3 space-y-3">
 
                     {modoCobroClase === "total" &&
@@ -7126,7 +7127,7 @@ export default function ClasesPage() {
                               className="w-full rounded-lg border border-[#A8E1DC] bg-white px-3 py-2.5 text-sm font-bold text-[#17324D] outline-none focus:border-[#00A79C]"
                             />
                             <p className="mt-1.5 text-[11px] text-slate-500">
-                              Calculado desde Tarifas · Clase suelta · 60 min · {alumnosSeleccionados.length} alumno{alumnosSeleccionados.length === 1 ? "" : "s"}, ajustado a {duracion} min y redondeado hacia abajo. Puedes modificarlo manualmente.
+                              {conceptoLibre ? "Indica el precio de la clase completa. El ingreso extra se añade por separado." : <>Calculado desde Tarifas · Clase suelta · 60 min · {alumnosSeleccionados.length} alumno{alumnosSeleccionados.length === 1 ? "" : "s"}, ajustado a {duracion} min y redondeado hacia abajo. Puedes modificarlo manualmente.</>}
                             </p>
                           </div>
 
@@ -7305,8 +7306,8 @@ export default function ClasesPage() {
 
                                 <button
                                   type="button"
-                                  disabled={Boolean(nombreConcepto || conceptoExistente)}
-                                  title={nombreConcepto ? "Esta clase conserva su cobro puntual" : undefined}
+                                  disabled={conceptoExistente}
+                                  title={conceptoExistente ? "Esta clase conserva su cobro puntual" : undefined}
                                   onClick={() => {
                                     setModoPagoAlumnos(
                                       (
@@ -7655,7 +7656,6 @@ export default function ClasesPage() {
 
                   </div>
 
-                )}
 
               </div>
 
@@ -7807,6 +7807,9 @@ export default function ClasesPage() {
               <p className="mt-2 text-xs text-slate-500">
                 Opcional. Para propinas u otros ingresos excepcionales de esta clase.
               </p>
+              <label className="mt-2 block text-xs text-slate-500">Concepto del ingreso extra
+                <input value={descripcionExtra} onChange={e => setDescripcionExtra(e.target.value)} placeholder="Por ejemplo, propina" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              </label>
 
             </div>
 
@@ -7884,8 +7887,6 @@ export default function ClasesPage() {
             </div>
           </section>
 
-          </div>
-          {conceptoLibre && <label className="mt-4 block text-sm">Estado de la clase<select value={estado} onChange={e => setEstado(e.target.value)} className="ml-3 rounded-xl border px-3 py-2"><option value="programada">Programada</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></label>}
           {estado === "cancelada" && (
             <div className="mt-4 rounded-2xl border border-red-200 bg-red-50/70 p-4">
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-700">
@@ -8497,6 +8498,7 @@ export default function ClasesPage() {
                           </div>
                         </div>
 
+                        {clase.concepto_clase && clase.clase_alumnos.length > 0 && <p className="mt-3 text-sm font-bold text-[#17324D]">{clase.concepto_clase}</p>}
                         <p className="mt-3 text-xs text-slate-500">Monitor: {clase.monitor_nombre || "Fran"}{Number(clase.coste_monitor || 0) > 0 ? ` · ${Number(clase.coste_monitor).toFixed(2)} € · ${clase.monitor_pagado ? "Pagado" : "Pendiente"}` : ""}</p>
                         {clase.clase_alumnos.length >
                         0 ? (
@@ -8566,7 +8568,7 @@ export default function ClasesPage() {
                         ) : (
                           <p className="mt-3 text-xs font-medium text-slate-400">
 
-                            {clase.nombre_grupo_libre ? <><strong className="block text-sm text-[#17324D]">{clase.nombre_grupo_libre}</strong><span className="mt-1 block">{detalleClasePuntual(clase)}</span><span className="mt-2 block">Monitor: {Number(clase.coste_monitor || 0).toFixed(2)} € · {Number(clase.coste_monitor || 0) === 0 ? "Sin coste" : clase.monitor_pagado ? `Pagado (${clase.fecha_pago_monitor})` : "Pendiente"}</span></> : "Sin alumnos asignados."}
+                            {(clase.concepto_clase || clase.nombre_grupo_libre) ? <><strong className="block text-sm text-[#17324D]">{clase.concepto_clase || clase.nombre_grupo_libre}</strong><span className="mt-1 block">{detalleClasePuntual(clase)}</span><span className="mt-2 block">Monitor: {Number(clase.coste_monitor || 0).toFixed(2)} € · {Number(clase.coste_monitor || 0) === 0 ? "Sin coste" : clase.monitor_pagado ? `Pagado (${clase.fecha_pago_monitor})` : "Pendiente"}</span></> : "Sin alumnos asignados."}
                           </p>
                         )}
                       </section>
@@ -9003,3 +9005,4 @@ export default function ClasesPage() {
     </main>
   );
 }                
+

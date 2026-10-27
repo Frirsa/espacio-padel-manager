@@ -458,7 +458,7 @@ export default function Home() {
           ingreso_extra,
           modo_cobro,
           importe_total,
-          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+          nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           ubicaciones (
             nombre,
             es_club_referencia
@@ -827,7 +827,7 @@ export default function Home() {
           ingreso_extra,
           modo_cobro,
           importe_total,
-          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+          nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           ubicaciones (
             nombre,
             es_club_referencia
@@ -1321,7 +1321,8 @@ export default function Home() {
   }
 
   function nombresClase(clase: any) {
-    if (clase?.nombre_grupo_libre) return clase.nombre_grupo_libre;
+    if (clase?.concepto_clase) return clase.concepto_clase;
+  if (clase?.nombre_grupo_libre) return clase.nombre_grupo_libre;
     return (
       clase?.clase_alumnos
         ?.map((item: any) => item.alumnos)
@@ -2418,3 +2419,4 @@ export default function Home() {
     </main>
   );
 }
+

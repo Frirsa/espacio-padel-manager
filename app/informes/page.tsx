@@ -78,6 +78,7 @@ type DatoEvolucion = {
 function nombreVisiblePagoPendiente(
   pago: Pago
 ) {
+  if (pago.clases?.concepto_clase) return pago.clases.concepto_clase;
   if (pago.clases?.nombre_grupo_libre) return pago.clases.nombre_grupo_libre;
 
   if (pago.alumnos) {
@@ -523,7 +524,7 @@ const {
           ingreso_extra,
           modo_cobro,
           importe_total,
-          nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+          nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
           ubicacion_id,
 
           ubicaciones (
@@ -659,7 +660,7 @@ const {
             importe_total,
 
 
-            nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+            nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
             clase_alumnos (
 
               alumnos (
@@ -859,7 +860,7 @@ const {
 
 
 
-      nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+      nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
       ubicaciones (
 
         nombre,
@@ -1036,7 +1037,7 @@ const {
 
 
 
-      nombre_grupo_libre, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
+      nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
       clase_alumnos (
 
         alumno_id,
@@ -3643,3 +3644,4 @@ const ingresoMedio =
   );
 
 }
+

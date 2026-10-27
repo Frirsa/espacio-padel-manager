@@ -10,6 +10,8 @@ export type ParticipanteGestoria = {
 };
 
 export type ClaseGestoria = {
+  concepto_clase?: string | null;
+  nombre_grupo_libre?: string | null;
   id: string;
   fecha: string;
   hora_inicio: string;
@@ -224,7 +226,7 @@ export function construirInformeGestoria(
       fecha: clase.fecha,
       hora: horaCompleta(clase.hora_inicio, clase.duracion_minutos),
       ubicacion: clase.ubicaciones?.nombre || "Sin ubicación",
-      concepto: alumnos || (ingresoExtra ? "Ingreso extra" : "Sin alumno"),
+      concepto: clase.concepto_clase || clase.nombre_grupo_libre || alumnos || (ingresoExtra ? "Ingreso extra" : "Sin alumno"),
       importe: redondear(importe),
       ingresoExtra: redondear(ingresoExtra),
       estado: estadoCobro.cobrado ? "Cobrado" : "Pendiente",
@@ -288,3 +290,4 @@ export function construirInformeGestoria(
     resultado,
   };
 }
+

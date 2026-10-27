@@ -435,12 +435,12 @@ function estadoEconomicoClase(
   }
 
   if (
-    !clase.nombre_grupo_libre && clase.clase_alumnos.length === 0
+    !clase.nombre_grupo_libre && !clase.concepto_clase && clase.clase_alumnos.length === 0
   ) {
     return "pendiente" as const;
   }
 
-  if (clase.nombre_grupo_libre) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
+  if (clase.nombre_grupo_libre || (clase.concepto_clase && !clase.clase_alumnos.length)) return clase.cobrada ? "cobrada" as const : "pendiente" as const;
 
   const pagosNormales =
     clase.clase_alumnos.filter(
@@ -2482,7 +2482,7 @@ export default function VistaHorarioAgenda({
                         ""
                       );
 
-                      if (clase.nombre_grupo_libre) { editarClase(clase.id); return; }
+                      if (clase.nombre_grupo_libre || !clase.clase_alumnos.length) { editarClase(clase.id); return; }
                       setClaseSeleccionada(
                         clase
                       );
@@ -2519,7 +2519,7 @@ export default function VistaHorarioAgenda({
                     }}
                     title={
                       canceladaSolapada
-                        ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre || "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                        ? `CANCELADA · ${clase.concepto_clase || alumnos || clase.nombre_grupo_libre || "Sin alumnos"} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
                         : "Abrir acciones rápidas"
                     }
                   >
@@ -2530,7 +2530,7 @@ export default function VistaHorarioAgenda({
                         </span>
                         <span className="shrink-0 opacity-50">·</span>
                         <span className="min-w-0 truncate">
-                          {alumnos || (clase.nombre_grupo_libre || "Sin alumnos")}
+                          {clase.concepto_clase || alumnos || clase.nombre_grupo_libre || "Sin alumnos"}
                         </span>
                         <EtiquetaMonitor nombre={clase.monitor_nombre} className="min-w-0 truncate" />
                         <span className="shrink-0 opacity-50">·</span>
@@ -2570,11 +2570,11 @@ export default function VistaHorarioAgenda({
                         <div
                           className="mt-1 line-clamp-2 pr-1 text-xs font-extrabold leading-[1.15]"
                           title={
-                            alumnos ||
+                            clase.concepto_clase || alumnos ||
                             (clase.nombre_grupo_libre || "Sin alumnos")
                           }
                         >
-                          {alumnos ||
+                          {clase.concepto_clase || alumnos ||
                             (clase.nombre_grupo_libre || "Sin alumnos")}
                         </div>
 
@@ -2836,7 +2836,7 @@ export default function VistaHorarioAgenda({
                           }
 
                           setMensajeAccion("");
-                          if (clase.nombre_grupo_libre) { editarClase(clase.id); return; }
+                          if (clase.nombre_grupo_libre || !clase.clase_alumnos.length) { editarClase(clase.id); return; }
                           setClaseSeleccionada(
                             clase
                           );
@@ -2880,7 +2880,7 @@ export default function VistaHorarioAgenda({
                         }}
                         title={
                           canceladaSolapada
-                            ? `CANCELADA · ${alumnos || (clase.nombre_grupo_libre || "Sin alumnos")} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
+                            ? `CANCELADA · ${clase.concepto_clase || alumnos || clase.nombre_grupo_libre || "Sin alumnos"} · ${clase.hora_inicio.slice(0, 5)}–${horaFinVisual}`
                             : clase.nombre_grupo_libre ? "Editar clase puntual" : clase.estado === "programada"
                             ? "Pulsa para acciones rápidas o arrastra para mover"
                             : "Abrir acciones rápidas"
@@ -2893,7 +2893,7 @@ export default function VistaHorarioAgenda({
                             </span>
                             <span className="shrink-0 opacity-50">·</span>
                             <span className="min-w-0 truncate">
-                              {alumnos || (clase.nombre_grupo_libre || "Sin alumnos")}
+                              {clase.concepto_clase || alumnos || clase.nombre_grupo_libre || "Sin alumnos"}
                             </span>
                         <EtiquetaMonitor nombre={clase.monitor_nombre} className="min-w-0 truncate" />
                             <span className="shrink-0 opacity-50">·</span>
@@ -2918,9 +2918,9 @@ export default function VistaHorarioAgenda({
 
                             <div
                               className="mt-1 line-clamp-2 text-[11px] font-bold leading-[1.2]"
-                              title={alumnos || (clase.nombre_grupo_libre || "Sin alumnos")}
+                              title={clase.concepto_clase || alumnos || clase.nombre_grupo_libre || "Sin alumnos"}
                             >
-                              {alumnos || (clase.nombre_grupo_libre || "Sin alumnos")}
+                              {clase.concepto_clase || alumnos || clase.nombre_grupo_libre || "Sin alumnos"}
                             </div>
 
                             <EtiquetaMonitor nombre={clase.monitor_nombre} />
@@ -3029,3 +3029,4 @@ export default function VistaHorarioAgenda({
     </div>
   );
 }
+
