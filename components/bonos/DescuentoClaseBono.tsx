@@ -1,5 +1,6 @@
 "use client";
 
+import UnificarCobrosBono from "./UnificarCobrosBono";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { precioOriginalBono, precioSesionBono, type BonoEconomico } from "../../lib/economia";
@@ -84,7 +85,7 @@ function Ajuste({ clase, bono, disabled, onGuardado }: {
         className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm">
         <option value="">Conservar los cobros registrados</option>
         {cobros.map(cobro => <option key={cobro.id} value={cobro.id}>
-          Descuento aplicado en {cobro.estado === "pagado" ? "cobro" : "cobro pendiente"} de {euros(Number(cobro.importe))} · {cobro.metodo_cobro || "Sin método"} · {cobro.fecha_cobro || "Sin fecha"}
+          Descuento aplicado en {cobro.estado === "pagado" ? "pago" : "pago pendiente"} de {euros(Number(cobro.importe))} · {cobro.metodo_cobro || "Sin método"} · {cobro.fecha_cobro || "Sin fecha"}
         </option>)}
       </select>
     </label>
@@ -93,6 +94,7 @@ function Ajuste({ clase, bono, disabled, onGuardado }: {
     <p className="text-xs text-slate-500">Consume una clase completa. Para retirar el ajuste, guarda un descuento de 0 €.</p>
     <button type="button" disabled={!valido || !listo || guardando || disabled} onClick={guardar}
       className="rounded-xl bg-[#00A79C] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{guardando ? "Guardando…" : "Guardar descuento"}</button>
+    <UnificarCobrosBono bonoId={bono.id} cobros={cobros} disabled={guardando || disabled} onGuardado={onGuardado} />
     {mensaje && <p role="alert" className="text-sm text-red-700">{mensaje}</p>}
   </div>;
 }
