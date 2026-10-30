@@ -4,6 +4,10 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 const jsx = require('react/jsx-runtime');
+const economia = {};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/economia.ts', 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
+}).outputText, { exports: economia });
 function nodos(root,predicate) {
   if(Array.isArray(root)) return root.flatMap(n=>nodos(n,predicate));
   if(!root||typeof root!=='object')return [];
@@ -40,7 +44,7 @@ function montar(seed={}) {
       if(name.endsWith('/monitores'))return {cargarMonitores:async()=>[]};
       if(name.endsWith('/googleCalendarClient'))return {sincronizarClaseConGoogleCalendar:async d=>calendar.push(d)};
       if(name.endsWith('/clasesPuntuales'))return {detalleClasePuntual:c=>c.monitor_nombre || ''};
-      if(name.endsWith('/economia'))return {recalcularImportesBonos:x=>x};
+      if(name.endsWith('/economia'))return economia;
       return {};
     }});
   const render=()=>{cursor=0;return exports.default()};
@@ -113,4 +117,15 @@ test('La misma pantalla muestra alumnos, concepto e ingreso extra sin cambiar de
  assert.ok(nodos(root,n=>n.type==='input'&&n.props.placeholder?.startsWith('Grupo belgas')).length);
  assert.ok(nodos(root,n=>n.type==='label'&&texto(n).trim()==='Ingreso extra').length);
  assert.equal(nodos(root,n=>n.props?.hidden===true&&texto(n).includes('Ingreso extra')).length,0);
+});
+
+
+test('El formulario reparte el precio del bono compartido en céntimos',async()=>{
+  const segundo={...alumno,id:'a2',nombre:'Segundo'};
+  const app=montar({...base,alumnos:[alumno,segundo],bonos:[{...bono,importe_pagado:170.05}],
+    alumnosSeleccionados:['a1','a2'],modoPagoAlumnos:{a1:'bono',a2:'bono'},
+    bonosSeleccionados:{a1:'b1',a2:'b1'},relacionesBonoAlumno:[{bono_id:'b1',alumno_id:'a2'}]});
+  await app.save();assert.ok(app.calls.length);
+  assert.equal(app.calls[0].args.p_participantes[0].importe,17.01);
+  assert.equal(app.calls[0].args.p_participantes[1].importe,17);
 });

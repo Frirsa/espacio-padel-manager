@@ -10,6 +10,8 @@ import {
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+import { descuentoTotalBono, precioOriginalBono } from "../../lib/economia";
+
 import { generarImagenBono } from "../../components/bonos/generarImagenBono";
 
 type Alumno = {
@@ -57,6 +59,7 @@ type Bono = {
   numero_clases: number;
   clases_restantes: number;
   importe_pagado: number;
+  ajustes_clase?: import("../../lib/economia").BonoEconomico["ajustes_clase"];
   fecha_compra: string;
   activo: boolean;
   estado_cobro: "pagado" | "pendiente" | null;
@@ -916,6 +919,7 @@ export default function BonosPage() {
         numero_clases,
         clases_restantes,
         importe_pagado,
+        ajustes_clase,
         fecha_compra,
         activo,
         estado_cobro,
@@ -1823,6 +1827,12 @@ export default function BonosPage() {
               bonoEditandoId
           ) || null
         : null;
+
+    if (bonoOriginal && descuentoTotalBono(bonoOriginal) > 0 &&
+      (totalClases !== bonoOriginal.numero_clases || Math.abs(importeTotalBono - Number(bonoOriginal.importe_pagado)) > 0.004)) {
+      setMensaje("❌ Este bono tiene descuentos por clase. Gestiona el importe desde la clase correspondiente; conserva el número de clases.");
+      return;
+    }
 
     const cobrosOriginales =
       bonoEditandoId
@@ -4546,6 +4556,20 @@ export default function BonosPage() {
                             </p>
                           </div>
                         </div>
+
+                        {descuentoTotalBono(bono) > 0 && (
+                          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            <p>Precio original: {precioOriginalBono(bono).toFixed(2)} € · Descuentos: −{descuentoTotalBono(bono).toFixed(2)} €</p>
+                            {Object.entries(bono.ajustes_clase || {}).map(([claseId, ajuste]) => (
+                              <p key={claseId} className="mt-1">{formatearFecha(ajuste.fecha_clase)} · −{Number(ajuste.descuento).toFixed(2)} € · {ajuste.motivo}</p>
+                            ))}
+                          </div>
+                        )}
+                        {resumenCobro.cobrado > resumenCobro.total + 0.004 && (
+                          <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+                            Saldo a favor de los alumnos: {(resumenCobro.cobrado - resumenCobro.total).toFixed(2)} €. Revisa su devolución o compensación.
+                          </p>
+                        )}
 
                         {bono.grupo_id && (
                           <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50/60 px-3 py-3">

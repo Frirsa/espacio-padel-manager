@@ -1,5 +1,8 @@
 "use client";
 
+import { precioSesionBono, recalcularImportesBonos } from "../../lib/economia";
+import DescuentoClaseBono from "../bonos/DescuentoClaseBono";
+
 import EtiquetaMonitor from "./EtiquetaMonitor";
 
 import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
@@ -54,6 +57,7 @@ type BonoRapido = {
   numero_clases: number;
   clases_restantes: number;
   importe_pagado: number;
+  ajustes_clase?: import("../../lib/economia").BonoEconomico["ajustes_clase"];
   activo: boolean;
   estado_cobro: "pagado" | "pendiente" | null;
   titular_nombre: string;
@@ -478,7 +482,7 @@ export default function AccionesRapidasClase({
         supabase
           .from("bonos")
           .select(
-            "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,activo,estado_cobro"
+            "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,ajustes_clase,activo,estado_cobro"
           )
           .eq("activo", true)
           .gt("clases_restantes", 0),
@@ -839,16 +843,7 @@ export default function AccionesRapidasClase({
       const claseTrabajo =
         claseSeleccionada;
 
-      const importeClaseBono =
-        bono.numero_clases > 0
-          ? Number(
-              bono.importe_pagado ||
-                0
-            ) /
-            Number(
-              bono.numero_clases
-            )
-          : 0;
+      const importeClaseBono = precioSesionBono(bono, claseTrabajo.id);
 
       const otrosConMismoBono =
         claseTrabajo.clase_alumnos.filter(
@@ -1976,6 +1971,13 @@ export default function AccionesRapidasClase({
             <IconoCerrar />
           </button>
         </div>
+
+        <DescuentoClaseBono clase={claseSeleccionada} disabled={actualizando}
+          onGuardado={async (bonosActualizados) => {
+            setClaseSeleccionada(actual => recalcularImportesBonos(actual, bonosActualizados));
+            await onClaseActualizada();
+            await cargarBonosDisponibles(claseSeleccionada);
+          }} />
 
         <div
           className={

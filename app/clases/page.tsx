@@ -7,7 +7,8 @@ import { supabase } from "../../lib/supabase";
 import CamposMonitor from "../../components/clases/CamposMonitor";
 import { cargarMonitores, type Monitor } from "../../lib/monitores";
 import { detalleClasePuntual } from "../../lib/clasesPuntuales";
-import { recalcularImportesBonos } from "../../lib/economia";
+import DescuentoClaseBono from "../../components/bonos/DescuentoClaseBono";
+import { recalcularImportesBonos, precioSesionBono } from "../../lib/economia";
 import {
   borrarClaseDeGoogleCalendar,
   sincronizarClaseConGoogleCalendar,
@@ -46,6 +47,7 @@ type Bono = {
   numero_clases: number;
   clases_restantes: number;
   importe_pagado: number;
+  ajustes_clase?: import("../../lib/economia").BonoEconomico["ajustes_clase"];
   activo: boolean;
 };
 
@@ -1688,7 +1690,7 @@ export default function ClasesPage() {
       await supabase
         .from("bonos")
         .select(
-          "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,activo"
+          "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,ajustes_clase,activo"
         )
         .order(
           "fecha_compra",
@@ -3913,15 +3915,7 @@ export default function ClasesPage() {
                         }
 
                         const importeClaseBono =
-                          Math.round(
-                            Number(
-                              bono.importe_pagado ||
-                                0
-                            ) /
-                              Number(
-                                bono.numero_clases
-                              )
-                          );
+                          precioSesionBono(bono, claseEditandoId || undefined);
 
                         const usuariosMismoBono =
                           alumnosSeleccionados
@@ -3945,13 +3939,14 @@ export default function ClasesPage() {
                           return importeClaseBono;
                         }
 
+                        const centimosSesion = Math.round(importeClaseBono * 100);
                         const importeBase =
                           Math.floor(
-                            importeClaseBono /
+                            centimosSesion /
                               usuariosMismoBono.length
                           );
                         const resto =
-                          importeClaseBono %
+                          centimosSesion %
                           usuariosMismoBono.length;
                         const indiceUsuario =
                           usuariosMismoBono.indexOf(
@@ -3964,7 +3959,7 @@ export default function ClasesPage() {
                           indiceUsuario < resto
                             ? 1
                             : 0)
-                        );
+                        ) / 100;
                       })()
                     : modoCobroFinalSerie ===
                       "total"
@@ -4863,15 +4858,7 @@ export default function ClasesPage() {
                         }
 
                         const importeClaseBono =
-                          Math.round(
-                            Number(
-                              bono.importe_pagado ||
-                                0
-                            ) /
-                              Number(
-                                bono.numero_clases
-                              )
-                          );
+                          precioSesionBono(bono, claseEditandoId || undefined);
 
                         const usuariosMismoBono =
                           alumnosSeleccionados
@@ -4895,13 +4882,14 @@ export default function ClasesPage() {
                           return importeClaseBono;
                         }
 
+                        const centimosSesion = Math.round(importeClaseBono * 100);
                         const importeBase =
                           Math.floor(
-                            importeClaseBono /
+                            centimosSesion /
                               usuariosMismoBono.length
                           );
                         const resto =
-                          importeClaseBono %
+                          centimosSesion %
                           usuariosMismoBono.length;
                         const indiceUsuario =
                           usuariosMismoBono.indexOf(
@@ -4914,7 +4902,7 @@ export default function ClasesPage() {
                           indiceUsuario < resto
                             ? 1
                             : 0)
-                        );
+                        ) / 100;
                       })()
                     : modoCobroFinal ===
                       "total"
@@ -8653,6 +8641,8 @@ export default function ClasesPage() {
                             </p>
                           </div>
                         </div>
+
+                        <DescuentoClaseBono clase={clase} bonos={bonos} onGuardado={async () => { await cargarDatos(); }} />
 
                         <div className="mt-2 space-y-2">
                           <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-[#FBFCFD] px-3 py-2.5">

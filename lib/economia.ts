@@ -9,12 +9,38 @@ export type BonoEconomico = {
   id: string;
   importe_pagado?: number | string | null;
   numero_clases?: number | string | null;
+  ajustes_clase?: Record<string, AjusteBonoClase> | null;
 };
+
+export type AjusteBonoClase = {
+  descuento: number;
+  motivo: string;
+  fecha_clase: string;
+  cobro_id: string | null;
+};
+
+export function descuentoTotalBono(bono: BonoEconomico) {
+  return Object.values(bono.ajustes_clase || {}).reduce(
+    (total, ajuste) => total + Math.round(Number(ajuste.descuento || 0) * 100), 0
+  ) / 100;
+}
+
+export function precioOriginalBono(bono: BonoEconomico) {
+  return (Math.round(Number(bono.importe_pagado || 0) * 100) +
+    Math.round(descuentoTotalBono(bono) * 100)) / 100;
+}
+
+export function precioSesionBono(bono: BonoEconomico, claseId?: string) {
+  const numero = Number(bono.numero_clases || 0);
+  if (numero <= 0) return 0;
+  const descuento = claseId ? Number(bono.ajustes_clase?.[claseId]?.descuento || 0) : 0;
+  return (Math.round(precioOriginalBono(bono) / numero * 100) - Math.round(descuento * 100)) / 100;
+}
 
 // El ingreso de una sesión con bono procede de su precio, no de una tarifa
 // que pudiera haber quedado guardada al programar una serie.
 export function recalcularImportesBonos<
-  T extends { tipo?: string | null; clase_alumnos?: ParticipanteEconomico[] | null }
+  T extends { id?: string; tipo?: string | null; clase_alumnos?: ParticipanteEconomico[] | null }
 >(clase: T, bonos: readonly BonoEconomico[]): T {
   const participantes = clase.clase_alumnos;
   if (clase.tipo === "club" || !participantes?.length) return clase;
@@ -32,12 +58,12 @@ export function recalcularImportesBonos<
   for (const [bonoId, indices] of grupos) {
     const bono = bonosPorId.get(bonoId);
     if (bono?.importe_pagado == null || bono.numero_clases == null) continue;
-    const precio = Number(bono.importe_pagado);
+    const precio = precioOriginalBono(bono);
     const numeroClases = Number(bono.numero_clases);
     if (!Number.isFinite(precio) || precio < 0 ||
         !Number.isInteger(numeroClases) || numeroClases <= 0) continue;
 
-    const centimos = Math.round((precio / numeroClases) * 100);
+    const centimos = Math.round(precioSesionBono(bono, clase.id) * 100);
     const base = Math.floor(centimos / indices.length);
     const resto = centimos % indices.length;
     indices.sort((a, b) =>

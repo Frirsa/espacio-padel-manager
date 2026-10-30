@@ -1,5 +1,7 @@
 "use client";
 
+import { precioSesionBono } from "../../lib/economia";
+
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { sincronizarClaseConGoogleCalendar } from "../../lib/googleCalendarClient";
@@ -63,6 +65,7 @@ type BonoGrupo = {
   grupo_id: string | null;
   numero_clases: number;
   importe_pagado: number;
+  ajustes_clase?: import("../../lib/economia").BonoEconomico["ajustes_clase"];
 };
 
 type TarifaGrupo = {
@@ -707,7 +710,7 @@ export default function GruposPage() {
       } = await supabase
         .from("bonos")
         .select(
-          "id,grupo_id,numero_clases,importe_pagado"
+          "id,grupo_id,numero_clases,importe_pagado,ajustes_clase"
         )
         .in("id", bonosIds);
 
@@ -821,14 +824,7 @@ export default function GruposPage() {
         bonoGrupoComun &&
         bonoGrupoComun.numero_clases > 0
       ) {
-        const importeSesion =
-          Number(
-            bonoGrupoComun.importe_pagado ||
-              0
-          ) /
-          Number(
-            bonoGrupoComun.numero_clases
-          );
+        const importeSesion = precioSesionBono(bonoGrupoComun, clase.id);
 
         repartoBono =
           repartirImporteExacto(

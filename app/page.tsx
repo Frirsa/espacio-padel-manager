@@ -437,7 +437,7 @@ export default function Home() {
 
     const { data: bonosPrecioData } = await supabase
       .from("bonos")
-      .select("id,importe_pagado,numero_clases");
+      .select("id,importe_pagado,ajustes_clase,numero_clases");
 
     const {
       data: clasesMesData,
