@@ -410,7 +410,7 @@ export default function AgendaPage() {
       } = await supabase
         .from("bonos")
         .select(
-          "id,estado_cobro,importe_pagado,numero_clases"
+          "id,estado_cobro,importe_pagado,ajustes_clase,numero_clases"
         );
 
       const estadoCobroPorBono =
