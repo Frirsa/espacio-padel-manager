@@ -16,3 +16,9 @@ El detalle de participantes se recalcula en céntimos para coincidir con Agenda,
 ## Verificación
 
 `npm test`, `npx tsc --noEmit` y `npm run build` (con variables de Supabase configuradas). Las pruebas SQL usan PostgreSQL de PGlite y cubren descuentos sucesivos, retirada, céntimos, corrección de cobros, reintentos, reversión de errores, reemplazo de participantes y restauración.
+
+## Pago conjunto en bonos compartidos
+
+Al crear el bono, la opción **Forma de cobro del bono compartido** permite elegir **Pago conjunto** (predeterminada) o **Cada alumno paga su parte**, tanto pagado como pendiente. Un pago conjunto genera un único movimiento para todo el bono.
+
+En **Bonos → Cobros** y en el descuento de una clase se pueden unificar registros que correspondan a un mismo pago, siempre que tengan igual estado, fecha y método. La operación conserva el total recibido, remapea los descuentos al movimiento conjunto y guarda los movimientos originales en `bono_cobros.origen_cobros`. No aplica otro descuento ni modifica las clases consumidas.

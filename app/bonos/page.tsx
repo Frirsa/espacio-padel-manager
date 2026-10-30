@@ -10,6 +10,9 @@ import {
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+import UnificarCobrosBono from "../../components/bonos/UnificarCobrosBono";
+import { prepararCobrosInicialesBono, type RepartoCobroBono } from "../../lib/bonoCobros";
+
 import { descuentoTotalBono, precioOriginalBono } from "../../lib/economia";
 
 import { generarImagenBono } from "../../components/bonos/generarImagenBono";
@@ -753,6 +756,8 @@ export default function BonosPage() {
     setClasesRestantes,
   ] = useState("5");
 
+  const [repartoCobroInicial, setRepartoCobroInicial] = useState<RepartoCobroBono>("conjunto");
+
   const [importe, setImporte] =
     useState("");
 
@@ -1082,6 +1087,7 @@ export default function BonosPage() {
     setClasesRestantes("5");
     setImporte("");
     setEstadoCobro("pagado");
+    setRepartoCobroInicial("conjunto");
     setMetodoCobro("efectivo");
     setFechaCobro(
       new Date()
@@ -1404,81 +1410,12 @@ export default function BonosPage() {
     metodoInicial: string,
     fechaInicial: string
   ) {
-    if (importeTotal <= 0) {
-      return;
-    }
-
-    if (estadoInicial === "pagado") {
-      const { error } = await supabase
-        .from("bono_cobros")
-        .insert({
-          bono_id: bonoId,
-          alumno_id: null,
-          importe: importeTotal,
-          estado: "pagado",
-          metodo_cobro: metodoInicial,
-          fecha_cobro: fechaInicial,
-        });
-
-      if (error) {
-        throw new Error(
-          "No se pudo registrar el cobro inicial del bono: " +
-            error.message
-        );
-      }
-
-      return;
-    }
-
-    if (
-      esGrupo &&
-      integrantesIds.length > 0
-    ) {
-      const reparto = repartirImporte(
-        importeTotal,
-        integrantesIds
-      );
-
-      const { error } = await supabase
-        .from("bono_cobros")
-        .insert(
-          reparto.map((parte) => ({
-            bono_id: bonoId,
-            alumno_id: parte.alumno_id,
-            importe: parte.importe,
-            estado: "pendiente",
-            metodo_cobro: null,
-            fecha_cobro: null,
-          }))
-        );
-
-      if (error) {
-        throw new Error(
-          "No se pudo repartir el cobro del bono entre los alumnos: " +
-            error.message
-        );
-      }
-
-      return;
-    }
-
-    const { error } = await supabase
-      .from("bono_cobros")
-      .insert({
-        bono_id: bonoId,
-        alumno_id: null,
-        importe: importeTotal,
-        estado: "pendiente",
-        metodo_cobro: null,
-        fecha_cobro: null,
-      });
-
-    if (error) {
-      throw new Error(
-        "No se pudo registrar el pendiente del bono: " +
-          error.message
-      );
-    }
+    const filas = prepararCobrosInicialesBono({ bonoId, importe: importeTotal,
+      integrantes: esGrupo ? integrantesIds : [], reparto: repartoCobroInicial,
+      estado: estadoInicial, metodo: metodoInicial, fecha: fechaInicial });
+    if (!filas.length) return;
+    const { error } = await supabase.from("bono_cobros").insert(filas);
+    if (error) throw new Error("No se pudo registrar el cobro inicial del bono: " + error.message);
   }
 
   async function sincronizarEstadoCobroLegacy(
@@ -1989,13 +1926,13 @@ export default function BonosPage() {
           ? miembrosGrupo.map(
               (alumno) => alumno.id
             )
-          : [];
+          : [...new Set([alumnoId, ...alumnosAutorizados].filter(Boolean))];
 
       if (!bonoEditandoId) {
         await crearCobrosInicialesBono(
           bonoId,
           importeTotalBono,
-          tipoComprador === "grupo",
+          integrantesCobro.length > 1,
           integrantesCobro,
           estadoCobro,
           metodoCobro,
@@ -2005,7 +1942,7 @@ export default function BonosPage() {
         await crearCobrosInicialesBono(
           bonoId,
           importeTotalBono,
-          tipoComprador === "grupo",
+          integrantesCobro.length > 1,
           integrantesCobro,
           estadoCobro,
           metodoCobro,
@@ -2028,7 +1965,7 @@ export default function BonosPage() {
         await crearCobrosInicialesBono(
           bonoId,
           importeTotalBono,
-          tipoComprador === "grupo",
+          integrantesCobro.length > 1,
           integrantesCobro,
           "pendiente",
           metodoCobro,
@@ -3918,10 +3855,21 @@ export default function BonosPage() {
                         Cobro inicial del bono
                       </p>
                       <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                        Si queda pendiente y es un bono de grupo, el importe se repartirá automáticamente entre sus integrantes.
+                        Indica si se cobra en un único pago o si cada alumno paga su parte.
                       </p>
                     </div>
                   </div>
+
+                  {numeroPersonasBono > 1 && (
+                    <label className="mt-3 block text-xs font-semibold text-slate-600">
+                      Forma de cobro del bono compartido
+                      <select value={repartoCobroInicial} onChange={e => setRepartoCobroInicial(e.target.value as RepartoCobroBono)}
+                        className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                        <option value="conjunto">Pago conjunto</option>
+                        <option value="por_alumno">Cada alumno paga su parte</option>
+                      </select>
+                    </label>
+                  )}
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button
@@ -4681,6 +4629,9 @@ export default function BonosPage() {
                             </div>
                           </div>
 
+                          <UnificarCobrosBono bonoId={bono.id} cobros={resumenCobro.cobros}
+                            disabled={!!cobroActualizandoId} onGuardado={cargarDatos} />
+
                           <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
                             {resumenCobro.cobros.length === 0 ? (
                               <div className="px-4 py-5 text-center text-xs text-slate-400">
@@ -4701,7 +4652,7 @@ export default function BonosPage() {
                                   const nombreCobro =
                                     alumnoCobro
                                       ? `${alumnoCobro.nombre} ${alumnoCobro.apellidos || ""}`.trim()
-                                      : "Cobro global";
+                                      : esCompartido || bono.grupo_id ? "Pago conjunto" : "Pago del bono";
 
                                   return (
                                     <div

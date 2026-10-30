@@ -21,14 +21,15 @@ async function fixture(t) {
     create table clases(id uuid primary key,fecha date,estado text,tipo text,modo_cobro text);
     create table clase_alumnos(id uuid primary key default gen_random_uuid(),clase_id uuid references clases(id),
       alumno_id uuid,bono_id uuid references bonos(id),usa_bono boolean,importe numeric,asistio boolean);
-    create table bono_cobros(id uuid primary key,bono_id uuid references bonos(id) on delete cascade,importe numeric check(importe>=0),estado text);
+    create table bono_cobros(id uuid primary key,bono_id uuid references bonos(id) on delete cascade,importe numeric check(importe>=0),estado text,alumno_id uuid,metodo_cobro text,fecha_cobro date);
     insert into bonos values('${bono}',10,9,340,'pagado');
     insert into clases values('${clase}','2026-10-30','realizada','propia','por_alumno'),('${otra}','2026-11-06','programada','propia','por_alumno');
     insert into clase_alumnos(clase_id,alumno_id,bono_id,usa_bono,importe,asistio)
       select c.id,a.id,'${bono}',true,17,a.id::text like 'a%' from clases c cross join
       (values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid)) a(id);
-    insert into bono_cobros values('${cobro}','${bono}',340,'pagado');`);
+    insert into bono_cobros(id,bono_id,importe,estado) values('${cobro}','${bono}',340,'pagado');`);
   await db.exec(fs.readFileSync('supabase/migrations/20261030132611_descuentos_clase_bono.sql','utf8'));
+  await db.exec(fs.readFileSync('supabase/migrations/20261030155025_cobro_conjunto_bonos.sql','utf8'));
   const guardar=(d=3,old=0,c=null,id=clase)=>db.query('select guardar_descuento_clase_bono($1,$2,$3,$4,$5,$6)',[id,bono,d,'Solo asiste un alumno',c,old]);
   const get=async()=>(await db.query('select * from bonos')).rows[0];
   const pago=async()=>Number((await db.query('select importe from bono_cobros where id=$1',[cobro])).rows[0].importe);
@@ -99,4 +100,31 @@ test('Restaurar una copia conserva ajustes, cobros y reparto de las sesiones',as
   assert.equal(Number((await get()).importe_pagado),337);assert.equal(await pago(),337);
   assert.equal((await get()).ajustes_clase[clase].descuento,3);
   assert.equal(Number((await db.query('select sum(importe) total from clase_alumnos where clase_id=$1',[clase])).rows[0].total),31);
+});
+
+const segundoCobro='77777777-7777-4777-8777-777777777777';
+async function prepararDividido(db) {
+  await db.query("update bono_cobros set importe=170,alumno_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',metodo_cobro='efectivo',fecha_cobro='2026-10-30' where id=$1",[cobro]);
+  await db.query("insert into bono_cobros(id,bono_id,importe,estado,alumno_id,metodo_cobro,fecha_cobro) values($1,$2,170,'pagado','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','efectivo','2026-10-30')",[segundoCobro,bono]);
+}
+test('167 + 170 se convierte en un pago conjunto de 337 sin repetir el descuento y conserva el origen',async t=>{
+  const {db,guardar,get,pago}=await fixture(t);await prepararDividido(db);await guardar(3,0,cobro);
+  const id=(await db.query('select unificar_cobros_bono($1,$2,$3) id',[bono,[cobro,segundoCobro],337])).rows[0].id;
+  assert.equal(id,cobro);const pagos=(await db.query('select * from bono_cobros')).rows;
+  assert.equal(pagos.length,1);assert.equal(pagos[0].alumno_id,null);assert.equal(Number(pagos[0].importe),337);
+  assert.equal(pagos[0].origen_cobros.length,2);assert.equal(pagos[0].metodo_cobro,'efectivo');
+  assert.equal((await get()).ajustes_clase[clase].cobro_id,id);
+  await guardar(3,3,id);assert.equal(await pago(),337);assert.equal((await get()).clases_restantes,9);
+  await guardar(0,3,null);assert.equal(await pago(),340);
+});
+test('La unificación rechaza datos desactualizados, pagos distintos y selección duplicada sin cambios parciales',async t=>{
+  const {db}=await fixture(t);await prepararDividido(db);
+  const unir=(ids,total)=>db.query('select unificar_cobros_bono($1,$2,$3)',[bono,ids,total]);
+  await assert.rejects(unir([cobro,segundoCobro],337),/han cambiado/);
+  await assert.rejects(unir([cobro,cobro],340),/Selecciona/);
+  await db.query("update bono_cobros set metodo_cobro='bizum' where id=$1",[segundoCobro]);
+  await assert.rejects(unir([cobro,segundoCobro],340),/mismo estado/);
+  const filas=(await db.query('select importe from bono_cobros')).rows;
+  assert.equal(filas.length,2);assert.equal(filas.reduce((s,c)=>s+Number(c.importe),0),340);
+  await db.exec("set test.uid=''");await assert.rejects(unir([cobro,segundoCobro],340),/iniciar sesión/);
 });
