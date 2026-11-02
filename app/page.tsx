@@ -1,5 +1,6 @@
 "use client";
 
+import { ultimaClaseBono } from "../lib/bonoRenovacion";
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import {
@@ -312,6 +313,9 @@ export default function Home() {
 
   const [proximasClases, setProximasClases] =
     useState<any[]>([]);
+
+  const [errorBonosRenovar, setErrorBonosRenovar] = useState("");
+  const [bonosRenovar, setBonosRenovar] = useState<any[]>([]);
 
   const [bonosAviso, setBonosAviso] =
     useState<any[]>([]);
@@ -1234,12 +1238,20 @@ export default function Home() {
       `)
       .eq("activo", true)
       .gt("clases_restantes", 0)
-      .lte("clases_restantes", 2)
+      .lte("clases_restantes", 1)
       .order("clases_restantes", { ascending: true });
 
     setBonosAviso(
       bonosAvisoData || []
     );
+
+    const { data: bonosRenovarData, error: errorRenovar } = await supabase.from("bonos")
+      .select(`id, grupo_id, clases_restantes, alumnos(nombre, apellidos), grupos(nombre),
+        clase_alumnos(usa_bono, clases(fecha, estado, facturable))`)
+      .lte("clases_restantes", 0).is("resolucion_renovacion", null)
+      .order("fecha_compra", { ascending: true });
+    setErrorBonosRenovar(errorRenovar ? "No se han podido cargar los bonos pendientes de renovar. Recarga la página para volver a intentarlo." : "");
+    setBonosRenovar(bonosRenovarData || []);
 
     const {
       data: alumnosCumpleanosData,
@@ -1676,6 +1688,8 @@ export default function Home() {
           numeroPagosPendientes === 0 &&
           bonosPendientesCobro.length === 0 &&
           bonosAviso.length === 0 &&
+          bonosRenovar.length === 0 &&
+          !errorBonosRenovar &&
           cumpleanosHoy.length === 0 ? (
             <div className="m-3 flex items-start gap-3 rounded-xl border border-[#00A79C]/20 bg-[#E8F7F5] px-3.5 py-3.5 sm:m-5 sm:px-4 sm:py-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#00A79C] shadow-sm">
@@ -1684,7 +1698,7 @@ export default function Home() {
               <div>
                 <p className="font-bold text-[#17324D]">Todo al día</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  No hay cobros pendientes, bonos pendientes de cobro, clases pasadas sin cerrar ni bonos próximos a agotarse.
+                  No hay cobros pendientes, bonos pendientes de cobro, clases pasadas sin cerrar ni bonos por renovar o próximos a agotarse.
                 </p>
               </div>
             </div>
@@ -1885,27 +1899,46 @@ export default function Home() {
                 </a>
               )}
 
+              {errorBonosRenovar && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorBonosRenovar}</p>}
+              {bonosRenovar.length > 0 && (
+                <a href="/bonos?filtro=pendientes-renovar" className="rounded-xl border border-red-200 bg-red-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-red-700">Bonos pendientes de renovar</p>
+                  <p className="mt-1 text-2xl font-bold text-red-700">{bonosRenovar.length}</p>
+                  <div className="mt-2 space-y-2">
+                    {bonosRenovar.slice(0, 3).map(bono => {
+                      const ultima = ultimaClaseBono(bono.clase_alumnos || []);
+                      return <div key={bono.id} className="text-xs text-red-900">
+                        <p className="font-bold">{nombreTitularBono(bono)}</p>
+                        <p>Última clase: {ultima ? new Date(ultima + "T12:00:00").toLocaleDateString("es-ES") : "Sin consumo registrado"}</p>
+                      </div>;
+                    })}
+                    {bonosRenovar.length > 3 && <p className="text-xs text-red-800">+ {bonosRenovar.length - 3} más</p>}
+                  </div>
+                  <p className="mt-3 text-xs font-bold text-red-700">Renovar o cerrar bonos →</p>
+                </a>
+              )}
+
               {bonosAviso.length > 0 && (
                 <a
                   href="/bonos?filtro=por-terminar"
-                  className="rounded-xl border border-red-200 bg-red-50/80 p-3.5 transition hover:border-red-300 hover:bg-red-50 sm:p-4"
+                  className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 transition hover:border-amber-300 hover:bg-amber-50 sm:p-4"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
                       <IconoPersonas />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-red-600">
-                        Atención · Bonos críticos
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-amber-600">
+                        Bonos próximos a agotarse
                       </p>
 
                       <div className="mt-1 flex items-end gap-2">
-                        <p className="text-2xl font-bold text-red-600">
+                        <p className="text-2xl font-bold text-amber-600">
                           {bonosAviso.length}
                         </p>
-                        <p className="pb-1 text-[10px] font-semibold text-red-800/75">
-                          con 1 o 2 clases restantes
+                        <p className="pb-1 text-[10px] font-semibold text-amber-800/75">
+                          con una clase restante
                         </p>
                       </div>
 
@@ -1920,14 +1953,14 @@ export default function Home() {
                                 key={
                                   bono.id
                                 }
-                                className="flex items-center justify-between gap-3 text-[10px] font-semibold text-red-900/80"
+                                className="flex items-center justify-between gap-3 text-[10px] font-semibold text-amber-900/80"
                               >
                                 <span className="min-w-0 truncate">
                                   {nombreTitularBono(
                                     bono
                                   )}
                                 </span>
-                                <span className="shrink-0 font-bold text-red-600">
+                                <span className="shrink-0 font-bold text-amber-600">
                                   {
                                     bono.clases_restantes
                                   }{" "}
@@ -1942,7 +1975,7 @@ export default function Home() {
 
                         {bonosAviso.length >
                           3 && (
-                          <p className="text-[10px] font-semibold text-red-700">
+                          <p className="text-[10px] font-semibold text-amber-700">
                             +{" "}
                             {bonosAviso.length -
                               3}{" "}
@@ -1951,8 +1984,8 @@ export default function Home() {
                         )}
                       </div>
 
-                      <p className="mt-2 text-xs font-bold text-red-600">
-                        Revisar y renovar bonos →
+                      <p className="mt-2 text-xs font-bold text-amber-600">
+                        Revisar bonos →
                       </p>
                     </div>
                   </div>
