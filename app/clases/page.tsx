@@ -7,6 +7,7 @@ import { supabase } from "../../lib/supabase";
 import CamposMonitor from "../../components/clases/CamposMonitor";
 import { cargarMonitores, type Monitor } from "../../lib/monitores";
 import { detalleClasePuntual } from "../../lib/clasesPuntuales";
+import { pendienteRenovacion } from "../../lib/bonoRenovacion";
 import DescuentoClaseBono from "../../components/bonos/DescuentoClaseBono";
 import { recalcularImportesBonos, precioSesionBono } from "../../lib/economia";
 import {
@@ -45,6 +46,7 @@ type Bono = {
   alumno_id: string;
   grupo_id: string | null;
   numero_clases: number;
+  resolucion_renovacion?: "cerrado" | "renovado" | null;
   clases_restantes: number;
   importe_pagado: number;
   ajustes_clase?: import("../../lib/economia").BonoEconomico["ajustes_clase"];
@@ -1690,7 +1692,7 @@ export default function ClasesPage() {
       await supabase
         .from("bonos")
         .select(
-          "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,ajustes_clase,activo"
+          "id,alumno_id,grupo_id,numero_clases,clases_restantes,importe_pagado,ajustes_clase,activo,resolucion_renovacion"
         )
         .order(
           "fecha_compra",
@@ -7190,6 +7192,11 @@ export default function ClasesPage() {
                             alumno.id
                           );
 
+                        const tieneBonoAgotado = bonosAlumno.length === 0 && bonos.some(bono =>
+                          pendienteRenovacion(bono) && (bono.alumno_id === alumno.id ||
+                            relacionesBonoAlumno.some(r => r.bono_id === bono.id && r.alumno_id === alumno.id) ||
+                            (!!bono.grupo_id && grupos.some(g => g.id === bono.grupo_id && g.grupo_alumnos.some(a => a.alumno_id === alumno.id)))));
+
                         const permiteBonoExterno =
                           bonoExternoAlumnos[
                             alumno.id
@@ -7228,6 +7235,10 @@ export default function ClasesPage() {
                             }
                             className="rounded-xl border border-slate-200 bg-white p-3"
                           >
+
+                            {tieneBonoAgotado && <p role="status" className="mb-3 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">
+                              Este alumno tiene un bono agotado pendiente de renovar. <a href="/bonos?filtro=pendientes-renovar" target="_blank" rel="noreferrer" className="font-bold underline">Revisar bonos</a>
+                            </p>}
 
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 

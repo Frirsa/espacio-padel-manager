@@ -10,6 +10,8 @@ import {
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+import { pendienteRenovacion, proximoAgotarse, ultimaClaseBono } from "../../lib/bonoRenovacion";
+
 import UnificarCobrosBono from "../../components/bonos/UnificarCobrosBono";
 import { prepararCobrosInicialesBono, type RepartoCobroBono } from "../../lib/bonoCobros";
 
@@ -65,6 +67,7 @@ type Bono = {
   ajustes_clase?: import("../../lib/economia").BonoEconomico["ajustes_clase"];
   fecha_compra: string;
   activo: boolean;
+  resolucion_renovacion: "cerrado" | "renovado" | null;
   estado_cobro: "pagado" | "pendiente" | null;
   metodo_cobro: string | null;
   fecha_cobro: string | null;
@@ -412,8 +415,9 @@ function SelectorEstadoBonos({
 
   const opciones = [
     ["todos", "Todos"],
-    ["activos", "Activos"],
-    ["finalizados", "Finalizados"],
+    ["activos", "Activos y pendientes de renovar"],
+    ["pendientes_renovar", "Pendientes de renovar"],
+    ["finalizados", "Cerrados y renovados"],
     ["inactivos", "Inactivos"],
     ["pendientes_cobro", "Pendientes cobro"],
   ];
@@ -685,6 +689,10 @@ export default function BonosPage() {
   const filtroDesdeDashboard =
     searchParams.get("filtro");
 
+  const [renovandoDesdeId, setRenovandoDesdeId] = useState<string | null>(null);
+  const [guardandoBono, setGuardandoBono] = useState(false);
+  const [cerrandoBonoId, setCerrandoBonoId] = useState<string | null>(null);
+
   const [alumnos, setAlumnos] =
     useState<Alumno[]>([]);
 
@@ -927,6 +935,7 @@ export default function BonosPage() {
         ajustes_clase,
         fecha_compra,
         activo,
+        resolucion_renovacion,
         estado_cobro,
         metodo_cobro,
         fecha_cobro,
@@ -1073,6 +1082,7 @@ export default function BonosPage() {
   }
 
   function limpiarFormulario() {
+    setRenovandoDesdeId(null);
     setAlumnoId("");
     setTipoComprador("alumno");
     setGrupoId("");
@@ -1206,7 +1216,7 @@ export default function BonosPage() {
 
   useEffect(() => {
     // Al editar, conservamos siempre el importe histórico del bono.
-    if (bonoEditandoId) {
+    if (bonoEditandoId || renovandoDesdeId) {
       return;
     }
 
@@ -1235,6 +1245,7 @@ export default function BonosPage() {
     // Si no existe tarifa para esa combinación, el importe queda manual.
     setImporte("");
   }, [
+    renovandoDesdeId,
     bonoEditandoId,
     totalClasesParaTarifa,
     numeroPersonasBono,
@@ -1695,6 +1706,7 @@ export default function BonosPage() {
     e: FormEvent
   ) {
     e.preventDefault();
+    if (guardandoBono) return;
 
     setMensaje("");
 
@@ -1870,11 +1882,24 @@ export default function BonosPage() {
       activo,
     };
 
+    setGuardandoBono(true);
     try {
       let bonoId =
         bonoEditandoId;
 
-      if (bonoEditandoId) {
+      if (renovandoDesdeId) {
+        const integrantes = tipoComprador === "grupo"
+          ? miembrosGrupo.map(a => a.id) : [...new Set([alumnoId, ...alumnosAutorizados])];
+        const cobros = prepararCobrosInicialesBono({ bonoId: renovandoDesdeId,
+          importe: importeTotalBono, integrantes, reparto: repartoCobroInicial,
+          estado: estadoCobro, metodo: metodoCobro, fecha: fechaCobro });
+        const { data, error } = await supabase.rpc("renovar_bono", {
+          p_bono_id: renovandoDesdeId, p_datos: datos,
+          p_autorizados: [...new Set([alumnoId, ...alumnosAutorizados])], p_cobros: cobros,
+        });
+        if (error) throw new Error(error.message);
+        bonoId = data as string;
+      } else if (bonoEditandoId) {
         const {
           error,
         } = await supabase
@@ -1916,7 +1941,7 @@ export default function BonosPage() {
         );
       }
 
-      await guardarRelacionesBono(
+      if (!renovandoDesdeId) await guardarRelacionesBono(
         bonoId,
         alumnoId
       );
@@ -1928,7 +1953,9 @@ export default function BonosPage() {
             )
           : [...new Set([alumnoId, ...alumnosAutorizados].filter(Boolean))];
 
-      if (!bonoEditandoId) {
+      if (renovandoDesdeId) {
+        // La renovación guarda bono, alumnos, cobros y resolución en una transacción.
+      } else if (!bonoEditandoId) {
         await crearCobrosInicialesBono(
           bonoId,
           importeTotalBono,
@@ -1983,7 +2010,7 @@ export default function BonosPage() {
       }
 
       setMensaje(
-        bonoEditandoId
+        renovandoDesdeId ? "✅ Bono renovado. Revisa el cobro del nuevo bono." : bonoEditandoId
           ? "✅ Bono actualizado correctamente"
           : "✅ Bono creado correctamente"
       );
@@ -2002,11 +2029,14 @@ export default function BonosPage() {
         "❌ Error al guardar el bono: " +
           mensajeError
       );
+    } finally {
+      setGuardandoBono(false);
     }
   }
   function editarBono(
     bono: Bono
   ) {
+    setRenovandoDesdeId(null);
     setFormularioMovilAbierto(true);
 
     if (typeof window !== "undefined" && window.innerWidth < 1280) {
@@ -2113,6 +2143,36 @@ export default function BonosPage() {
       top: 0,
       behavior: "smooth",
     });
+  }
+
+  function renovarBono(bono: Bono) {
+    editarBono(bono);
+    setBonoEditandoId(null);
+    setRenovandoDesdeId(bono.id);
+    setClasesRestantes(String(bono.numero_clases));
+    setImporte(String(precioOriginalBono(bono)));
+    setActivo(true);
+    setEstadoCobro("pendiente");
+    setRepartoCobroInicial("conjunto");
+    const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Madrid" });
+    setFechaCompra(hoy);
+    setFechaCobro(hoy);
+    setMensaje("Revisa las condiciones y guarda el nuevo bono. El anterior seguirá pendiente hasta entonces.");
+  }
+
+  async function cerrarSinRenovar(bono: Bono) {
+    if (cerrandoBonoId || !window.confirm("¿Cerrar este bono sin renovarlo? Se retirará el aviso; sus clases y cobros se conservan.")) return;
+    setCerrandoBonoId(bono.id);
+    const { data, error } = await supabase.from("bonos")
+      .update({ resolucion_renovacion: "cerrado", activo: false })
+      .eq("id", bono.id).lte("clases_restantes", 0).is("resolucion_renovacion", null).select("id");
+    setCerrandoBonoId(null);
+    if (error || !data?.length) {
+      setMensaje("❌ " + (error?.message || "El bono ha cambiado. Actualiza la lista y revísalo."));
+      return;
+    }
+    setMensaje("✅ Bono cerrado sin renovar. Se conserva su historial y cualquier cobro pendiente.");
+    await cargarDatos();
   }
 
   async function borrarBono(
@@ -2283,10 +2343,12 @@ export default function BonosPage() {
 
         if (
           filtroDesdeDashboard === "por-terminar" &&
-          !(bono.activo && bono.clases_restantes >= 1 && bono.clases_restantes <= 2)
+          !proximoAgotarse(bono)
         ) {
           return false;
         }
+
+        if (filtroDesdeDashboard === "pendientes-renovar" && !pendienteRenovacion(bono)) return false;
 
         const nombreAlumno =
           bono.alumnos
@@ -2322,9 +2384,7 @@ export default function BonosPage() {
           "activos"
         ) {
           coincideEstado =
-            bono.activo &&
-            bono.clases_restantes >
-              0;
+            (bono.activo && bono.clases_restantes > 0) || pendienteRenovacion(bono);
         }
 
         if (
@@ -2332,8 +2392,7 @@ export default function BonosPage() {
           "finalizados"
         ) {
           coincideEstado =
-            bono.clases_restantes <=
-            0;
+            !!bono.resolucion_renovacion;
         }
 
         if (
@@ -2341,9 +2400,7 @@ export default function BonosPage() {
           "inactivos"
         ) {
           coincideEstado =
-            !bono.activo &&
-            bono.clases_restantes >
-              0;
+            !bono.activo && bono.clases_restantes > 0;
         }
 
         if (
@@ -2355,6 +2412,8 @@ export default function BonosPage() {
               bono
             ).pendiente > 0.004;
         }
+
+        if (filtroEstado === "pendientes_renovar") coincideEstado = pendienteRenovacion(bono);
 
         const coincideMes =
           !filtroMes ||
@@ -2422,9 +2481,7 @@ export default function BonosPage() {
 
   const bonosFinalizados =
     bonosFiltrados.filter(
-      (bono) =>
-        bono.clases_restantes <=
-        0
+      (bono) => !!bono.resolucion_renovacion
     ).length;
 
   const bonosPendientesCobro =
@@ -2646,7 +2703,7 @@ export default function BonosPage() {
         bono.clases_restantes >=
           1 &&
         bono.clases_restantes <=
-          2
+          1
     );
 
   function cambiarHistorial(
@@ -2710,7 +2767,7 @@ export default function BonosPage() {
 
               <div className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 sm:px-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/45">
-                  Finalizados
+                  Cerrados y renovados
                 </p>
                 <p className="mt-1 text-xl font-bold text-white">
                   {bonosFinalizados}
@@ -2729,6 +2786,14 @@ export default function BonosPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <a href="/bonos?filtro=pendientes-renovar" className="font-bold text-amber-900">
+            Pendientes de renovar: {bonos.filter(pendienteRenovacion).length} →
+          </a>
+          <span className="text-xs text-amber-800">Permanecen visibles hasta renovarlos o cerrarlos.</span>
+          {filtroDesdeDashboard === "pendientes-renovar" && <a href="/bonos" className="text-xs underline">Quitar filtro</a>}
         </section>
 
         {filtroDesdeDashboard ===
@@ -2759,7 +2824,7 @@ export default function BonosPage() {
                 Bonos próximos a agotarse
               </p>
               <p className="mt-1 text-xs text-red-700">
-                Se muestran únicamente bonos activos con 1 o 2 clases restantes.
+                Se muestran los bonos activos con una clase restante.
               </p>
             </div>
             <a
@@ -2792,7 +2857,7 @@ export default function BonosPage() {
                     a agotarse
                   </p>
                   <p className="mt-0.5 text-[11px] text-red-700/80">
-                    Quedan 1 o 2 clases disponibles.
+                    Queda una clase disponible.
                   </p>
                 </div>
               </div>
@@ -2804,7 +2869,7 @@ export default function BonosPage() {
             type="button"
             onClick={() => {
               if (formularioMovilAbierto) {
-                if (bonoEditandoId) {
+                if (bonoEditandoId || renovandoDesdeId) {
                   limpiarFormulario();
                 }
                 setMensaje("");
@@ -2857,7 +2922,7 @@ export default function BonosPage() {
                   <h2 className="mt-1 text-lg font-bold">
                     {bonoEditandoId
                       ? "Editar bono"
-                      : "Nuevo bono"}
+                      : renovandoDesdeId ? "Renovar bono" : "Nuevo bono"}
                   </h2>
 
                   <p className="mt-1 text-xs leading-relaxed text-white/50">
@@ -3998,16 +4063,16 @@ export default function BonosPage() {
 
               <div className="grid gap-2 pt-1 sm:grid-cols-2 xl:grid-cols-1">
                 <button
-                  type="submit"
+                  type="submit" disabled={guardandoBono}
                   className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#00A79C] px-4 text-sm font-bold text-white transition hover:bg-[#008F86]"
                 >
                   <IconoBono />
                   {bonoEditandoId
                     ? "Guardar cambios"
-                    : "Crear bono"}
+                    : guardandoBono ? "Guardando…" : renovandoDesdeId ? "Guardar renovación" : "Crear bono"}
                 </button>
 
-                {bonoEditandoId && (
+                {(bonoEditandoId || renovandoDesdeId) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -4017,7 +4082,7 @@ export default function BonosPage() {
                     }}
                     className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-600 hover:bg-slate-100"
                   >
-                    Cancelar edición
+                    {renovandoDesdeId ? "Cancelar renovación" : "Cancelar edición"}
                   </button>
                 )}
               </div>
@@ -4137,6 +4202,8 @@ export default function BonosPage() {
 
               {bonosFiltrados.map(
                 (bono) => {
+                  const pendienteRenovar = pendienteRenovacion(bono);
+                  const ultimaClase = ultimaClaseBono(bono.clase_alumnos || []);
                   const estaActivo =
                     bono.activo &&
                     bono.clases_restantes >
@@ -4174,7 +4241,7 @@ export default function BonosPage() {
                   const porTerminar =
                     estaActivo &&
                     bono.clases_restantes <=
-                      2;
+                      1;
 
                   const relaciones =
                     relacionesBonoAlumno.filter(
@@ -4370,9 +4437,9 @@ export default function BonosPage() {
                             }
                           >
                             {estaFinalizado
-                              ? "TERMINADO"
+                              ? pendienteRenovar ? "Agotado · pendiente de renovar" : bono.resolucion_renovacion === "renovado" ? "Renovado" : "Cerrado"
                               : porTerminar
-                              ? "Por terminar"
+                              ? "Próximo a agotarse"
                               : estaActivo
                               ? "Activo"
                               : "Inactivo"}
@@ -4380,6 +4447,14 @@ export default function BonosPage() {
                         </div>
                       </header>
 
+                      {pendienteRenovar && <div className="border-t border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                        <p className="font-bold">Bono agotado · pendiente de renovar</p>
+                        <p className="mt-1">Última clase: {ultimaClase ? formatearFecha(ultimaClase) : "Sin consumo registrado"}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button type="button" onClick={() => renovarBono(bono)} className="rounded-lg bg-[#0F2742] px-3 py-2 font-bold text-white">Renovar bono</button>
+                          <button type="button" disabled={!!cerrandoBonoId} onClick={() => cerrarSinRenovar(bono)} className="rounded-lg border border-amber-300 bg-white px-3 py-2 font-bold disabled:opacity-50">{cerrandoBonoId === bono.id ? "Cerrando…" : "Cerrar sin renovar"}</button>
+                        </div>
+                      </div>}
                       {/* RESUMEN COMPACTO */}
                       <div className="p-3 sm:p-4">
                         <div className="grid grid-cols-3 gap-2">
