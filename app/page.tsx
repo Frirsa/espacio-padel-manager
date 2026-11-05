@@ -519,6 +519,8 @@ export default function Home() {
             canceladasFacturables: 0,
             horas: 0,
             ingresos: 0,
+            gastosPistas: 0,
+            costesPistas: [] as CosteOtraPista[],
             clubGenerado: 0,
             pistasPagadasClub: 0,
             saldoClub: 0,
@@ -568,6 +570,21 @@ export default function Home() {
 
           actual.gastos +=
             economia.gasto;
+
+          actual.gastosPistas += economia.gastoPista;
+          if (economia.gastoPista > 0) {
+            const ubicacion = Array.isArray(clase.ubicaciones)
+              ? clase.ubicaciones[0]
+              : clase.ubicaciones;
+            const nombre = ubicacion?.nombre?.trim() || clase.pista_nombre?.trim() || "Sin ubicación";
+            const clave = clase.ubicacion_id || `nombre:${nombre}`;
+            const coste = actual.costesPistas.find((pista: CosteOtraPista) => pista.clave === clave);
+            if (coste) {
+              coste.coste = (Math.round(coste.coste * 100) + Math.round(economia.gastoPista * 100)) / 100;
+            } else {
+              actual.costesPistas.push({ clave, nombre, coste: economia.gastoPista });
+            }
+          }
 
           actual.resultado +=
             economia.resultado;
@@ -1393,6 +1410,8 @@ export default function Home() {
     canceladasFacturables: 0,
     horas: 0,
     ingresos: 0,
+    gastosPistas: 0,
+    costesPistas: [] as CosteOtraPista[],
     clubGenerado: 0,
     pistasPagadasClub: 0,
     saldoClub: 0,
@@ -2246,7 +2265,12 @@ export default function Home() {
             </div>
             <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Pistas</p>
-              <p className="mt-1 font-bold text-red-600">{detalleDia.pistasPagadasClub.toFixed(2)} €</p>
+              <p className="mt-1 font-bold text-red-600">{detalleDia.gastosPistas.toFixed(2)} €</p>
+              {detalleDia.costesPistas.map((pista: CosteOtraPista) => (
+                <p key={pista.clave} className="mt-1 text-[10px] text-slate-500">
+                  {pista.nombre}: {pista.coste.toFixed(2)} €
+                </p>
+              ))}
             </div>
             <div className="rounded-xl bg-slate-50 p-2.5 text-center sm:p-3">
               <p className="text-[10px] font-bold uppercase text-slate-400">Saldo club</p>
@@ -2266,7 +2290,7 @@ export default function Home() {
                   <th className="px-2 py-3 text-center">Horas</th>
                   <th className="px-2 py-3 text-center">Ingresos</th>
                   <th className="px-2 py-3 text-center">Club generado</th>
-                  <th className="px-2 py-3 text-center">Pistas pagadas</th>
+                  <th className="px-2 py-3 text-center">Pistas (todas las sedes)</th>
                   <th className="px-2 py-3 text-center">Saldo club</th>
                   <th className="px-2 py-3 text-center">Club cobrado</th>
                   <th className="px-2 py-3 text-center">Ingreso extra</th>
@@ -2290,7 +2314,14 @@ export default function Home() {
                   <td className="px-2 py-4 text-center">{detalleDia.horas.toFixed(1)}</td>
                   <td className="px-2 py-4 text-center font-semibold text-[#17324D]">{detalleDia.ingresos.toFixed(2)} €</td>
                   <td className="px-2 py-4 text-center font-semibold text-[#17324D]">{detalleDia.clubGenerado.toFixed(2)} €</td>
-                  <td className="px-2 py-4 text-center font-semibold text-red-600">{detalleDia.pistasPagadasClub.toFixed(2)} €</td>
+                  <td className="px-2 py-4 text-center font-semibold text-red-600">
+                    {detalleDia.gastosPistas.toFixed(2)} €
+                    {detalleDia.costesPistas.map((pista: CosteOtraPista) => (
+                      <p key={pista.clave} className="mt-1 text-[10px] font-normal text-slate-500">
+                        {pista.nombre}: {pista.coste.toFixed(2)} €
+                      </p>
+                    ))}
+                  </td>
                   <td className={detalleDia.saldoClub >= 0 ? "px-2 py-4 text-center font-bold text-[#00A79C]" : "px-2 py-4 text-center font-bold text-red-600"}>{detalleDia.saldoClub.toFixed(2)} €</td>
                   <td className="px-2 py-4 text-center font-semibold text-[#00A79C]">{detalleDia.clubCobrado.toFixed(2)} €</td>
                   <td className="px-2 py-4 text-center font-semibold text-[#17324D]">{detalleDia.ingresoExtra.toFixed(2)} €</td>
