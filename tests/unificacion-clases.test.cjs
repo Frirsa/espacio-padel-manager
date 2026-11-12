@@ -34,6 +34,7 @@ async function fixture(t) {
   await db.exec(fs.readFileSync('tests/fixtures/clases-atomicas.sql','utf8'));
   await db.exec(fs.readFileSync('supabase/migrations/202610170800_monitores_clases.sql','utf8'));
   await db.exec(fs.readFileSync('supabase/migrations/20261027172655_unificar_formulario_clases.sql','utf8'));
+  await db.exec(fs.readFileSync('supabase/migrations/20261112122010_coste_pista_cancelacion.sql','utf8'));
   await db.exec('grant all on all tables in schema public to authenticated; set role authenticated; select preparar_monitores();');
   await db.exec("insert into monitores(nombre) values('Ana')");
   const datos=extra=>({fecha:'2020-10-19',hora_inicio:'09:00',duracion_minutos:60,tipo:'propia',estado:'programada',facturable:true,
@@ -121,4 +122,23 @@ test('Una serie sin alumnos permite registrar sus anticipos sin crear pendientes
  JSON.stringify([datos({cobrada:true,fecha_cobro:'2020-10-18',metodo_cobro:'bizum'}),datos({fecha:'2020-10-26',cobrada:true,fecha_cobro:'2020-10-18',metodo_cobro:'bizum'})]),'[]']);
  const pagos=(await db.query('select estado,importe,metodo from pagos')).rows;
  assert.equal(pagos.length,2);assert.ok(pagos.every(p=>p.estado==='pagado'&&Number(p.importe)===60.75&&p.metodo==='bizum'));
+});
+
+test('Una cancelación sin cobro guarda el coste parcial sin generar deuda y conserva la tarifa habitual', async t => {
+  const { db, save, get } = await fixture(t);
+  const id = await save();
+  const cancelacion = { estado: 'cancelada', facturable: false, motivo_cancelacion: 'Aviso tardío' };
+  await save({ ...cancelacion, coste_pista_cancelacion: 3.5 }, id);
+  await save(cancelacion, id);
+  const cancelada = await get(id);
+  assert.equal(Number(cancelada.coste_pista_cancelacion), 3.5);
+  assert.equal(Number(cancelada.coste_pista), 12);
+  assert.equal((await db.query('select count(*)::int n from pagos')).rows[0].n, 0);
+
+  await assert.rejects(save({ ...cancelacion, coste_pista_cancelacion: -5 }, id), /coste_pista_cancelacion_valido/);
+  assert.equal(Number((await get(id)).coste_pista_cancelacion), 3.5);
+
+  await save({}, id);
+  assert.equal((await get(id)).coste_pista_cancelacion, null);
+  assert.equal(Number((await get(id)).coste_pista), 12);
 });

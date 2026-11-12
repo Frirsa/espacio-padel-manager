@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { calcularEconomiaClase } from "../../lib/economia";
+import { calcularEconomiaClase, esClaseEconomica } from "../../lib/economia";
 
 type UbicacionClub = {
   id: string;
@@ -21,6 +21,7 @@ type ClaseClub = {
   cobrada: boolean;
   importe_club: number;
   coste_pista: number;
+  coste_pista_cancelacion?: number | null;
   ingreso_extra: number;
   modo_cobro: string | null;
   importe_total: number | null;
@@ -496,6 +497,7 @@ export default function CobrosClub() {
         cobrada,
         importe_club,
         coste_pista,
+        coste_pista_cancelacion,
         ingreso_extra,
         modo_cobro,
         importe_total,
@@ -569,10 +571,7 @@ export default function CobrosClub() {
 
   const clasesFacturables = useMemo(
     () =>
-      clases.filter((clase) => {
-        const economia = calcularEconomiaClase(clase);
-        return clase.tipo === "club" && economia.cuentaEconomicamente;
-      }),
+      clases.filter((clase) => clase.tipo === "club" && esClaseEconomica(clase)),
     [clases]
   );
 

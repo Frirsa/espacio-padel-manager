@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 
 import { supabase } from "../../lib/supabase";
-import { calcularEconomiaClase, recalcularImportesBonos } from "../../lib/economia";
+import { calcularEconomiaClase, esClaseConMovimiento, esClaseEconomica, recalcularImportesBonos } from "../../lib/economia";
 
 
 
@@ -520,6 +520,7 @@ const {
           importe_club,
 
           coste_pista,
+          coste_pista_cancelacion,
 
           ingreso_extra,
           modo_cobro,
@@ -853,6 +854,7 @@ const {
       importe_club,
 
       coste_pista,
+      coste_pista_cancelacion,
 
       ingreso_extra,
       modo_cobro,
@@ -1030,6 +1032,7 @@ const {
       importe_club,
 
       coste_pista,
+      coste_pista_cancelacion,
 
       ingreso_extra,
       modo_cobro,
@@ -1170,19 +1173,7 @@ for (
 
         ) &&
 
-        (
-
-          clase.estado === "realizada" ||
-
-          (
-
-            clase.estado === "cancelada" &&
-
-            clase.facturable === true
-
-          )
-
-        )
+        esClaseConMovimiento(clase)
 
     ).map((clase) => recalcularImportesBonos(clase, bonosPrecio));
 
@@ -1346,48 +1337,12 @@ const clasesRealizadasMesAnterior =
 
 
 
-const clasesEconomicas =
-
-  clases.filter(
-
-    (clase) =>
-
-      clase.estado === "realizada" ||
-
-      (
-
-        clase.estado === "cancelada" &&
-
-        clase.facturable === true
-
-      )
-
-  );
-
-
-
-const clasesEconomicasMesAnterior =
-
-  clasesMesAnterior.filter(
-
-    (clase) =>
-
-      clase.estado === "realizada" ||
-
-      (
-
-        clase.estado === "cancelada" &&
-
-        clase.facturable === true
-
-      )
-
-  );
-
-
+const clasesEconomicas = clases.filter(esClaseEconomica);
+const clasesConMovimiento = clases.filter(esClaseConMovimiento);
+const clasesMesAnteriorConMovimiento = clasesMesAnterior.filter(esClaseConMovimiento);
 
 const ingresosMesAnterior =
-  clasesEconomicasMesAnterior.reduce(
+  clasesMesAnteriorConMovimiento.reduce(
     (total, clase) =>
       total +
       calcularEconomiaClase(clase).ingresos,
@@ -1395,7 +1350,7 @@ const ingresosMesAnterior =
   );
 
 const gastosMesAnterior =
-  clasesEconomicasMesAnterior.reduce(
+  clasesMesAnteriorConMovimiento.reduce(
     (total, clase) =>
       total +
       calcularEconomiaClase(clase).gasto,
@@ -1435,7 +1390,7 @@ const horasMesAnterior =
   ) / 60;
 
   const clasesIQL =
-    clasesEconomicas.filter(
+    clasesConMovimiento.filter(
       (clase) =>
         clase.ubicaciones
           ?.es_club_referencia === true
@@ -1444,12 +1399,7 @@ const horasMesAnterior =
   const clasesParaClub =
 
     clasesIQL.filter(
-
-      (clase) =>
-
-        clase.tipo ===
-
-        "club"
+      (clase) => clase.tipo === "club" && esClaseEconomica(clase)
 
     );
 
@@ -1458,12 +1408,7 @@ const horasMesAnterior =
   const clasesPropiasIQL =
 
     clasesIQL.filter(
-
-      (clase) =>
-
-        clase.tipo !==
-
-        "club"
+      (clase) => clase.tipo !== "club" || calcularEconomiaClase(clase).pistasPagadasClub > 0
 
     );
 
@@ -1669,7 +1614,7 @@ const horasMesAnterior =
       }
     >();
 
-  (clasesEconomicas as any[])
+  clasesConMovimiento
     .filter(
       (clase: any) =>
         clase.ubicacion_id &&
@@ -1809,14 +1754,14 @@ const horasMesAnterior =
     );
 
   const gastosGeneral =
-    clasesEconomicas.reduce(
+    clasesConMovimiento.reduce(
       (total, clase) =>
         total +
         calcularEconomiaClase(clase).gasto,
       0
     );
 
-  const gastosPistaGeneral = clasesEconomicas.reduce((total, clase) => total + calcularEconomiaClase(clase).gastoPista, 0);
+  const gastosPistaGeneral = clasesConMovimiento.reduce((total, clase) => total + calcularEconomiaClase(clase).gastoPista, 0);
   const gastosMonitorGeneral = clasesEconomicas.reduce((total, clase) => total + calcularEconomiaClase(clase).gastoMonitor, 0);
 
   const ingresosGenerados =
@@ -2834,7 +2779,7 @@ const ingresoMedio =
 
           clases:
 
-            clasesEconomicas,
+            clasesConMovimiento,
 
           totalIngresos:
 

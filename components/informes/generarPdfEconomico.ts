@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { calcularEconomiaClase, esClaseEconomica, gastoPistaClase, gastoMonitorClase } from "../../lib/economia";
+import { calcularEconomiaClase, esClaseConMovimiento, gastoPistaClase, gastoMonitorClase } from "../../lib/economia";
 
 import type { Clase } from "./tipos";
 
@@ -94,67 +94,13 @@ function textoTipoClase(
   return tipo;
 }
 
-function ingresoClase(
-  clase: ClaseInforme
-) {
-  const extra =
-    Number(
-      clase.ingreso_extra ||
-        0
-    );
-
-  if (
-    clase.tipo === "club"
-  ) {
-    return (
-      Number(
-        clase.importe_club ||
-          0
-      ) +
-      extra
-    );
-  }
-
-  if (
-    clase.modo_cobro ===
-    "total"
-  ) {
-    return (
-      Number(
-        clase.importe_total || 0
-      ) + extra
-    );
-  }
-
-  const alumnos =
-    (
-      clase.clase_alumnos ||
-      []
-    ).reduce(
-      (
-        total,
-        participante
-      ) =>
-        total +
-        Number(
-          participante.importe ||
-            0
-        ),
-      0
-    );
-
-  return alumnos + extra;
-}
-
 export async function generarPdfEconomico({
   mes,
   clases,
   totalIngresos,
   totalGastos,
 }: DatosPdfEconomico) {
-  const clasesInforme = clases.filter((clase) =>
-    esClaseEconomica({ estado: clase.estado, facturable: clase.facturable })
-  );
+  const clasesInforme = clases.filter(esClaseConMovimiento);
   const doc = new jsPDF({
     orientation:
       "portrait",
@@ -422,19 +368,14 @@ export async function generarPdfEconomico({
 
         const tipo =
           textoTipoClase(clase.tipo) +
-          (clase.estado === "cancelada" ? " · Cancelada facturable" : "");
+          (clase.estado === "cancelada" ? (clase.facturable ? " · Cancelada facturable" : " · Cancelada") : "");
 
         const nombres =
           obtenerNombreAlumnos(
             clase as Clase
           );
 
-        const ingreso =
-          ingresoClase(
-            clase
-          );
-
-        const gasto = calcularEconomiaClase(clase).gasto;
+        const { ingresos: ingreso, gasto } = calcularEconomiaClase(clase);
 
         return [
           formatearFecha(
@@ -588,9 +529,9 @@ export async function generarPdfEconomico({
 
   const gastosAgrupados = new Map<string, number>();
   for (const clase of clasesInforme) {
-    const importe = gastoPistaClase({ estado: clase.estado, coste_pista: clase.coste_pista });
+    const importe = gastoPistaClase(clase);
     if (importe === 0) continue;
-    const nombre = clase.ubicaciones?.nombre?.trim() || "Sin ubicación";
+    const nombre = clase.ubicaciones?.nombre?.trim() || clase.pista_nombre?.trim() || "Sin ubicación";
     gastosAgrupados.set(nombre, (gastosAgrupados.get(nombre) || 0) + importe);
   }
   const gastosMonitores = new Map<string, number>();

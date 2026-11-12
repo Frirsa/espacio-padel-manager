@@ -101,6 +101,7 @@ export type ClaseEconomica = {
   cobrada?: boolean | null;
   importe_club?: number | string | null;
   coste_pista?: number | string | null;
+  coste_pista_cancelacion?: number | string | null;
   coste_monitor?: number | string | null;
   monitor_nombre?: string | null;
   ingreso_extra?: number | string | null;
@@ -135,6 +136,11 @@ export function esClaseEconomica(clase: ClaseEconomica) {
   );
 }
 
+export function esClaseConMovimiento(clase: ClaseEconomica) {
+  return esClaseEconomica(clase) ||
+    (clase.estado === "cancelada" && gastoPistaClase(clase) > 0);
+}
+
 export function esClaseClubReferencia(clase: ClaseEconomica) {
   const ubicacion = obtenerUbicacionEconomica(clase.ubicaciones);
   return ubicacion?.es_club_referencia === true;
@@ -163,7 +169,7 @@ export function ingresoExtraClase(clase: ClaseEconomica) {
 
 export function gastoPistaClase(clase: ClaseEconomica) {
   if (clase.estado === "cancelada") {
-    return 0;
+    return Number(clase.coste_pista_cancelacion || 0);
   }
 
   return Number(clase.coste_pista || 0);
@@ -178,7 +184,7 @@ export function ingresoTotalClase(clase: ClaseEconomica) {
 }
 
 export function calcularEconomiaClase(clase: ClaseEconomica) {
-  const cuentaEconomicamente = esClaseEconomica(clase);
+  const cuentaEconomicamente = esClaseConMovimiento(clase);
 
   if (!cuentaEconomicamente) {
     return {
@@ -196,8 +202,9 @@ export function calcularEconomiaClase(clase: ClaseEconomica) {
     };
   }
 
-  const ingresoBase = ingresoBaseClase(clase);
-  const ingresoExtra = ingresoExtraClase(clase);
+  const tieneIngresos = esClaseEconomica(clase);
+  const ingresoBase = tieneIngresos ? ingresoBaseClase(clase) : 0;
+  const ingresoExtra = tieneIngresos ? ingresoExtraClase(clase) : 0;
   const gastoPista = gastoPistaClase(clase);
   const gastoMonitor = gastoMonitorClase(clase);
   const gasto = gastoPista + gastoMonitor;
@@ -205,7 +212,7 @@ export function calcularEconomiaClase(clase: ClaseEconomica) {
   const clubGenerado = esClub ? ingresoBase : 0;
   const clubCobrado = esClub && clase.cobrada === true ? ingresoBase : 0;
   const pistasPagadasClub =
-    esClaseClubReferencia(clase) && !esClub ? gastoPista : 0;
+    esClaseClubReferencia(clase) && (!esClub || clase.estado === "cancelada") ? gastoPista : 0;
 
   return {
     cuentaEconomicamente: true,

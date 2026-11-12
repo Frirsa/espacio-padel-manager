@@ -4,12 +4,17 @@ import type { DatosClasePuntual } from "../../lib/clasesPuntuales";
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import CamposPistaCancelacion, {
+  importePistaCancelacion,
+  pistaCancelacionGuardada,
+  pistaCancelacionSinElegir,
+} from "../../components/clases/CamposPistaCancelacion";
 import CamposMonitor from "../../components/clases/CamposMonitor";
 import { cargarMonitores, type Monitor } from "../../lib/monitores";
 import { detalleClasePuntual } from "../../lib/clasesPuntuales";
 import { pendienteRenovacion } from "../../lib/bonoRenovacion";
 import DescuentoClaseBono from "../../components/bonos/DescuentoClaseBono";
-import { recalcularImportesBonos, precioSesionBono } from "../../lib/economia";
+import { recalcularImportesBonos, precioSesionBono, calcularEconomiaClase, gastoPistaClase } from "../../lib/economia";
 import {
   borrarClaseDeGoogleCalendar,
   sincronizarClaseConGoogleCalendar,
@@ -83,6 +88,7 @@ type Clase = DatosClasePuntual & {
   grupo_id: string | null;
   importe_club: number;
   coste_pista: number;
+  coste_pista_cancelacion?: number | null;
   ingreso_extra: number;
   modo_cobro: "por_alumno" | "total" | string | null;
   importe_total: number | null;
@@ -1202,6 +1208,8 @@ export default function ClasesPage() {
   const [estado, setEstado] =
     useState("programada");
 
+  const [pistaCancelacion, setPistaCancelacion] = useState(pistaCancelacionSinElegir);
+
   const [
     facturableCancelacion,
     setFacturableCancelacion,
@@ -1738,6 +1746,7 @@ export default function ClasesPage() {
           observaciones,
           importe_club,
           coste_pista,
+          coste_pista_cancelacion,
           ingreso_extra,
           modo_cobro,
           importe_total,
@@ -1963,6 +1972,7 @@ export default function ClasesPage() {
     setGrupoId("");
     setEstado("programada");
     setFacturableCancelacion(null);
+    setPistaCancelacion(pistaCancelacionSinElegir);
     setMotivoCancelacion("");
     setObservaciones("");
     setMonitorNombre("Fran"); setCosteMonitor("0"); setMonitorPagado(false);
@@ -3128,6 +3138,10 @@ export default function ClasesPage() {
         ? clase.facturable
         : null
     );
+
+    setPistaCancelacion(clase.estado === "cancelada"
+      ? pistaCancelacionGuardada(clase.coste_pista_cancelacion)
+      : pistaCancelacionSinElegir);
 
     const motivoLegacy =
       clase.estado === "cancelada" &&
@@ -4681,6 +4695,12 @@ export default function ClasesPage() {
       return;
     }
 
+    const costePistaCancelacion = estado === "cancelada" ? importePistaCancelacion(pistaCancelacion) : null;
+    if (estado === "cancelada" && costePistaCancelacion === null) {
+      setMensaje("❌ Indica si pagas la pista y revisa el importe si eliges Sí.");
+      return;
+    }
+
     if (conceptoExistente) {
       if (hayBonoSeleccionado) { setMensaje("❌ Esta clase ya tiene un cobro puntual. Para conservar su historial, gestiona las nuevas clases de bono con alumnos registrados."); return; }
       if (!nombreConcepto.trim() || (conceptoLibre && !Number.isInteger(Number(numeroPersonas)))) { setMensaje("❌ Revisa el concepto y el número de participantes."); return; }
@@ -4690,7 +4710,7 @@ export default function ClasesPage() {
         p_datos_clase: { ...datosMonitor(), nombre_grupo_libre: nombreConcepto.trim(), numero_participantes: conceptoLibre ? Number(numeroPersonas) : alumnosSeleccionados.length,
           fecha, hora_inicio: hora, duracion_minutos: Number(duracion), ubicacion_id: ubicacionId || null, tipo,
           ingreso_extra: Number(ingresoExtra || 0), ingreso_extra_concepto: descripcionExtra.trim() || null,
-          importe_total: Number(importeTotalClase), coste_pista: Number(costePista || 0), cobrada: estadoPagoTotal === "pagado",
+          importe_total: Number(importeTotalClase), coste_pista: Number(costePista || 0), coste_pista_cancelacion: costePistaCancelacion, cobrada: estadoPagoTotal === "pagado",
           metodo_cobro: metodoPagoTotal, fecha_cobro: fechaCobroTotal || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`,
           estado, facturable: estado !== "cancelada" || facturableCancelacion === true,
           motivo_cancelacion: motivoCancelacion.trim() || null, observaciones: observaciones.trim() || null },
@@ -5049,6 +5069,7 @@ export default function ClasesPage() {
         importeTotalFinal,
 
       estado,
+      coste_pista_cancelacion: costePistaCancelacion,
 
       facturable:
         facturableNueva,
@@ -5212,6 +5233,9 @@ export default function ClasesPage() {
                     estadoObjetivo,
                   facturable:
                     facturableObjetivo,
+                  coste_pista_cancelacion: estadoObjetivo === "cancelada"
+                    ? (estado === "cancelada" ? costePistaCancelacion : claseObjetivo.coste_pista_cancelacion)
+                    : null,
                   motivo_cancelacion:
                     estadoObjetivo === "cancelada"
                       ? datosClase.motivo_cancelacion
@@ -7843,6 +7867,8 @@ export default function ClasesPage() {
                     );
                   }
 
+                  if (nuevoEstado !== estado) setPistaCancelacion(pistaCancelacionSinElegir);
+
                   setEstado(
                     nuevoEstado
                   );
@@ -7925,6 +7951,12 @@ export default function ClasesPage() {
                   No se cobra
                 </button>
               </div>
+
+              <CamposPistaCancelacion
+                valor={pistaCancelacion}
+                costeHabitual={costePista}
+                onChange={setPistaCancelacion}
+              />
 
               <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-red-700">
                 Motivo de cancelación
@@ -8293,42 +8325,19 @@ export default function ClasesPage() {
                       )
                     : undefined;
 
-                const importeBase =
+                const economiaCancelacion = clase.estado === "cancelada" ? calcularEconomiaClase(clase) : null;
+                const importeBase = economiaCancelacion?.ingresoBase ?? (
                   clase.tipo === "club"
-                    ? Number(
-                        Number(
-                          clase.importe_club ||
-                            0
-                        ) > 0
-                          ? clase.importe_club
-                          : tarifaClubVisual
-                              ?.importe || 0
-                      )
-                    : importeTotalAlumnos;
-
-                const costePistaClase =
-                  clase.estado === "cancelada" ? 0 : Number(
-                    clase.coste_pista ||
-                      0
-                  );
-
-                const ingresoExtraClase =
-                  Number(
-                    clase.ingreso_extra ||
-                      0
-                  );
-
-                const resultadoClase =
-                  clase.estado ===
-                    "cancelada" &&
-                  clase.facturable === false
+                    ? Number(clase.importe_club || tarifaClubVisual?.importe || 0)
+                    : importeTotalAlumnos
+                );
+                const costePistaClase = gastoPistaClase(clase);
+                const ingresoExtraClase = economiaCancelacion?.ingresoExtra ?? Number(clase.ingreso_extra || 0);
+                const resultadoClase = economiaCancelacion?.resultado ?? (
+                  importeBase + ingresoExtraClase - (clase.tipo === "club"
                     ? 0
-                    : (clase.tipo ===
-                      "club"
-                        ? importeBase
-                        : importeBase -
-                          costePistaClase - (clase.estado === "cancelada" ? 0 : Number(clase.coste_monitor || 0))) +
-                      ingresoExtraClase;
+                    : costePistaClase + Number(clase.coste_monitor || 0))
+                );
 
                 const textoEstado =
                   clase.estado ===

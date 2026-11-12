@@ -1,3 +1,4 @@
+import { gastoPistaClase } from "../../lib/economia";
 import type { Clase } from "./tipos";
 import {
   calcularHorario,
@@ -296,7 +297,7 @@ export default function InformeIQL({
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-bold text-red-600">
-                        {Number(clase.coste_pista || 0).toFixed(2)} €
+                        {gastoPistaClase(clase).toFixed(2)} €
                       </td>
 
                     </tr>

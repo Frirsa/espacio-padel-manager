@@ -21,6 +21,7 @@ export type Clase = DatosClasePuntual & {
   estado: string;
   importe_club: number;
   coste_pista: number;
+  coste_pista_cancelacion?: number | null;
   modo_cobro?: "por_alumno" | "total" | string | null;
   importe_total?: number | null;
   ubicaciones: {

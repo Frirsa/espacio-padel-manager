@@ -1,3 +1,4 @@
+import { gastoPistaClase } from "../../lib/economia";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -533,9 +534,7 @@ export async function generarPdfIQL({
             clase.hora_inicio,
             clase.duracion_minutos
           ),
-          `${Number(
-            clase.coste_pista || 0
-          ).toFixed(2)} €`,
+          `${gastoPistaClase(clase).toFixed(2)} €`,
         ]
       ),
       theme: "plain",
