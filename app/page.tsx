@@ -7,7 +7,7 @@ import {
   calcularEconomiaClase,
   recalcularImportesBonos,
   esClaseEconomica,
-  gastoPistaClase,
+  esClaseConMovimiento,
   gastoMonitorClase,
   ingresoBaseClase,
   ingresoTotalClase,
@@ -459,6 +459,7 @@ export default function Home() {
           cobrada,
           importe_club,
           coste_pista,
+          coste_pista_cancelacion,
           ingreso_extra,
           modo_cobro,
           importe_total,
@@ -714,10 +715,8 @@ export default function Home() {
     );
 
     const totalGastosPista =
-      clasesEconomicas.reduce(
-        (total, clase) =>
-          total +
-          gastoPistaClase(clase),
+      diasOrdenados.reduce(
+        (total, dia) => total + dia.gastosPistas,
         0
       );
 
@@ -845,6 +844,7 @@ export default function Home() {
           cobrada,
           importe_club,
           coste_pista,
+          coste_pista_cancelacion,
           ingreso_extra,
           modo_cobro,
           importe_total,
@@ -993,7 +993,7 @@ export default function Home() {
     )
       .filter(
         (clase: any) =>
-          esClaseEconomica(clase) &&
+          esClaseConMovimiento(clase) &&
           clase.ubicacion_id &&
           clase.ubicaciones?.es_club_referencia === true
       )

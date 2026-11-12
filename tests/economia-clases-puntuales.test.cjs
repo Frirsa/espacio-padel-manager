@@ -136,3 +136,24 @@ test('Monitores conserva costes sin nombre y suma céntimos con precisión', () 
   assert.equal(r[0].nombre, 'Sin monitor indicado');
   assert.equal(r[0].coste, 0.3);
 });
+
+test('El alquiler de la cancelación se suma por pista con independencia del cobro al alumno', () => {
+  const cancelada = { ...clase, estado: 'cancelada', coste_pista_cancelacion: '6.00', importe_total: 10, ingreso_extra: 2 };
+  const sinCobro = calcularEconomiaClase({ ...cancelada, facturable: false });
+  assert.equal(sinCobro.ingresos, 0);
+  assert.equal(sinCobro.gastoPista, 6);
+  assert.equal(sinCobro.gastoMonitor, 0);
+  assert.equal(sinCobro.resultado, -6);
+  assert.equal(sinCobro.pistasPagadasClub, 6);
+
+  const conCobro = calcularEconomiaClase({ ...cancelada, facturable: true, ingreso_extra: 0 });
+  assert.equal(conCobro.ingresos, 10);
+  assert.equal(conCobro.resultado, 4);
+
+  const otrasPistas = resumirCostesOtrasPistas([
+    { ...cancelada, facturable: false, ubicaciones: { nombre: 'Alfaz' } },
+    { ...cancelada, facturable: true, coste_pista_cancelacion: 0, ubicaciones: { nombre: 'Alfaz' } },
+  ]);
+  assert.equal(otrasPistas.length, 1);
+  assert.equal(otrasPistas[0].coste, 6);
+});

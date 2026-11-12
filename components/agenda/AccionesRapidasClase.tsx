@@ -1,6 +1,11 @@
 "use client";
 
 import { precioSesionBono, recalcularImportesBonos } from "../../lib/economia";
+import CamposPistaCancelacion, {
+  importePistaCancelacion,
+  pistaCancelacionGuardada,
+  pistaCancelacionSinElegir,
+} from "../clases/CamposPistaCancelacion";
 import DescuentoClaseBono from "../bonos/DescuentoClaseBono";
 
 import EtiquetaMonitor from "./EtiquetaMonitor";
@@ -27,6 +32,8 @@ export type ClaseAccionesRapidas = DatosClasePuntual & {
   estado: string;
   facturable: boolean;
   cobrada: boolean;
+  coste_pista?: number | null;
+  coste_pista_cancelacion?: number | null;
   motivo_cancelacion?: string | null;
   observaciones: string | null;
   modo_cobro?: "por_alumno" | "total" | string | null;
@@ -434,6 +441,8 @@ export default function AccionesRapidasClase({
       boolean | null
     >(null);
 
+  const [pistaCancelacion, setPistaCancelacion] = useState(pistaCancelacionSinElegir);
+
   const [
     motivoCancelacion,
     setMotivoCancelacion,
@@ -632,6 +641,9 @@ export default function AccionesRapidasClase({
     setMotivoCancelacion(
       ""
     );
+    setPistaCancelacion(clase.estado === "cancelada"
+      ? pistaCancelacionGuardada(clase.coste_pista_cancelacion)
+      : pistaCancelacionSinElegir);
     setSelectorBonoAlumnoId(
       null
     );
@@ -736,7 +748,8 @@ export default function AccionesRapidasClase({
   async function actualizarClaseAtomicaAgenda(
     claseTrabajo: ClaseAccionesRapidas,
     metodosPago: Record<string, string> = {},
-    metodoPagoTotal?: string | null
+    metodoPagoTotal?: string | null,
+    costePistaCancelacion?: number
   ) {
     const participantes =
       claseTrabajo.clase_alumnos.map(
@@ -761,8 +774,9 @@ export default function AccionesRapidasClase({
     const {
       error,
     } = await supabase.rpc(
-      "agenda_actualizar_clase_atomica",
+      costePistaCancelacion === undefined ? "agenda_actualizar_clase_atomica" : "agenda_cancelar_clase_con_pista",
       {
+        ...(costePistaCancelacion === undefined ? {} : { p_coste_pista_cancelacion: costePistaCancelacion }),
         p_clase_id:
           claseTrabajo.id,
         p_estado:
@@ -1143,6 +1157,7 @@ export default function AccionesRapidasClase({
       | "cancelada",
     opciones?: {
       facturable?: boolean;
+      costePistaCancelacion?: number;
       cobrar?: boolean;
       metodoCobro?: string;
       observaciones?:
@@ -1331,7 +1346,8 @@ export default function AccionesRapidasClase({
       await actualizarClaseAtomicaAgenda(
         claseActualizada,
         metodosPago,
-        metodoPagoTotal
+        metodoPagoTotal,
+        opciones?.costePistaCancelacion
       );
 
       let falloGoogle =
@@ -2564,26 +2580,31 @@ export default function AccionesRapidasClase({
                 className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-red-400"
               />
 
+              <CamposPistaCancelacion
+                valor={pistaCancelacion}
+                costeHabitual={String(claseSeleccionada.coste_pista ?? "")}
+                onChange={setPistaCancelacion}
+              />
+
               <button
                 type="button"
                 disabled={
                   actualizando ||
+                  importePistaCancelacion(pistaCancelacion) === null ||
                   motivoCancelacion
                     .trim()
                     .length ===
                     0
                 }
-                onClick={() =>
-                  cambiarEstadoClase(
-                    "cancelada",
-                    {
-                      facturable:
-                        cancelacionFacturablePendiente,
-                      motivo_cancelacion:
-                        motivoCancelacion.trim(),
-                    }
-                  )
-                }
+                onClick={() => {
+                  const coste = importePistaCancelacion(pistaCancelacion);
+                  if (coste === null) return;
+                  void cambiarEstadoClase("cancelada", {
+                    facturable: cancelacionFacturablePendiente,
+                    costePistaCancelacion: coste,
+                    motivo_cancelacion: motivoCancelacion.trim(),
+                  });
+                }}
                 className="mt-2 w-full rounded-[12px] bg-red-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-40"
               >
                 Confirmar cancelación

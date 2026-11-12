@@ -370,6 +370,8 @@ export default function AgendaPage() {
         observaciones,
         modo_cobro,
         importe_total,
+        coste_pista,
+        coste_pista_cancelacion,
         ubicacion_id, nombre_grupo_libre, concepto_clase, ingreso_extra_concepto, numero_participantes, pista_nombre, monitor_nombre, coste_monitor, monitor_pagado, fecha_pago_monitor, metodo_pago_monitor,
         ubicaciones (
           nombre,
