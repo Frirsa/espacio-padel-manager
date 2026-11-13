@@ -2081,145 +2081,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ACTIVIDAD + CLUB */}
-        <div className="mt-4 grid gap-4 sm:mt-5 2xl:grid-cols-2">
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
-            <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
-                Actividad
-              </p>
-              <h2 className="mt-0.5 text-lg font-bold text-white">
-                Actividad del mes
-              </h2>
-              <p className="mt-1 text-xs text-white/50">
-                Volumen real de trabajo
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 p-3 [&>*:last-child]:col-span-2 sm:grid-cols-3 sm:gap-3 sm:p-4 sm:[&>*:last-child]:col-span-1">
-              <TarjetaMetrica
-                icono={<IconoPersonas />}
-                etiqueta="Alumnos distintos"
-                valor={String(alumnosDistintos)}
-                tono="azul"
-              />
-              <TarjetaMetrica
-                icono={<IconoCalendario />}
-                etiqueta="Clases propias"
-                valor={String(clasesPropiasMes)}
-                tono="azul"
-              />
-              <TarjetaMetrica
-                icono={<IconoClub />}
-                etiqueta="Clases para club"
-                valor={String(clasesClubMes)}
-                tono="azul"
-              />
-            </div>
-          </section>
-
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
-            <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
-                Club
-              </p>
-              <h2 className="mt-0.5 text-lg font-bold text-white">
-                Club / IQL
-              </h2>
-              <p className="mt-1 text-xs text-white/50">
-                Generado, costes y liquidación
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 p-3 [&>*:last-child]:col-span-2 sm:grid-cols-3 sm:gap-3 sm:p-4 sm:[&>*:last-child]:col-span-1">
-              <TarjetaMetrica
-                icono={<IconoClub />}
-                etiqueta="Club generado"
-                valor={`${clubGeneradoMes.toFixed(2)} €`}
-                tono="azul"
-              />
-              <TarjetaMetrica
-                icono={<IconoGasto />}
-                etiqueta="Pistas pagadas"
-                valor={`${pistasPagadasClubMes.toFixed(2)} €`}
-                detalle="IQL Sports"
-                tono="rojo"
-              />
-              <TarjetaMetrica
-                icono={<IconoResultado />}
-                etiqueta="Saldo club"
-                valor={`${saldoClubMes.toFixed(2)} €`}
-                detalle="Generado − pistas"
-                tono={saldoClubMes >= 0 ? "marca" : "rojo"}
-              />
-            </div>
-          </section>
-        </div>
-
-        <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
-          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
-              Gastos de pistas
-            </p>
-            <h2 className="mt-0.5 text-lg font-bold text-white">Otras pistas</h2>
-            <p className="mt-1 text-xs text-white/50">
-              Costes de {mesSeleccionadoCapitalizado.toLowerCase()} hasta hoy · Excluye IQL
-            </p>
-          </div>
-          <div className="p-3 sm:p-4">
-            {costesOtrasPistas.length > 0 ? (
-              <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                {costesOtrasPistas.map((pista) => (
-                  <div key={pista.clave} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <dt className="min-w-0 break-words text-sm font-semibold text-[#17324D]">{pista.nombre}</dt>
-                    <dd className="shrink-0 text-lg font-bold text-red-600">{pista.coste.toFixed(2)} €</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="text-sm text-slate-500">Sin gastos en otras pistas en este periodo.</p>
-            )}
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
-              <p className="text-sm font-bold text-[#17324D]">Total otras pistas</p>
-              <p className="text-xl font-bold text-red-600">
-                {costesOtrasPistas.reduce((total, pista) => total + pista.coste, 0).toFixed(2)} €
-              </p>
-            </div>
-            <p className="mt-2 text-xs text-slate-500">Incluido en los gastos del mes.</p>
-          </div>
-        </section>
-
-        <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
-          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
-              Otros gastos
-            </p>
-            <h2 className="mt-0.5 text-lg font-bold text-white">Gastos de monitores</h2>
-            <p className="mt-1 text-xs text-white/50">
-              Costes de {mesSeleccionadoCapitalizado.toLowerCase()} hasta hoy
-            </p>
-          </div>
-          <div className="p-3 sm:p-4">
-            {costesMonitores.length > 0 ? (
-              <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                {costesMonitores.map((monitor) => (
-                  <div key={monitor.clave} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <dt className="min-w-0 break-words text-sm font-semibold text-[#17324D]">{monitor.nombre}</dt>
-                    <dd className="shrink-0 text-lg font-bold text-red-600">{monitor.coste.toFixed(2)} €</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="text-sm text-slate-500">Sin gastos de monitores en este periodo.</p>
-            )}
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
-              <p className="text-sm font-bold text-[#17324D]">Total monitores</p>
-              <p className="text-xl font-bold text-red-600">{gastosMonitorMes.toFixed(2)} €</p>
-            </div>
-            <p className="mt-2 text-xs text-slate-500">Incluido en los gastos del mes.</p>
-          </div>
-        </section>
-
         {/* DETALLE DIARIO */}
         <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
           <div className="flex flex-row items-end justify-between gap-3 border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-6 sm:py-4">
@@ -2478,6 +2339,145 @@ export default function Home() {
               </div>
             </>
           )}
+        </section>
+
+        {/* ACTIVIDAD + CLUB */}
+        <div className="mt-4 grid gap-4 sm:mt-5 2xl:grid-cols-2">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+            <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+                Actividad
+              </p>
+              <h2 className="mt-0.5 text-lg font-bold text-white">
+                Actividad del mes
+              </h2>
+              <p className="mt-1 text-xs text-white/50">
+                Volumen real de trabajo
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 p-3 [&>*:last-child]:col-span-2 sm:grid-cols-3 sm:gap-3 sm:p-4 sm:[&>*:last-child]:col-span-1">
+              <TarjetaMetrica
+                icono={<IconoPersonas />}
+                etiqueta="Alumnos distintos"
+                valor={String(alumnosDistintos)}
+                tono="azul"
+              />
+              <TarjetaMetrica
+                icono={<IconoCalendario />}
+                etiqueta="Clases propias"
+                valor={String(clasesPropiasMes)}
+                tono="azul"
+              />
+              <TarjetaMetrica
+                icono={<IconoClub />}
+                etiqueta="Clases para club"
+                valor={String(clasesClubMes)}
+                tono="azul"
+              />
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+            <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+                Club
+              </p>
+              <h2 className="mt-0.5 text-lg font-bold text-white">
+                Club / IQL
+              </h2>
+              <p className="mt-1 text-xs text-white/50">
+                Generado, costes y liquidación
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 p-3 [&>*:last-child]:col-span-2 sm:grid-cols-3 sm:gap-3 sm:p-4 sm:[&>*:last-child]:col-span-1">
+              <TarjetaMetrica
+                icono={<IconoClub />}
+                etiqueta="Club generado"
+                valor={`${clubGeneradoMes.toFixed(2)} €`}
+                tono="azul"
+              />
+              <TarjetaMetrica
+                icono={<IconoGasto />}
+                etiqueta="Pistas pagadas"
+                valor={`${pistasPagadasClubMes.toFixed(2)} €`}
+                detalle="IQL Sports"
+                tono="rojo"
+              />
+              <TarjetaMetrica
+                icono={<IconoResultado />}
+                etiqueta="Saldo club"
+                valor={`${saldoClubMes.toFixed(2)} €`}
+                detalle="Generado − pistas"
+                tono={saldoClubMes >= 0 ? "marca" : "rojo"}
+              />
+            </div>
+          </section>
+        </div>
+
+        <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
+          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+              Gastos de pistas
+            </p>
+            <h2 className="mt-0.5 text-lg font-bold text-white">Otras pistas</h2>
+            <p className="mt-1 text-xs text-white/50">
+              Costes de {mesSeleccionadoCapitalizado.toLowerCase()} hasta hoy · Excluye IQL
+            </p>
+          </div>
+          <div className="p-3 sm:p-4">
+            {costesOtrasPistas.length > 0 ? (
+              <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {costesOtrasPistas.map((pista) => (
+                  <div key={pista.clave} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <dt className="min-w-0 break-words text-sm font-semibold text-[#17324D]">{pista.nombre}</dt>
+                    <dd className="shrink-0 text-lg font-bold text-red-600">{pista.coste.toFixed(2)} €</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-slate-500">Sin gastos en otras pistas en este periodo.</p>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+              <p className="text-sm font-bold text-[#17324D]">Total otras pistas</p>
+              <p className="text-xl font-bold text-red-600">
+                {costesOtrasPistas.reduce((total, pista) => total + pista.coste, 0).toFixed(2)} €
+              </p>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Incluido en los gastos del mes.</p>
+          </div>
+        </section>
+
+        <section className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:mt-5">
+          <div className="border-b border-white/10 bg-[#0F2742] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4DD4CA]">
+              Otros gastos
+            </p>
+            <h2 className="mt-0.5 text-lg font-bold text-white">Gastos de monitores</h2>
+            <p className="mt-1 text-xs text-white/50">
+              Costes de {mesSeleccionadoCapitalizado.toLowerCase()} hasta hoy
+            </p>
+          </div>
+          <div className="p-3 sm:p-4">
+            {costesMonitores.length > 0 ? (
+              <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {costesMonitores.map((monitor) => (
+                  <div key={monitor.clave} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <dt className="min-w-0 break-words text-sm font-semibold text-[#17324D]">{monitor.nombre}</dt>
+                    <dd className="shrink-0 text-lg font-bold text-red-600">{monitor.coste.toFixed(2)} €</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-slate-500">Sin gastos de monitores en este periodo.</p>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+              <p className="text-sm font-bold text-[#17324D]">Total monitores</p>
+              <p className="text-xl font-bold text-red-600">{gastosMonitorMes.toFixed(2)} €</p>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Incluido en los gastos del mes.</p>
+          </div>
         </section>
       </div>
     </main>
