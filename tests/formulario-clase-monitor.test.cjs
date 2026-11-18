@@ -129,3 +129,45 @@ test('El formulario reparte el precio del bono compartido en céntimos',async()=
   assert.equal(app.calls[0].args.p_participantes[0].importe,17.01);
   assert.equal(app.calls[0].args.p_participantes[1].importe,17);
 });
+
+
+const alumnosGrupo = [alumno, {...alumno,id:'a2',nombre:'Segundo'}, {...alumno,id:'a3',nombre:'Tercero'}];
+const grupoTres = {id:'g1',nombre:'Grupo Tres',grupo_alumnos:alumnosGrupo.map(a=>({alumno_id:a.id}))};
+function formularioGrupo(extra={}) {
+  return montar({...base,alumnos:alumnosGrupo,grupos:[grupoTres],bonos:[],alumnosSeleccionados:[],
+    modoPagoAlumnos:{},bonosSeleccionados:{},...extra});
+}
+function elegirAlumno(app,nombre) {
+  const label=nodos(app.render(),n=>n.type==='label'&&texto(n).trim()===nombre)[0];
+  assert.ok(label, 'Alumno disponible: '+nombre);
+  nodos(label,n=>n.type==='input'&&n.props.type==='checkbox')[0].props.onChange();
+}
+function participantesVisibles(app) {
+  return nodos(app.render(),n=>n.type==='li'&&nodos(n,b=>b.type==='button'&&b.props['aria-label']?.endsWith('de esta clase')).length).map(texto);
+}
+test('Elegir dos alumnos de un grupo de tres guarda solo esos dos sin asociar el grupo',async()=>{
+  const app=formularioGrupo();
+  elegirAlumno(app,'Alumna'); elegirAlumno(app,'Segundo');
+  assert.equal(participantesVisibles(app).length,2);
+  assert.ok(!participantesVisibles(app).some(t=>t.includes('Tercero')));
+  await app.save();
+  assert.ok(app.calls.length);
+  const args=app.calls[0].args;
+  assert.equal(args.p_datos_clase.grupo_id,null);
+  assert.equal(JSON.stringify(args.p_participantes.map(p=>p.alumno_id)),JSON.stringify(['a1','a2']));
+});
+test('Elegir expresamente el grupo carga tres y quitar uno guarda los dos restantes',async()=>{
+  const app=formularioGrupo({busquedaGrupo:'Grupo Tres'});
+  const selector=nodos(app.render(),n=>n.type==='button'&&texto(n).includes('Grupo Tres')&&texto(n).includes('Seleccionar grupo'))[0];
+  assert.ok(selector); selector.props.onClick();
+  assert.equal(participantesVisibles(app).length,3);
+  const quitar=nodos(app.render(),n=>n.type==='button'&&n.props['aria-label']?.startsWith('Quitar a Tercero'))[0];
+  assert.ok(quitar); quitar.props.onClick();
+  assert.equal(participantesVisibles(app).length,2);
+  await app.save();
+  assert.ok(app.calls.length);
+  const args=app.calls[0].args;
+  assert.equal(args.p_datos_clase.grupo_id,'g1');
+  assert.equal(JSON.stringify(args.p_participantes.map(p=>p.alumno_id)),JSON.stringify(['a1','a2']));
+  assert.equal(grupoTres.grupo_alumnos.length,3);
+});

@@ -2919,21 +2919,6 @@ export default function ClasesPage() {
           1
         );
       }
-
-      const grupoHabitual =
-        grupos.find(
-          (grupo) =>
-            grupo.grupo_alumnos.some(
-              (relacion) =>
-                relacion.alumno_id ===
-                alumno.id
-            )
-        );
-
-      setGrupoId(
-        grupoHabitual?.id ||
-          ""
-      );
     }
 
     const bonosAlumno =
@@ -5422,26 +5407,6 @@ export default function ClasesPage() {
     cargarDatos();
   }
 
-  const alumnosGrupoSeleccionado =
-    grupoId
-      ? (
-          grupos.find(
-            (grupo) =>
-              grupo.id ===
-              grupoId
-          )?.grupo_alumnos ||
-          []
-        )
-          .map((item) =>
-            alumnos.find(
-              (alumno) =>
-                alumno.id ===
-                item.alumno_id
-            )
-          )
-          .filter(Boolean)
-      : [];
-
   const normalizarBusqueda = (valor: string) =>
     valor
       .normalize("NFD")
@@ -5961,12 +5926,12 @@ export default function ClasesPage() {
               <div className="-mx-4 -mt-4 mb-4 flex flex-col gap-2 rounded-t-2xl bg-[#0F2742] px-4 py-3.5 text-white sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4DD4CA]">
-                    1. Participantes
+                    1. Participantes de esta clase
                   </p>
                   <p className="mt-1 text-xs text-white/55">
                     {claseEditandoId
                       ? "Modifica los alumnos reales de esta clase."
-                      : "Selecciona un grupo o los alumnos de esta clase."}
+                      : "Elige alumnos individualmente o selecciona un grupo completo. Puedes quitar a quien no vaya a asistir."}
                   </p>
                 </div>
 
@@ -6196,25 +6161,7 @@ export default function ClasesPage() {
                     )}
                   </div>
 
-                  {grupoId &&
-                    alumnosGrupoSeleccionado.length > 0 && (
-                    <div className="mt-2 rounded-xl border border-teal-200 bg-white px-3 py-2.5">
 
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                        Alumnos del grupo
-                      </p>
-
-                      <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-700">
-                        {alumnosGrupoSeleccionado
-                          .map(
-                            (alumno) =>
-                              `${alumno?.nombre || ""} ${alumno?.apellidos || ""}`.trim()
-                          )
-                          .join(", ")}
-                      </p>
-
-                    </div>
-                  )}
 
                 </div>
 
@@ -6276,6 +6223,33 @@ export default function ClasesPage() {
                   </div>
                 </div>
 
+              </div>
+
+              <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50/40 px-3 py-3">
+                <p className="text-xs font-bold text-[#17324D]">
+                  Participantes de esta clase ({alumnosElegidos.length})
+                </p>
+                {alumnosElegidos.length === 0 ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Todavía no has seleccionado ningún alumno.
+                  </p>
+                ) : (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {alumnosElegidos.map((alumno) => (
+                      <li key={alumno.id} className="flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-xs text-slate-700">
+                        <span>{alumno.nombre} {alumno.apellidos}</span>
+                        <button
+                          type="button"
+                          onClick={() => cambiarAlumno(alumno)}
+                          aria-label={`Quitar a ${alumno.nombre} ${alumno.apellidos || ""} de esta clase`}
+                          className="rounded px-2 py-1 font-semibold text-[#008C83] hover:bg-teal-50"
+                        >
+                          Quitar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
             </section>
