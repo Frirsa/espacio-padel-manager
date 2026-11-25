@@ -2054,13 +2054,13 @@ export default function Home() {
               etiqueta="Clases"
               valor={String(totalClasesMes)}
               detalle={
-                totalClasesFacturables > totalClasesMes
-                  ? `Realizadas · +${totalClasesFacturables - totalClasesMes} ${
-                      totalClasesFacturables - totalClasesMes === 1
-                        ? "cancelada facturable"
-                        : "canceladas facturables"
-                    }`
-                  : "Realizadas"
+                `Realizadas · ${totalCanceladasFacturablesMes} ${
+                  totalCanceladasFacturablesMes === 1 ? "cancelada" : "canceladas"
+                } con cobro · ${totalCanceladasMes - totalCanceladasFacturablesMes} ${
+                  totalCanceladasMes - totalCanceladasFacturablesMes === 1
+                    ? "cancelada"
+                    : "canceladas"
+                } sin cobro`
               }
               tono="azul"
             />
