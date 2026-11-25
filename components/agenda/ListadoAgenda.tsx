@@ -4,6 +4,7 @@ import EtiquetaMonitor from "./EtiquetaMonitor";
 
 import { useState } from "react";
 import AccionesRapidasClase, { type ClaseAccionesRapidas } from "./AccionesRapidasClase";
+import NotaClaseRapida from "./NotaClaseRapida";
 
 type Clase = ClaseAccionesRapidas & {
   grupo_id: string | null;
@@ -125,25 +126,6 @@ function IconoGrupo() {
       <path d="M3.75 18.5c.45-3 1.85-4.75 4.25-4.75s3.8 1.75 4.25 4.75" />
 
       <path d="M11.75 18.5c.45-3 1.85-4.75 4.25-4.75s3.8 1.75 4.25 4.75" />
-    </svg>
-  );
-}
-
-function IconoNota() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-3.5 w-3.5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M6 3.75h8.5L19 8.25V20.25H6Z" />
-      <path d="M14.5 3.75v4.5H19" />
-      <path d="M9 12h6M9 15.5h4.5" />
     </svg>
   );
 }
@@ -548,24 +530,24 @@ export default function ListadoAgenda({
                       );
 
                     return (
-                      <button
-                        type="button"
+                      <article
                         key={clase.id}
-                        onClick={() =>
-                          setClaseSeleccionada(
-                            clase
-                          )
-                        }
-                        className={`relative block w-full overflow-hidden border-l-[3px] px-4 py-3 text-left transition ${colorClasePorTipo(
+                        className={`relative block w-full cursor-pointer overflow-hidden border-l-[3px] px-4 py-3 text-left transition focus-within:ring-2 focus-within:ring-[#00A79C] ${colorClasePorTipo(
                           clase.tipo
                         )}`}
                       >
+                        <button
+                          type="button"
+                          aria-label={`Abrir clase de ${clase.concepto_clase || nombresAlumnos || clase.nombre_grupo_libre || "sin alumnos"}, ${horaInicio}`}
+                          onClick={() => setClaseSeleccionada(clase)}
+                          className="absolute inset-0 z-0 rounded-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#00A79C]"
+                        />
                         {/* ListaAgendaLineaCanceladaV1 */}
                         {clase.estado === "cancelada" && (
                           <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-red-500" />
                         )}
 
-                        <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
+                        <div className="pointer-events-none relative z-10 grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
                           <div className="min-w-0">
                             <p className="whitespace-nowrap text-sm font-extrabold tracking-tight text-[#17324D]">
                               {horaInicio} –{" "}
@@ -602,13 +584,10 @@ export default function ListadoAgenda({
 
                               {clase.nombre_grupo_libre && <p className="mt-1 text-[11px] text-slate-500">{clase.numero_participantes} personas · {clase.pista_nombre}</p>}
       {clase.observaciones?.trim() && (
-                                <span
-                                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white"
-                                  title="Esta clase tiene una anotación"
-                                  aria-label="Esta clase tiene una anotación"
-                                >
-                                  <IconoNota />
-                                </span>
+                                <NotaClaseRapida
+                                  nota={clase.observaciones}
+                                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-700"
+                                />
                               )}
                             </div>
 
@@ -647,7 +626,7 @@ export default function ListadoAgenda({
                             clase={clase}
                           />
                         </div>
-                      </button>
+                      </article>
                     );
                   }
                 )}

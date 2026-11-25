@@ -12,6 +12,7 @@ import {
 } from "../../lib/googleCalendarClient";
 import AccionesRapidasClase from "./AccionesRapidasClase";
 import SeleccionHorarioAgenda from "./SeleccionHorarioAgenda";
+import NotaClaseRapida from "./NotaClaseRapida";
 
 type Clase = DatosClasePuntual & {
   id: string;
@@ -500,25 +501,6 @@ function IconoEstadoClase({ estado }: { estado: string }) {
   );
 }
 
-function IconoNota() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-3.5 w-3.5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M6 3.75h8.5L19 8.25V20.25H6Z" />
-      <path d="M14.5 3.75v4.5H19" />
-      <path d="M9 12h6M9 15.5h4.5" />
-    </svg>
-  );
-}
-
 function IndicadoresClase({ clase }: { clase: Clase }) {
   const economico = estadoEconomicoClase(clase);
 
@@ -552,12 +534,10 @@ function IndicadoresClase({ clase }: { clase: Clase }) {
       </span>
 
       {clase.observaciones?.trim() && (
-        <span
-          title="Esta clase tiene una anotación"
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
-        >
-          <IconoNota />
-        </span>
+        <NotaClaseRapida
+          nota={clase.observaciones}
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-500 bg-amber-500 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-700"
+        />
       )}
     </span>
   );
