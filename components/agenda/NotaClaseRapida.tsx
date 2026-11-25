@@ -34,12 +34,20 @@ export default function NotaClaseRapida({
 
   return (
     <>
-      <button
-        type="button"
+      <span
+        role="button"
+        tabIndex={0}
         title="Ver nota de la clase"
         aria-label="Ver nota de la clase"
         className={`pointer-events-auto ${className}`}
         onPointerDown={(evento) => evento.stopPropagation()}
+        onKeyDown={(evento) => {
+          evento.stopPropagation();
+          if (evento.key === "Enter" || evento.key === " ") {
+            evento.preventDefault();
+            setAbierta(true);
+          }
+        }}
         onClick={(evento) => {
           evento.stopPropagation();
           setAbierta(true);
@@ -59,7 +67,7 @@ export default function NotaClaseRapida({
           <path d="M14.5 3.75v4.5H19" />
           <path d="M9 12h6M9 15.5h4.5" />
         </svg>
-      </button>
+      </span>
 
       {abierta && typeof document !== "undefined" &&
         createPortal(
